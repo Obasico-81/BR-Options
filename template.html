@@ -149,11 +149,6 @@ function fechamentoNoVenc(ativo, iso, dias){
   return {data:d, venc, preco:f[d]};
 }
 
-function movimento(){
-  const f = SNAP.fechamentos[S.ativo], ds = Object.keys(f).filter(d => d <= S.data).sort().slice(-60); if (ds.length < 20) return null;
-  const px = ds.map(d => f[d]), ult = px[px.length-1], mx = Math.max(...px), mn = Math.min(...px);
-  return {queda: ult/mx - 1, alta: ult/mn - 1, n: ds.length};
-}
 function navBar(){
   const at = tela==="acomp" ? "acomp" : tela==="desemp" ? "desemp" : tela==="cad" ? "cad" : "obj";
   const it = (k, rot, ic) => `<button data-nav="${k}" ${at===k?'aria-current="page"':""}>${svg(ic,22)}${rot}</button>`;
