@@ -45,6 +45,8 @@ class Montagem:
     avisos: tuple = ()
 
 
+SPREAD_MAX = 0.20  # spread máximo (venda − compra) / médio, no fechamento; era 10% até 02/11/2026
+
 def brl(v: float) -> str:
     return "R$ " + f"{v:,.0f}".replace(",", ".")
 
@@ -75,7 +77,7 @@ def _preco(o: Opcao, lado: int) -> float:       # execução no pior lado (bid/a
 
 
 def montar(tese: str, S: float, chain: list, vol_impl: float, perda_aceita: float,
-           prazo_alvo: int = 45, caixa: float = 0.0, spread_max: float = 0.10, vol_min: int = 500,
+           prazo_alvo: int = 45, caixa: float = 0.0, spread_max: float = SPREAD_MAX, vol_min: int = 500,
            stop_frac: float = 0.70, alvo_frac: float = 0.50) -> Montagem | str:
     """Retorna Montagem ou uma string explicando por que não há operação possível."""
     j = (max(prazo_alvo - 15, 7), prazo_alvo + 15)
@@ -163,7 +165,7 @@ def _payoff(tese, pernas, premio, S):
 
 def montar_sinal(S: float, chain: list, vol_impl: float, perda_aceita: float, entrada: float, alvo: float,
                  prazo_dias: int, estrutura: str = "trava", caixa: float = 0.0, tol_entrada: float = 0.02,
-                 margem_prazo: int = 10, min_rr: float = 1.0, spread_max: float = 0.10, vol_min: int = 500,
+                 margem_prazo: int = 10, min_rr: float = 1.0, spread_max: float = SPREAD_MAX, vol_min: int = 500,
                  stop_frac: float = 0.70, alvo_frac: float = 0.50) -> Montagem | str:
     """Compra por sinal externo: o sinal traz preço de entrada, alvo e prazo estimado até o alvo.
     estrutura "trava": trava de alta com a call vendida no alvo ou acima dele (ganho máximo só se o alvo for cumprido).
@@ -222,7 +224,7 @@ def montar_sinal(S: float, chain: list, vol_impl: float, perda_aceita: float, en
 
 
 def montar_aposta(lado: str, S: float, chain: list, vol_impl: float, valor: float, prazo_alvo: int = 45,
-                  spread_max: float = 0.10, vol_min: int = 1000, jan: float = 0.05) -> Montagem | str:
+                  spread_max: float = SPREAD_MAX, vol_min: int = 1000, jan: float = 0.05) -> Montagem | str:
     """Aposta simples: lado "alta" compra call ATM; lado "baixa" compra put ATM. Só opções muito líquidas.
     Perda máxima = valor pago (prêmio). Sem stop e sem alvo: o teste de 2015–2025 não mostrou que saída antecipada ajude."""
     tipo = "C" if lado == "alta" else "P"

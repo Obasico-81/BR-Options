@@ -1,6 +1,7 @@
 // Port de montador.py (mesmas regras). Funciona no navegador (window.Montador) e no Node (module.exports).
 (function (root) {
   const TAXA_B3 = 0.00134, CUSTO_FIXO = 2.0, LOTE = 100;
+  const SPREAD_MAX = 0.20; // spread máximo (venda − compra) / médio, no fechamento; era 10% (15% no Lucro frequente) até 02/11/2026
   // Corretagem do usuário (R$ por ordem). null = não informada: vale a margem fixa de R$ 2 por estrutura.
   let CORRETAGEM = null;
   const setCorretagem = (v) => { CORRETAGEM = (v === null || v === undefined || isNaN(+v) || +v < 0) ? null : +v; };
@@ -38,7 +39,7 @@
   }
   const r2 = (x) => Math.round(x * 100) / 100;
   function montar(tese, S, chain, volImpl, perdaAceita, o = {}) {
-    const prazoAlvo = o.prazoAlvo ?? 45, caixa = o.caixa ?? 0, spreadMax = o.spreadMax ?? 0.10, volMin = o.volMin ?? 500, stopFrac = o.stopFrac ?? 0.70, alvoFrac = o.alvoFrac ?? 0.50;
+    const prazoAlvo = o.prazoAlvo ?? 45, caixa = o.caixa ?? 0, spreadMax = o.spreadMax ?? SPREAD_MAX, volMin = o.volMin ?? 500, stopFrac = o.stopFrac ?? 0.70, alvoFrac = o.alvoFrac ?? 0.50;
     const jmin = Math.max(prazoAlvo - 15, 7), jmax = prazoAlvo + 15;
     const dias = [...new Set(chain.filter((x) => x.d >= jmin && x.d <= jmax).map((x) => x.d))].sort((a, b) => Math.abs(a - prazoAlvo) - Math.abs(b - prazoAlvo) || a - b);
     let venc = null, pernas = null;
@@ -71,7 +72,7 @@
   // Compra por sinal externo (entrada, alvo, prazo até o alvo). Espelha montar_sinal de montador.py.
   function montarSinal(S, chain, volImpl, perdaAceita, entrada, alvo, prazoDias, o = {}) {
     const estrutura = o.estrutura ?? "trava", caixa = o.caixa ?? 0, tol = o.tolEntrada ?? 0.02, margem = o.margemPrazo ?? 10, minRR = o.minRR ?? 1.0,
-      spreadMax = o.spreadMax ?? 0.10, volMin = o.volMin ?? 500, stopFrac = o.stopFrac ?? 0.70, alvoFrac = o.alvoFrac ?? 0.50;
+      spreadMax = o.spreadMax ?? SPREAD_MAX, volMin = o.volMin ?? 500, stopFrac = o.stopFrac ?? 0.70, alvoFrac = o.alvoFrac ?? 0.50;
     if (alvo <= entrada) return "Sinal inválido: o alvo precisa estar acima do preço de entrada.";
     if (S > entrada * (1 + tol)) return "Aguardar: o preço " + brl2(S) + " ainda está acima da entrada do sinal (" + brl2(entrada) + ").";
     if (S >= alvo) return "O preço " + brl2(S) + " já atingiu o alvo do sinal (" + brl2(alvo) + ").";
@@ -127,7 +128,7 @@
   const PERFIS = { maior: 0.20, eq: 0.42, freq: 0.72 }; // delta-alvo de cada perfil da compra simples
   // Aposta simples: call ATM (alta) ou put ATM (baixa), só opções muito líquidas. Espelha montar_aposta de montador.py.
   function montarAposta(lado, S, chain, volImpl, valor, o = {}) {
-    const prazoAlvo = o.prazoAlvo ?? 45, spreadMax = o.spreadMax ?? (o.perfil === "freq" ? 0.15 : 0.10), volMin = o.volMin ?? 1000, jan = o.jan ?? 0.05, tipo = lado === "alta" ? "C" : "P";
+    const prazoAlvo = o.prazoAlvo ?? 45, spreadMax = o.spreadMax ?? SPREAD_MAX, volMin = o.volMin ?? 1000, jan = o.jan ?? 0.05, tipo = lado === "alta" ? "C" : "P";
     const dias = [...new Set(chain.filter((x) => x.d >= Math.max(prazoAlvo - 15, 7) && x.d <= prazoAlvo + 15).map((x) => x.d))].sort((a, b) => Math.abs(a - prazoAlvo) - Math.abs(b - prazoAlvo) || a - b);
     let esc = null;
     if (o.perfil && PERFIS[o.perfil] !== undefined) {
