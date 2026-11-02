@@ -1,0 +1,60 @@
+name: Testes
+
+# Roda a cada mudança de código na main: paridade montador.py × montador.js (snapshot atual e o de 30/12/2025),
+# cenários do atualizador e as telas do app no navegador. Os commits diários do snapshot (feitos pelo próprio
+# workflow de atualização) não disparam este; a paridade com o dado do dia roda lá, sem bloquear a publicação.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "montador.js"
+      - "montador.py"
+      - "paridade.py"
+      - "template.html"
+      - "atualizar_dados.py"
+      - "build.py"
+      - "build_pwa.py"
+      - "testes/**"
+      - ".github/workflows/testes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Gerar o app
+        run: |
+          python build.py
+          python build_pwa.py
+
+      - name: Paridade montador.py × montador.js (snapshot atual)
+        run: python paridade.py
+
+      - name: Paridade no snapshot original (30/12/2025)
+        run: |
+          d="$RUNNER_TEMP/paridade_base"; mkdir -p "$d"
+          cp montador.py montador.js paridade.py "$d/"; cp testes/snapshot_base.json "$d/snapshot.json"
+          cd "$d" && python paridade.py
+
+      - name: Atualizador (servidor local que imita a B3)
+        run: python -I testes/teste_atualizador.py .
+
+      - name: Telas do app no navegador
+        run: |
+          npm install --no-save --silent playwright@1.49.1
+          npx playwright install --with-deps chromium
+          node testes/smoke.js "$PWD/pwa/index.html"

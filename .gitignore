@@ -5,3 +5,4 @@ __pycache__/
 *.ZIP
 *.zip
 testes/tmp/
+node_modules/

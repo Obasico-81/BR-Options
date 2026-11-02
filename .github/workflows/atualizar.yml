@@ -58,6 +58,12 @@ jobs:
           python build.py
           python build_pwa.py
 
+      # Confere montador.py × montador.js com os dados do dia. Não bloqueia: os preços novos são publicados mesmo
+      # que apareça divergência; o passo fica vermelho no log para ser investigado.
+      - name: Paridade com os dados do dia (não bloqueia a publicação)
+        continue-on-error: true
+        run: python paridade.py
+
       - name: Guardar o snapshot novo no repositório
         run: |
           git config user.name "atualizador-de-dados"
