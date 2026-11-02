@@ -18,8 +18,11 @@ Funciona no navegador do celular e pode ser instalada na tela inicial (PWA).
 1. Crie um repositório no GitHub e envie estes arquivos.
 2. Em *Settings → Pages*, escolha *Source: GitHub Actions*. No plano gratuito do GitHub, o Pages só funciona em
    repositório **público**; repositório privado exige plano pago (Pro, Team ou Enterprise).
-3. Em *Actions → Atualizar dados e publicar o app → Run workflow*, preencha `ano` com o ano atual (ex.: `2026`)
-   para completar os fechamentos desde o último dia do `snapshot.json`. Esse arquivo anual é grande (dezenas de MB).
+3. Em *Actions → Atualizar dados e publicar o app → Run workflow*, marque `validar` e preencha `ano` com o ano atual
+   (ex.: `2026`). `validar` baixa o arquivo real de 30/12/2025 e roda `--validar` antes de gravar qualquer coisa: se der
+   DIFERENTE, o job para e nada é publicado. `ano` completa os fechamentos desde o último dia do `snapshot.json`
+   (arquivo anual grande, dezenas de MB). `validar` só funciona enquanto o snapshot ainda tiver o dia 30/12/2025,
+   ou seja, antes de 12 pregões novos.
 4. O endereço do app aparece no fim da execução. Abra no celular e instale:
    - Android (Chrome): menu → *Instalar app*.
    - iPhone (Safari): *Compartilhar → Adicionar à Tela de Início*.

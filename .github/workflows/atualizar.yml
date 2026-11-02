@@ -11,6 +11,10 @@ on:
       ano:
         description: "Opcional: preencher os fechamentos do ano inteiro (ex.: 2026). Use na primeira execução."
         required: false
+      validar:
+        description: "Conferir o leitor com o arquivo real da B3 de 30/12/2025 antes de gravar. Use na primeira execução."
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -33,6 +37,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      # Se o leitor não reproduzir o snapshot (gerado pelo rb3) com o arquivo real, o job para aqui e nada é gravado nem publicado.
+      - name: Validar o leitor com o arquivo real da B3 (opcional)
+        if: ${{ inputs.validar }}
+        run: |
+          curl -fsSL --retry 3 -A "Mozilla/5.0" -o "$RUNNER_TEMP/COTAHIST_D30122025.ZIP" \
+            "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_D30122025.ZIP"
+          python atualizar_dados.py --validar "$RUNNER_TEMP/COTAHIST_D30122025.ZIP"
 
       - name: Preencher o ano (opcional)
         if: ${{ github.event.inputs.ano != '' }}
