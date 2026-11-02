@@ -119,9 +119,21 @@ const vencs = () => [...new Set(dia().chain.filter(x=>x.d>=10 && x.d<=150).map(x
 const vencSel = () => { const L = vencs(); if (!L.length) return {d:S.prazo||45, iso:addDias(S.data,S.prazo||45)}; return L.find(v=>v.iso===S.venc) || L.slice().sort((a,b)=>Math.abs(a.d-(S.prazo||45))-Math.abs(b.d-(S.prazo||45)))[0]; };
 const sinalVals = () => { const a = dia(), g = S.sinal || (S.sinal = {entrada:null, alvo:null, prazo:20, est:"trava"}); return {entrada: g.entrada ?? Math.round(a.S*100)/100, alvo: g.alvo ?? Math.round(a.S*1.06*100)/100, prazo: g.prazo || 20, est: g.est || "trava"}; };
 const montagem = (t) => { const a = dia();
-  if (t === "aposta_alta" || t === "aposta_baixa") return M.montarAposta(t==="aposta_alta"?"alta":"baixa", a.S, a.chain, a.iv, S.perda || 300);
-  if (t === "sinal_alta" || t === "sinal_put") { const g = sinalVals(); return M.montarSinal(a.S, a.chain, a.iv, S.perda, g.entrada, g.alvo, g.prazo, {estrutura: t==="sinal_put"?"put":"trava", caixa: S.capital}); }
-  return M.montar(t, a.S, a.chain, a.iv, S.perda, {prazoAlvo:vencSel().d, caixa:S.capital}); };
+  if (t === "aposta_alta" || t === "aposta_baixa") return limitePerda(M.montarAposta(t==="aposta_alta"?"alta":"baixa", a.S, a.chain, a.iv, S.perda || 300));
+  if (t === "sinal_alta" || t === "sinal_put") { const g = sinalVals(), f = (caixa) => M.montarSinal(a.S, a.chain, a.iv, S.perda, g.entrada, g.alvo, g.prazo, {estrutura: t==="sinal_put"?"put":"trava", caixa}); return limitePerda(f(S.capital), f); }
+  const f = (caixa) => M.montar(t, a.S, a.chain, a.iv, S.perda, {prazoAlvo:vencSel().d, caixa});
+  return limitePerda(f(S.capital), f); };
+// Limite de perda do perfil vale para toda operação. A put vendida é dimensionada pelo caixa no montador;
+// aqui o número de lotes é reduzido para caber no limite. Se nem a menor operação cabe, o cartão informa
+// quanto o limite precisaria ser (informação, não sugestão de aumentar).
+const msgLimite = (v) => `A menor operação pode perder ${v}. Seu limite de perda é ${brl(S.perda)}: para ver esta operação, ele precisaria ser de pelo menos ${v}.`;
+function limitePerda(m, refazer){
+  if (typeof m === "string") { const x = m.match(/^A menor operação (?:perde|custa) (R\$ [\d.]+)/); return x ? msgLimite(x[1]) : m; }
+  if (m.perdaMax <= S.perda) return m;
+  const perda1 = m.perdaMax / m.lotes, caixa1 = m.pernas[0][1].k * 100;
+  if (refazer && perda1 <= S.perda) { const m2 = refazer(Math.min(S.capital, Math.floor(S.perda / perda1) * caixa1)); if (typeof m2 !== "string" && m2.perdaMax <= S.perda) return m2; }
+  return msgLimite(brl(Math.ceil(perda1)));
+}
 const esc = (s) => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const svg = (p, w=24) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 
@@ -225,7 +237,7 @@ function vCartao(){
       h += `<div role="group" aria-label="Estrutura" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">` + ks.map(k => { const n = nome(k), on = k===tese; return `<button class="seg" data-estr="${k}" ${n?"":"disabled"} ${on?'aria-pressed="true"':'aria-pressed="false"'} style="min-height:48px;padding:8px 10px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:14px;font-weight:600;cursor:pointer;opacity:${n?1:.5}">${n?esc(n):"Indisponível"}</button>`; }).join("") + `</div><p class="small muted" style="margin-top:-4px">${tese.startsWith("aposta")?"Posição simples: paga o prêmio e perde no máximo o valor pago.":"Trava: custa menos e limita também o ganho."}</p>`; } }  h += `<section class="card"><h2>O que fazer</h2>${pernasHtml(m)}</section>`;
   h += `<div class="grid2">
     <div class="stat"><div class="l">${credito?"Você recebe agora":"Você paga agora"}</div><div class="v">${brl(Math.abs(m.premio))}</div></div>
-    <div class="stat risk"><div class="l">Perda máxima</div><div class="v bad">${brl(m.perdaMax)}</div><div class="s">${pct(m.perdaMax/S.capital)} do seu capital</div></div>
+    <div class="stat risk"><div class="l">Perda máxima</div><div class="v bad">${brl(m.perdaMax)}</div><div class="s">${pct(m.perdaMax/S.capital)} do seu capital · dentro do seu limite de ${brl(S.perda)}</div></div>
     <div class="stat"><div class="l">Ganho máximo</div><div class="v good">${m.ganhoMax===null?"Sem limite":brl(m.ganhoMax)}</div></div>
     <div class="stat"><div class="l">${m.equilibrio.length>1?"Lucra fora de":"Lucra "+(tese==="baixa"||tese==="aposta_baixa"?"abaixo de":"acima de")}</div><div class="v">${m.equilibrio.length>1?`${brl(m.equilibrio[0],2)} e ${brl(m.equilibrio[1],2)}`:brl(m.equilibrio[0],2)}</div></div>
    </div>`;
