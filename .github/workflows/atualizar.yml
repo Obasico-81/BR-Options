@@ -9,10 +9,10 @@ on:
   workflow_dispatch:
     inputs:
       ano:
-        description: "Opcional: preencher os fechamentos do ano inteiro (ex.: 2026). Use na primeira execução."
+        description: "ANO (opcional): preencher os fechamentos do ano inteiro, ex.: 2026. Só na primeira execução."
         required: false
       validar:
-        description: "Conferir o leitor com o arquivo real da B3 de 30/12/2025 antes de gravar. Use na primeira execução."
+        description: "VALIDAR: conferir o leitor com o arquivo real da B3 de 30/12/2025 antes de gravar."
         type: boolean
         default: false
 
