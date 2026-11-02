@@ -116,7 +116,9 @@ def baixar(url, tentativas=3):
     for i in range(tentativas):
         try:
             with urllib.request.urlopen(req, timeout=120) as r:
-                return r.read()
+                dados = r.read()
+            # Página de erro com código 200 (HTML no lugar do .ZIP) conta como arquivo inexistente.
+            return dados if dados[:2] == b"PK" else None
         except urllib.error.HTTPError as e:
             if e.code in (403, 404):
                 return None          # arquivo ainda não existe (feriado, fim de semana ou antes da publicação)
@@ -221,15 +223,31 @@ def main():
         fech, opc = ler(linhas_do_zip(origem))
     else:
         alvo = date.fromisoformat(a.data) if a.data else datetime.now(timezone(timedelta(hours=-3))).date()
-        fech = None
+        # Do pregão mais novo para trás, até achar um dia que o snapshot já tem. Baixa todos os que faltam:
+        # a cadeia vem do mais novo; os outros completam os fechamentos (o Desempenho usa o fechamento do vencimento).
+        ja = set(snap["por_data"]).union(*(set(s) for s in snap["fechamentos"].values()))
+        achados, coberto = [], False
         for d in dias_candidatos(alvo):
-            if d.isoformat() in snap["por_data"]:
-                print(f"{d.isoformat()} já está no snapshot. Nada a fazer."); return
+            if d.isoformat() in ja:
+                coberto = True; break
             dados = baixar(URL_DIA.format(ddmmaaaa=d.strftime("%d%m%Y")))
             if dados is not None:
-                fech, opc = ler(linhas_do_zip(dados)); break
-        if fech is None:
-            print("Nenhum arquivo novo disponível nos últimos pregões. Nada a fazer."); return
+                achados.append((d, ler(linhas_do_zip(dados))))
+        if not achados:
+            if coberto:
+                print(f"Nenhum pregão novo depois de {max(ja)}. Nada a fazer."); return
+            # Uma semana inteira sem arquivo não acontece na B3: é URL errada, bloqueio ou formato novo.
+            raise SystemExit(f"Nenhum arquivo da B3 nos 7 dias até {alvo} e o snapshot para em {max(ja)}. "
+                             "Conferir a URL em URL_DIA ou se a B3 bloqueou o acesso. Nada foi gravado.")
+        fech, opc = achados[0][1]
+        for _, (f, _o) in achados[1:]:
+            for n in ATIVOS:
+                fech[n].update(f[n])
+        if len(achados) > 1:
+            print(f"Fechamentos recuperados de {len(achados) - 1} pregão(s) que tinham ficado para trás.")
+        if not coberto:
+            print(f"Aviso: ficou um buraco nos fechamentos entre {max(ja)} e {achados[-1][0]}. "
+                  f"Para preencher: python atualizar_dados.py --ano {alvo.year}")
     dia = max(opc) if opc else None
     if not dia:
         raise SystemExit("O arquivo não tem opções dos papéis do app.")

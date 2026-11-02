@@ -323,7 +323,8 @@ function vAcomp(){
   const P = opSel();
   let h = `<div class="top"><button class="back" data-op="">‹ Operações</button><span class="pill sim">Modo simulado</span></div><h1>Sua operação</h1>`;
   if (!P || !P.m){ return h + `<div class="card empty"><p>Nenhuma operação simulada ainda.</p><p class="small" style="margin-top:6px">Escolha um objetivo, veja os cenários e confirme para acompanhar aqui.</p></div><button class="btn" data-go="obj">Escolher objetivo</button>`; }
-  const m = P.m, a = SNAP.por_data[P.data][P.ativo];
+  // A cadeia do dia da entrada sai do snapshot depois de 12 pregões; o preço da ação daquele dia continua em fechamentos.
+  const m = P.m, a = {S: SNAP.por_data[P.data]?.[P.ativo]?.S ?? SNAP.fechamentos[P.ativo]?.[P.data] ?? SNAP.ativos[P.ativo].S};
   const lo = Math.round(a.S*0.8*100)/100, hi = Math.round(a.S*1.2*100)/100; if (slider===null || slider<lo || slider>hi) slider = Math.round(a.S*100)/100;
   const r = M.resultadoNoVencimento(m, slider);
   const pior = -m.perdaMax, melhor = m.ganhoMax===null ? m.perdaMax*2 : m.ganhoMax, span = melhor - pior, pos = Math.min(100,Math.max(0,(r-pior)/span*100)), zero = (0-pior)/span*100;

@@ -16,7 +16,8 @@ Funciona no navegador do celular e pode ser instalada na tela inicial (PWA).
 ## Colocar no ar (uma vez)
 
 1. Crie um repositório no GitHub e envie estes arquivos.
-2. Em *Settings → Pages*, escolha *Source: GitHub Actions*.
+2. Em *Settings → Pages*, escolha *Source: GitHub Actions*. No plano gratuito do GitHub, o Pages só funciona em
+   repositório **público**; repositório privado exige plano pago (Pro, Team ou Enterprise).
 3. Em *Actions → Atualizar dados e publicar o app → Run workflow*, preencha `ano` com o ano atual (ex.: `2026`)
    para completar os fechamentos desde o último dia do `snapshot.json`. Esse arquivo anual é grande (dezenas de MB).
 4. O endereço do app aparece no fim da execução. Abra no celular e instale:
@@ -47,6 +48,18 @@ python -m http.server -d pwa 8000              # testar em http://localhost:8000
 ```
 
 Modo teste (escolher o dia dos preços): abra o app com `?teste=1` no endereço.
+
+## Testes (sem acesso à B3)
+
+```
+python3 -I testes/teste_atualizador.py .     # atualizador contra um servidor local que imita a B3
+node testes/smoke.js "$PWD/pwa/index.html"   # abre o app (Playwright) e percorre as telas
+```
+
+`teste_atualizador.py` gera arquivos COTAHIST sintéticos e cobre: `--validar`, feriado, pregão perdido (recupera o
+fechamento), buraco maior que uma semana (avisa para rodar `--ano`), B3 respondendo 403 ou HTML (falha visível em vez
+de "nada a fazer"), dia incompleto e a sequência `--ano` + execução diária do workflow. Os arquivos sintéticos usam o
+mesmo layout do leitor; **não substituem** o `--validar` com o arquivo real.
 
 ## Limites conhecidos
 
