@@ -1,0 +1,51 @@
+name: Liquidez das opções por papel
+
+# Etapa 3 (ampliar os ativos): mede, no COTAHIST anual, quais papéis têm opções líquidas e roda o montador.js
+# do app nas cadeias dos últimos pregões para ver em quantos dias cada estrutura monta. Só leitura.
+on:
+  workflow_dispatch:
+    inputs:
+      ano:
+        description: "ANO do COTAHIST anual"
+        default: "2026"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  liquidez:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ANO: ${{ inputs.ano }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Baixar o COTAHIST anual
+        run: |
+          curl -fsSL --retry 3 -A "Mozilla/5.0" -o "$RUNNER_TEMP/COTAHIST_A$ANO.ZIP" \
+            "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_A$ANO.ZIP"
+          du -h "$RUNNER_TEMP/COTAHIST_A$ANO.ZIP"
+
+      - name: Volume e séries líquidas por prefixo
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/liq"
+          python pesquisa/liquidez.py --zip "$RUNNER_TEMP/COTAHIST_A$ANO.ZIP" --saida "$RUNNER_TEMP/liq" --dias 40 --top 25 | tee "$RUNNER_TEMP/liq/ranking.txt"
+
+      - name: O montador do app monta?
+        shell: bash
+        run: node pesquisa/liquidez_montador.js "$RUNNER_TEMP/liq" | tee "$RUNNER_TEMP/liq/montador.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: liquidez-${{ inputs.ano }}
+          path: |
+            ${{ runner.temp }}/liq/*.txt
+            ${{ runner.temp }}/liq/liquidez.json
+          retention-days: 30
