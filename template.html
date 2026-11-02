@@ -238,40 +238,40 @@ function vCartao(){
   const m = montagem(tese), T = TESES.find(t=>t.k===tese);
   if (typeof m === "string") { tela="obj"; return vObj(); }
   const credito = m.premio < 0, a = dia();
-  let h = topo(tese.startsWith("sinal")?"sinal":"obj","Voltar",2) + `<div><span class="pill ok" style="margin-bottom:8px">Operação montada</span><h1>${esc(m.estrutura)}</h1><p class="muted" style="margin-top:6px">${S.ativo} ${brl(a.S,2)} em ${dBR(S.data)} · vence em ${m.dias} dias (${dBR(addDias(S.data,m.dias))})</p></div>`;
+  let h = topo(tese.startsWith("sinal")?"sinal":"obj","Voltar",2) + `<div><h1>Operação montada</h1><p class="muted" style="margin-top:6px">${S.ativo} ${brl(a.S,2)} em ${dBR(S.data)} · vence em ${m.dias} dias (${dBR(addDias(S.data,m.dias))})</p></div>`;
 
   { const par = {alta:"aposta_alta", aposta_alta:"alta", baixa:"aposta_baixa", aposta_baixa:"baixa"};
     if (par[tese]) { const ks = tese.endsWith("alta") ? ["alta","aposta_alta"] : ["baixa","aposta_baixa"];
       const nome = (k) => { const x = montagem(k); return typeof x === "string" ? null : x.estrutura; };
       h += `<div role="group" aria-label="Estrutura" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">` + ks.map(k => { const n = nome(k), on = k===tese; return `<button class="seg" data-estr="${k}" ${n?"":"disabled"} ${on?'aria-pressed="true"':'aria-pressed="false"'} style="min-height:48px;padding:8px 10px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:14px;font-weight:600;cursor:pointer;opacity:${n?1:.5}">${n?esc(n):"Indisponível"}</button>`; }).join("") + `</div><p class="small muted" style="margin-top:-4px">${tese.startsWith("aposta")?"Posição simples: paga o prêmio e arrisca no máximo o valor pago.":"Trava: custa menos e limita também o ganho."}</p>`; } }
+  if (!{alta:1, aposta_alta:1, baixa:1, aposta_baixa:1}[tese]) h += `<div style="min-height:48px;padding:12px 14px;border-radius:12px;background:var(--ink);color:var(--bg);font-size:14px;font-weight:600;text-align:center">${esc(m.estrutura)}</div>`;
   if (tese.startsWith("aposta")) { const PF = [["maior","Lucro maior","Acerta menos vezes. Se acertar, o lucro é maior."],["eq","Equilibrada","Meio-termo entre frequência e tamanho do lucro."],["freq","Lucro frequente","Acerta mais vezes, com lucro menor. O custo para entrar e sair é um pouco maior."]], cur = pfAtual(tese);
     h += `<div role="group" aria-label="Perfil da operação" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px">` + PF.map(([k,n]) => { const on = k===cur, ok = pfDisp(tese,k); return `<button class="seg" data-pf="${k}" ${ok?"":"disabled"} aria-pressed="${on}" style="min-height:48px;padding:6px 6px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:13px;font-weight:600;cursor:pointer;line-height:1.2;opacity:${ok?1:.5}">${n}${ok?"":"<br><span style='font-weight:500;font-size:11px'>indisponível hoje</span>"}</button>`; }).join("") + `</div><p class="small muted" style="margin-top:-4px">${PF.find(p=>p[0]===cur)[2]}</p>`; }
   h += `<section class="card"><h2>O que fazer</h2>${pernasHtml(m)}</section>`;
+  const pagaERisco = !credito && Math.abs(Math.abs(m.premio) - m.perdaMax) < 1, riscoSub = `${pct(m.perdaMax/S.capital)} do seu capital · dentro do seu limite de ${brl(S.perda)}`;
   h += `<div class="grid2">
-    <div class="stat"><div class="l">${credito?"Você recebe agora":"Você paga agora"}</div><div class="v">${brl(Math.abs(m.premio))}</div></div>
-    <div class="stat risk"><div class="l">Risco máximo</div><div class="v bad">${brl(m.perdaMax)}</div><div class="s">${pct(m.perdaMax/S.capital)} do seu capital · dentro do seu limite de ${brl(S.perda)}</div></div>
+    ${pagaERisco ? `<div class="stat risk" style="grid-column:1/-1"><div class="l">Você paga agora · é o risco máximo</div><div class="v bad">${brl(m.perdaMax)}</div><div class="s">${riscoSub}</div></div>`
+    : `<div class="stat"><div class="l">${credito?"Você recebe agora":"Você paga agora"}</div><div class="v">${brl(Math.abs(m.premio))}</div></div>
+    <div class="stat risk"><div class="l">Risco máximo</div><div class="v bad">${brl(m.perdaMax)}</div><div class="s">${riscoSub}</div></div>`}
     <div class="stat"><div class="l">Ganho máximo</div><div class="v good">${m.ganhoMax===null?"Sem limite":brl(m.ganhoMax)}</div></div>
     <div class="stat"><div class="l">${m.equilibrio.length>1?"Lucra fora de":"Lucra "+(tese==="baixa"||tese==="aposta_baixa"?"abaixo de":"acima de")}</div><div class="v">${m.equilibrio.length>1?`${brl(m.equilibrio[0],2)} e ${brl(m.equilibrio[1],2)}`:brl(m.equilibrio[0],2)}</div></div>
    </div>`;
-  h += `<div class="card" style="flex-direction:row;justify-content:space-between;align-items:center"><div><div class="small muted">Chance implícita no preço</div><div class="small muted" style="margin-top:2px">Calculada a partir do preço das opções. Não é vantagem sua: em testes com dados reais (2015–25), a média foi de prejuízo.</div></div><div style="font-size:26px;font-weight:700">${pct(m.probImplicita)}</div></div>`;
+  h += `<div class="card" style="flex-direction:row;justify-content:space-between;align-items:center"><div><div class="small muted">Chance implícita no preço</div><div class="small muted" style="margin-top:2px">Calculada a partir do preço das opções. Não é vantagem sua.</div></div><div style="font-size:26px;font-weight:700">${pct(m.probImplicita)}</div></div>`;
   if (tese.startsWith("aposta")) { const eq = m.equilibrio[0], mv = M.movimentoNecessario(m, a.S, SNAP.fechamentos[S.ativo], S.data), precisa = mv.precisa, tip = mv.oscilacao, sobe = tese==="aposta_alta";
     h += `<section class="card"><h2>Movimento e tempo</h2>
      <p class="small">Para dar lucro no vencimento, a ação precisa ${sobe?"subir":"cair"} ${(precisa*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% (até ${brl(eq,2)}).${tip===null?"":` Pela oscilação dos últimos 60 pregões, a ação costuma variar cerca de ${(tip*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% em ${m.dias} dias.`}</p>
      ${m.thetaDia==null?"":`<p class="small">Custo do tempo: se nada mudar, a operação desvaloriza cerca de ${brl(m.thetaDia)} por dia.</p>`}</section>`; }
-  h += `<div class="note"><h2 style="font-size:16px;margin-bottom:4px">Para que serve</h2>${paraQue(tese,m)}</div>`;
-  h += `<button class="btn sec2" id="copiar">Copiar parâmetros</button><textarea id="cpbox" class="small" hidden readonly rows="6" style="width:100%;margin-top:8px"></textarea>`;
+  { const o = obsOperacao(tese, m); if (o) h += `<div class="note"><p>${o}</p></div>`; }
   h += `<button class="btn" data-go="cen">Ver cenários</button><button class="btn sec2" data-go="obj">Não agora</button>`;
   return h;
 }
-function paraQue(t,m){
-  if (t==="aposta_alta") return `<p>Ganhar se a ação subir acima de ${brl(m.equilibrio[0],2)} até o vencimento. Se ela não subir o suficiente, o risco é todo o valor pago, ${brl(m.perdaMax)}.</p>`;
-  if (t==="aposta_baixa") return `<p>Ganhar se a ação cair abaixo de ${brl(m.equilibrio[0],2)} até o vencimento. Se ela não cair o suficiente, o risco é todo o valor pago, ${brl(m.perdaMax)}.</p>`;
-  if (t==="sinal_alta") return `<p>Ganhar se a ação chegar ao alvo do sinal (${brl(m.pernas[1][1].k,2)}), com risco limitado a ${brl(m.perdaMax)}. O ganho máximo só vem se o preço chegar lá antes do vencimento. A ferramenta não avalia o sinal.</p>`;
-  if (t==="sinal_put") return `<p>Receber o prêmio agora e, se a ação cair até ${brl(m.pernas[0][1].k,2)}, comprá-la por esse preço, a entrada do sinal. O caixa de ${brl(m.pernas[0][1].k*100*m.lotes)} fica reservado. Se ela não cair, você fica com o prêmio e não compra. A ferramenta não avalia o sinal.</p>`;
-  if (t==="alta") return `<p>Ganhar se a ação subir, com risco limitado a ${brl(m.perdaMax)}. Se ela não subir, o risco é só o que pagou.</p>`;
-  if (t==="baixa") return `<p>Ganhar se a ação cair, com risco limitado a ${brl(m.perdaMax)}. Se ela não cair, o risco é só o que pagou.</p>`;
-  if (t==="forte") return `<p>Ganhar se a ação subir ou cair bastante, para qualquer lado. Se ficar parada, o risco é só o que pagou (${brl(m.perdaMax)}).</p>`;
-  return `<p>Receber o prêmio agora. Se a ação terminar acima de ${brl(m.pernas[0][1].k,2)}, você fica com ele. Se terminar abaixo, você compra a ação a esse preço, e o risco pode chegar a ${brl(m.perdaMax)} se ela for a zero. O caixa de ${brl(m.pernas[0][1].k*100*m.lotes)} fica reservado.</p>`;
+// Uma linha só, e só quando traz o que não está nos números da tela (compra obrigatória, caixa reservado, sinal não avaliado).
+function obsOperacao(t,m){
+  const caixa = () => brl(m.pernas[0][1].k*100*m.lotes);
+  if (t==="alta_com_caixa") return `Se a ação terminar abaixo de ${brl(m.pernas[0][1].k,2)}, você compra a ação a esse preço. O caixa de ${caixa()} fica reservado até o vencimento.`;
+  if (t==="sinal_put") return `Se a ação cair até ${brl(m.pernas[0][1].k,2)}, você compra a ação a esse preço, a entrada do sinal. O caixa de ${caixa()} fica reservado. A ferramenta não avalia o sinal.`;
+  if (t==="sinal_alta") return `A ferramenta não avalia o sinal.`;
+  return "";
 }
 function cenarios(m){
   const a = dia(), pts = [0.85,0.95,1,1.05,1.15].map(f => Math.round(a.S*f*100)/100);
