@@ -1,5 +1,6 @@
 """Compara montador.py e montador.js no snapshot, para todos ativos e teses."""
-import json, subprocess, sys
+import json, math, subprocess, sys
+r2 = lambda x: math.floor(x * 100 + 0.5) / 100   # mesmo arredondamento do Math.round do JS (o round do Python arredonda 5,885 para 5,88)
 sys.path.insert(0, "..")
 from montador import Opcao, montar, montar_sinal, montar_aposta
 snap = json.load(open("snapshot.json")); res = {}
@@ -9,7 +10,7 @@ for nome, a in snap["ativos"].items():
         m = montar(tese, a["S"], ch, a["iv"], perda_aceita=300, caixa=30000)
         res[f"{nome}/{tese}"] = m if isinstance(m, str) else dict(lotes=m.lotes, premio=m.premio, perda=m.perda_max, ganho=m.ganho_max, eq=list(m.pontos_equilibrio), prob=m.prob_implicita, custo=m.custo_total, alvo=m.alvo, stop=m.stop, ks=[(l, o.tipo, o.strike) for l, o in m.pernas])
     for est in ("trava", "put"):
-        for nm, ent, al, pz in (("ok", a["S"], round(a["S"] * 1.10, 2), 30), ("espera", a["S"] * 0.95, round(a["S"] * 1.10, 2), 30), ("longo", a["S"], round(a["S"] * 1.10, 2), 120)):
+        for nm, ent, al, pz in (("ok", a["S"], r2(a["S"] * 1.10), 30), ("espera", a["S"] * 0.95, r2(a["S"] * 1.10), 30), ("longo", a["S"], r2(a["S"] * 1.10), 120)):
             m = montar_sinal(a["S"], ch, a["iv"], 300, ent, al, pz, estrutura=est, caixa=30000)
             res[f"{nome}/sinal_{est}_{nm}"] = m if isinstance(m, str) else dict(lotes=m.lotes, premio=m.premio, perda=m.perda_max, ganho=m.ganho_max, eq=list(m.pontos_equilibrio), prob=m.prob_implicita, custo=m.custo_total, alvo=m.alvo, stop=m.stop, ks=[(l, o.tipo, o.strike) for l, o in m.pernas])
     for lado in ("alta", "baixa"):
