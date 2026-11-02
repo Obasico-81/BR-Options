@@ -1,13 +1,14 @@
 """Prêmio de volatilidade: IV (ATM, 30-60d) vs volatilidade realizada até o vencimento; e se o sinal 'caro/barato' prevê o resultado de comprar call+put ATM.
 Sinais (só passado): iv_rank252, razao = IV / RV60 passada. Cortes walk-forward (percentis da própria história até a data)."""
 import pandas as pd, numpy as np, pickle, warnings; warnings.filterwarnings("ignore")
+import os; DADOS=os.environ.get("DADOS","/tmp/claude-0"); SUF=os.environ.get("SUF","1525")   # pasta e sufixo dos dados
 from delta_iv_lib import ivf
 rows=[]
 for at in ("bova","petr","vale","bbas","bbdc","itub"):
-    ser=pickle.load(open(f"/tmp/claude-0/ser_{at}1525.pkl","rb")).S.dropna()
+    ser=pickle.load(open(f"{DADOS}/ser_{at}{SUF}.pkl","rb")).S.dropna()
     lr=np.log(ser).diff()
     rv60=lr.rolling(60).std()*np.sqrt(252); rv20=lr.rolling(20).std()*np.sqrt(252)
-    o=pd.read_csv(f"/tmp/claude-0/{at.upper()}_opc_1525.csv",parse_dates=["refdate","maturity_date"],low_memory=False,usecols=["refdate","instrument_market","maturity_date","strike_price","best_bid","best_ask","traded_contracts"])
+    o=pd.read_csv(f"{DADOS}/{at.upper()}_opc_{SUF}.csv",parse_dates=["refdate","maturity_date"],low_memory=False,usecols=["refdate","instrument_market","maturity_date","strike_price","best_bid","best_ask","traded_contracts"])
     o=o[o.instrument_market.isin([70,80])&(o.best_bid>0)&(o.best_ask>=o.best_bid)&(o.traded_contracts>=100)].copy()
     o["dias"]=(o.maturity_date-o.refdate).dt.days; o=o[o.dias.between(30,60)]
     o["mid"]=(o.best_ask+o.best_bid)/2; o["sp"]=(o.best_ask-o.best_bid)/o.mid; o=o[o.sp<=0.15]
@@ -38,7 +39,7 @@ for at,g in D.groupby("ativo"):
     s=g.set_index("ent").iv; lo=s.rolling(252,min_periods=150).min(); hi=s.rolling(252,min_periods=150).max()
     D.loc[g.index,"ivrank"]=((s-lo)/(hi-lo)).values
 D["razao"]=D.iv/D.rv60; D["vrp"]=D.iv-D.rvf; D["vrp_rel"]=D.iv/D.rvf
-D.to_pickle("/tmp/claude-0/vrp.pkl")
+D.to_pickle(f"{DADOS}/vrp.pkl")
 pd.set_option("display.width",200); pd.set_option("display.float_format",lambda v:f"{v:,.3f}")
 print("\nN",len(D),"| IV média",D.iv.mean().round(3),"| RV realizada média",D.rvf.mean().round(3),"| IV/RVfwd mediana",D.vrp_rel.median().round(3),"| % dias com IV>RVfwd",(D.vrp>0).mean().round(3))
 print("\nPrêmio de volatilidade (IV-RV realizada) por ativo:"); print(D.groupby("ativo").agg(n=("iv","size"),iv=("iv","mean"),rvf=("rvf","mean"),vrp=("vrp","mean"),ret_straddle=("ret","mean")).to_string())

@@ -1,10 +1,11 @@
 """Calibração: |delta| (Black-Scholes, IV do próprio preço) no dia da entrada vs frequência real de terminar no dinheiro."""
 import pandas as pd, numpy as np, pickle, warnings; warnings.filterwarnings("ignore")
+import os; DADOS=os.environ.get("DADOS","/tmp/claude-0"); SUF=os.environ.get("SUF","1525")   # pasta e sufixo dos dados
 from delta_iv_lib import ivf, delta
 rows=[]
 for at in ("bova","petr","vale","bbas","bbdc","itub"):
-    ser=pickle.load(open(f"/tmp/claude-0/ser_{at}1525.pkl","rb")).S
-    o=pd.read_csv(f"/tmp/claude-0/{at.upper()}_opc_1525.csv",parse_dates=["refdate","maturity_date"],low_memory=False,usecols=["refdate","instrument_market","maturity_date","strike_price","best_bid","best_ask","traded_contracts"])
+    ser=pickle.load(open(f"{DADOS}/ser_{at}{SUF}.pkl","rb")).S
+    o=pd.read_csv(f"{DADOS}/{at.upper()}_opc_{SUF}.csv",parse_dates=["refdate","maturity_date"],low_memory=False,usecols=["refdate","instrument_market","maturity_date","strike_price","best_bid","best_ask","traded_contracts"])
     o=o[o.instrument_market.isin([70,80])&(o.best_bid>0)&(o.best_ask>=o.best_bid)&(o.traded_contracts>=1000)].copy()
     o["dias"]=(o.maturity_date-o.refdate).dt.days; o=o[o.dias.between(30,60)]
     o["mid"]=(o.best_ask+o.best_bid)/2; o["sp"]=(o.best_ask-o.best_bid)/o.mid; o=o[o.sp<=0.10]
@@ -19,7 +20,7 @@ for at in ("bova","petr","vale","bbas","bbdc","itub"):
         if ix<0 or ser.index[ix]<r.maturity_date-pd.Timedelta(days=4): continue
         ST=ser.iloc[ix]; itm=(ST>r.strike_price) if tp=="c" else (ST<r.strike_price)
         rows.append((at,tp,r.refdate,abs(delta(S,r.strike_price,r.dias/365,v,tp)),itm))
-D=pd.DataFrame(rows,columns=["ativo","tp","ent","dl","itm"]); D.to_pickle("/tmp/claude-0/calib_delta.pkl")
+D=pd.DataFrame(rows,columns=["ativo","tp","ent","dl","itm"]); D.to_pickle(f"{DADOS}/calib_delta.pkl")
 D["faixa"]=pd.cut(D.dl,[0,.1,.2,.3,.4,.5,.6,.7,.8,1.0])
 t=D.groupby("faixa",observed=True).agg(n=("itm","size"),delta_medio=("dl","mean"),freq_itm=("itm","mean")); t["dif"]=t.freq_itm-t.delta_medio
 print(t.round(3).to_string()); print("\nPor tipo:"); print(D.groupby(["tp","faixa"],observed=True).agg(n=("itm","size"),dl=("dl","mean"),itm=("itm","mean")).round(3).to_string())

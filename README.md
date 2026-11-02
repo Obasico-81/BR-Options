@@ -71,6 +71,14 @@ fechamento), buraco maior que uma semana (avisa para rodar `--ano`), B3 responde
 de "nada a fazer"), dia incompleto e a sequência `--ano` + execução diária do workflow. Os arquivos sintéticos usam o
 mesmo layout do leitor; **não substituem** o `--validar` com o arquivo real.
 
+## Pesquisa (reteste fora da amostra)
+
+*Actions → Pesquisa fora da amostra (2026) → Run workflow* baixa os COTAHIST anuais (DE a ATE), monta a base com
+`pesquisa/montar_base.py` (mesmo leitor do atualizador) e roda `pesquisa_perfis.py` e `pesquisa_gregas.py` sem mudar
+hipóteses, filtros nem cortes. Cada script imprime a linha de base 2015-2025 e, separado, o resultado das entradas
+de 2026. Os resultados ficam no log e no artefato `pesquisa-DE-ATE`. Para rodar local: `DADOS=pasta SUF=1526 python
+pesquisa_perfis.py` dentro de `pesquisa/`, depois de montar a base.
+
 ## Limites conhecidos
 
 - Só BOVA11, PETR4 e VALE3. Para incluir outro papel, edite `ATIVOS` em `atualizar_dados.py`.

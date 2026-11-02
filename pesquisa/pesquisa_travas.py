@@ -1,11 +1,12 @@
 """Travas de débito (alta com calls, baixa com puts) 30-60d, comprada ATM e vendida ~6% OTM; execução ask/bid; custos B3 + R$2/perna ida e volta.
 Sinal de contexto: IV rank (walk-forward, terços) vindo de vrp.pkl. Resultado = retorno sobre o débito (perda máxima)."""
 import pandas as pd, numpy as np, pickle, warnings; warnings.filterwarnings("ignore")
-V=pd.read_pickle("/tmp/claude-0/vrp.pkl")[["ativo","ent","iv","ivrank","rv60"]]
+import os; DADOS=os.environ.get("DADOS","/tmp/claude-0"); SUF=os.environ.get("SUF","1525")   # pasta e sufixo dos dados
+V=pd.read_pickle(f"{DADOS}/vrp.pkl")[["ativo","ent","iv","ivrank","rv60"]]
 rows=[]
 for at in ("bova","petr","vale","bbas","bbdc","itub"):
-    ser=pickle.load(open(f"/tmp/claude-0/ser_{at}1525.pkl","rb")).S.dropna()
-    o=pd.read_csv(f"/tmp/claude-0/{at.upper()}_opc_1525.csv",parse_dates=["refdate","maturity_date"],low_memory=False,usecols=["refdate","instrument_market","maturity_date","strike_price","best_bid","best_ask","traded_contracts"])
+    ser=pickle.load(open(f"{DADOS}/ser_{at}{SUF}.pkl","rb")).S.dropna()
+    o=pd.read_csv(f"{DADOS}/{at.upper()}_opc_{SUF}.csv",parse_dates=["refdate","maturity_date"],low_memory=False,usecols=["refdate","instrument_market","maturity_date","strike_price","best_bid","best_ask","traded_contracts"])
     o=o[o.instrument_market.isin([70,80])&(o.best_bid>0)&(o.best_ask>=o.best_bid)&(o.traded_contracts>=100)].copy()
     o["dias"]=(o.maturity_date-o.refdate).dt.days; o=o[o.dias.between(30,60)]
     o["mid"]=(o.best_ask+o.best_bid)/2; o["sp"]=(o.best_ask-o.best_bid)/o.mid; o=o[o.sp<=0.15]
@@ -32,7 +33,7 @@ for at in ("bova","petr","vale","bbas","bbdc","itub"):
             rows.append(dict(ativo=at,ent=d,tipo=nome,deb=deb*100,pnl=pnl,ret=pnl/(deb*100),maxg=(abs(s.strike_price-l.strike_price)-deb)/deb))
     print(at,flush=True)
 T=pd.DataFrame(rows).merge(V,on=["ativo","ent"],how="left").sort_values("ent").reset_index(drop=True)
-T["mes"]=T.ent.dt.to_period("M"); T.to_pickle("/tmp/claude-0/travas.pkl")
+T["mes"]=T.ent.dt.to_period("M"); T.to_pickle(f"{DADOS}/travas.pkl")
 rng=np.random.default_rng(3)
 def ic(g):
     s=g.groupby("mes").ret.sum().values; c=g.groupby("mes").ret.size().values; m=[]

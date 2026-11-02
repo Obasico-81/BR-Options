@@ -1,11 +1,12 @@
 """Perfis por delta: compra simples de call/put 30-60d, execução no ask, custos B3 + R$2 por ordem (ida), pagamento no vencimento.
 Por faixa de |delta|: taxa de acerto, ganho médio/perda média, retorno médio sobre o prêmio (IC bootstrap mensal), maior sequência de perdas."""
 import pandas as pd, numpy as np, pickle, warnings; warnings.filterwarnings("ignore")
+import os; DADOS=os.environ.get("DADOS","/tmp/claude-0"); SUF=os.environ.get("SUF","1525")   # pasta e sufixo dos dados
 from delta_iv_lib import ivf, delta
 rows=[]
 for at in ("bova","petr","vale","bbas","bbdc","itub"):
-    ser=pickle.load(open(f"/tmp/claude-0/ser_{at}1525.pkl","rb")).S.dropna()
-    o=pd.read_csv(f"/tmp/claude-0/{at.upper()}_opc_1525.csv",parse_dates=["refdate","maturity_date"],low_memory=False,usecols=["refdate","instrument_market","maturity_date","strike_price","best_bid","best_ask","traded_contracts"])
+    ser=pickle.load(open(f"{DADOS}/ser_{at}{SUF}.pkl","rb")).S.dropna()
+    o=pd.read_csv(f"{DADOS}/{at.upper()}_opc_{SUF}.csv",parse_dates=["refdate","maturity_date"],low_memory=False,usecols=["refdate","instrument_market","maturity_date","strike_price","best_bid","best_ask","traded_contracts"])
     o=o[o.instrument_market.isin([70,80])&(o.best_bid>0)&(o.best_ask>=o.best_bid)&(o.traded_contracts>=1000)].copy()
     o["dias"]=(o.maturity_date-o.refdate).dt.days; o=o[o.dias.between(30,60)]
     o["mid"]=(o.best_ask+o.best_bid)/2; o["sp"]=(o.best_ask-o.best_bid)/o.mid; o=o[(o.sp<=0.10)&(o.best_ask>=0.05)]
@@ -22,8 +23,9 @@ for at in ("bova","petr","vale","bbas","bbdc","itub"):
         pnl=(pay-r.best_ask)*100-2.0-0.00134*(r.best_ask+pay)*100
         rows.append((at,tp,r.refdate,abs(delta(S,r.strike_price,r.dias/365,v,tp)),r.best_ask*100,pnl))
     print(at,flush=True)
-D=pd.DataFrame(rows,columns=["ativo","tp","ent","dl","prem","pnl"]); D["ret"]=D.pnl/D.prem; D["mes"]=D.ent.dt.to_period("M"); D.to_pickle("/tmp/claude-0/perfis.pkl")
+D=pd.DataFrame(rows,columns=["ativo","tp","ent","dl","prem","pnl"]); D["ret"]=D.pnl/D.prem; D["mes"]=D.ent.dt.to_period("M"); D.to_pickle(f"{DADOS}/perfis.pkl")
 D["faixa"]=pd.cut(D.dl,[0,.15,.25,.35,.5,.65,.8,1.0]); rng=np.random.default_rng(5)
+TODOS=D; D=TODOS[TODOS.ent.dt.year<=2025].copy()   # linha de base = amostra 2015-2025 do sandbox; 2026 só no fim
 def ic(g):
     s=g.groupby("mes").ret.sum().values; c=g.groupby("mes").ret.size().values; m=[]
     for _ in range(1500): k=rng.integers(0,len(s),len(s)); m.append(s[k].sum()/c[k].sum())
@@ -32,12 +34,23 @@ def seq(g):
     x=(g.sort_values("ent").pnl<=0).values; best=cur=0
     for v in x: cur=cur+1 if v else 0; best=max(best,cur)
     return best
-out=[]
-for f,g in D.groupby("faixa",observed=True):
-    w=g[g.pnl>0]; l=g[g.pnl<=0]; lo,hi=ic(g)
-    out.append(dict(faixa=str(f),n=len(g),acerto=100*len(w)/len(g),ganho_medio_R=w.pnl.mean(),perda_media_R=l.pnl.mean(),razao=w.ret.mean()/abs(l.ret.mean()),ret_medio=100*g.ret.mean(),ic_lo=100*lo,ic_hi=100*hi,mediana=100*g.ret.median(),seq_perdas=seq(g)))
+def tabela(D):
+    out=[]
+    for f,g in D.groupby("faixa",observed=True):
+        w=g[g.pnl>0]; l=g[g.pnl<=0]; lo,hi=ic(g)
+        out.append(dict(faixa=str(f),n=len(g),acerto=100*len(w)/len(g),ganho_medio_R=w.pnl.mean(),perda_media_R=l.pnl.mean(),razao=w.ret.mean()/abs(l.ret.mean()),ret_medio=100*g.ret.mean(),ic_lo=100*lo,ic_hi=100*hi,mediana=100*g.ret.median(),seq_perdas=seq(g)))
+    return pd.DataFrame(out)
 pd.set_option("display.width",220); pd.set_option("display.float_format",lambda v:f"{v:,.1f}")
-print(pd.DataFrame(out).to_string(index=False))
+print("=== Linha de base: entradas 2015-2025 ==="); print(tabela(D).to_string(index=False))
 print("\nPor período (retorno médio %):"); D["per"]=np.where(D.ent.dt.year<=2020,"2015-20","2021-25"); print((100*D.groupby(["per","faixa"],observed=True).ret.mean()).unstack(0).round(1).to_string())
 print("\nPor tipo (retorno médio %):"); print((100*D.groupby(["tp","faixa"],observed=True).ret.mean()).unstack(0).round(1).to_string())
 print("\nPor ativo, faixa delta <=0.25 (n, ret %):"); x=D[D.dl<=0.25]; print(x.groupby("ativo").ret.agg(n="size",ret=lambda s:100*s.mean()).round(1).to_string())
+# --- Fora da amostra: mesmas regras, nada reajustado; só entradas de 2026 já vencidas nos dados
+O=TODOS[TODOS.ent.dt.year>=2026].copy()
+print(f"\n=== Fora da amostra: entradas em 2026 ({len(O)} operações, {O.mes.nunique()} meses) ===")
+if len(O):
+    print(tabela(O).to_string(index=False))
+    print("\nPor tipo, 2026 (retorno médio %):"); print((100*O.groupby(["tp","faixa"],observed=True).ret.mean()).unstack(0).round(1).to_string())
+    print("\nPor ativo, 2026, faixa delta <=0.25 (n, ret %):"); x=O[O.dl<=0.25]; print(x.groupby("ativo").ret.agg(n="size",ret=lambda s:100*s.mean()).round(1).to_string())
+    TODOS["per"]=np.where(TODOS.ent.dt.year<=2020,"2015-20",np.where(TODOS.ent.dt.year<=2025,"2021-25","2026"))
+    print("\nPor período, com 2026 (retorno médio %):"); print((100*TODOS.groupby(["per","faixa"],observed=True).ret.mean()).unstack(0).round(1).to_string())

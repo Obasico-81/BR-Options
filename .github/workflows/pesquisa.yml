@@ -1,0 +1,76 @@
+name: Pesquisa fora da amostra (2026)
+
+# Reteste das hipóteses já fixadas (pesquisa_perfis.py e pesquisa_gregas.py) com dados da B3.
+# Baixa os COTAHIST anuais, monta a base no formato dos scripts e imprime: linha de base 2015-2025
+# (para conferir contra o sandbox) e fora da amostra 2026. Só leitura: não grava nada no repositório.
+on:
+  workflow_dispatch:
+    inputs:
+      de:
+        description: "DE: primeiro ano da base"
+        default: "2015"
+        required: true
+      ate:
+        description: "ATE: último ano da base"
+        default: "2026"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pesquisa
+  cancel-in-progress: false
+
+jobs:
+  pesquisa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      DE: ${{ inputs.de }}
+      ATE: ${{ inputs.ate }}
+      SUF: "1526"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pasta dos dados
+        run: echo "DADOS=$RUNNER_TEMP/dados" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependências (versões fixas)
+        run: pip install --quiet pandas==2.2.3 numpy==2.1.3 scipy==1.14.1
+
+      - name: Baixar os COTAHIST anuais da B3
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/cotahist"
+          for a in $(seq "$DE" "$ATE"); do
+            curl -fsSL --retry 3 -A "Mozilla/5.0" -o "$RUNNER_TEMP/cotahist/COTAHIST_A$a.ZIP" \
+              "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_A$a.ZIP"
+            echo "COTAHIST_A$a.ZIP: $(du -h "$RUNNER_TEMP/cotahist/COTAHIST_A$a.ZIP" | cut -f1)"
+          done
+
+      - name: Montar a base (6 papéis, opções de 30 a 60 dias, fechamentos)
+        run: python pesquisa/montar_base.py --zips "$RUNNER_TEMP/cotahist" --saida "$DADOS" --suf "$SUF"
+
+      - name: Perfis por delta (linha de base e 2026)
+        working-directory: pesquisa
+        shell: bash
+        run: python pesquisa_perfis.py | tee "$DADOS/resultado_perfis.txt"
+
+      - name: Gregas (linha de base e 2026)
+        working-directory: pesquisa
+        shell: bash
+        run: python pesquisa_gregas.py | tee "$DADOS/resultado_gregas.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pesquisa-${{ inputs.de }}-${{ inputs.ate }}
+          path: |
+            ${{ runner.temp }}/dados/resultado_*.txt
+            ${{ runner.temp }}/dados/perfis.pkl
+            ${{ runner.temp }}/dados/gregas.pkl
+          retention-days: 30
