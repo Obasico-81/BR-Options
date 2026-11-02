@@ -1,0 +1,62 @@
+name: Atualizar dados e publicar o app
+
+on:
+  schedule:
+    # 01:00 UTC = 22:00 em Brasília, de terça a sábado UTC (= segunda a sexta no Brasil), depois do fechamento.
+    - cron: "0 1 * * 2-6"
+    # Segunda tentativa na manhã seguinte, caso o arquivo da B3 tenha saído tarde.
+    - cron: "0 12 * * 2-6"
+  workflow_dispatch:
+    inputs:
+      ano:
+        description: "Opcional: preencher os fechamentos do ano inteiro (ex.: 2026). Use na primeira execução."
+        required: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preencher o ano (opcional)
+        if: ${{ github.event.inputs.ano != '' }}
+        run: python atualizar_dados.py --ano "${{ github.event.inputs.ano }}"
+
+      - name: Baixar o fechamento mais recente da B3
+        run: python atualizar_dados.py
+
+      - name: Gerar o app
+        run: |
+          python build.py
+          python build_pwa.py
+
+      - name: Guardar o snapshot novo no repositório
+        run: |
+          git config user.name "atualizador-de-dados"
+          git config user.email "atualizador@users.noreply.github.com"
+          git add snapshot.json
+          git diff --cached --quiet || git commit -m "Dados do pregão $(date -u +%F)"
+          git push
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: pwa
+      - id: deploy
+        uses: actions/deploy-pages@v4

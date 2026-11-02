@@ -1,0 +1,378 @@
+<title>Montador de Opções</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: uma coluna de celular (até 460px), quatro telas trocadas na própria página. Cores do canvas de telas aprovado. */
+:root{
+  --bg:#E3E3E0; --surface:#FFFFFF; --ink:#0F1B2D; --muted:#4B5B6B; --line:#CBCBC7;
+  --accent:#F5C400; --accent-ink:#0F1B2D; --accent-soft:#FFF3C4; --accent-text:#8A6500;
+  --good:#17663F; --good-soft:#E1F3E8; --bad:#B42318; --bad-soft:#FBE4E1; --warn-soft:#FDF0D5; --warn-text:#7A4A00;
+  --off:#D6D6D3; --track:#E8ECEF;
+  --font:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#1E1E20; --surface:#28282B; --ink:#EDEBE4; --muted:#A9A7A0; --line:#3C3C40;
+  --accent:#F5C400; --accent-ink:#1E1E20; --accent-soft:#2E2A16; --accent-text:#F5C400;
+  --good:#7BD389; --good-soft:#1F3328; --bad:#FF8A7F; --bad-soft:#3A2220; --warn-soft:#3A2F14; --warn-text:#F0C060;
+  --off:#2A2A2D; --track:#38383C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#1E1E20; --surface:#28282B; --ink:#EDEBE4; --muted:#A9A7A0; --line:#3C3C40;
+  --accent:#F5C400; --accent-ink:#1E1E20; --accent-soft:#2E2A16; --accent-text:#F5C400;
+  --good:#7BD389; --good-soft:#1F3328; --bad:#FF8A7F; --bad-soft:#3A2220; --warn-soft:#3A2F14; --warn-text:#F0C060;
+  --off:#2A2A2D; --track:#38383C; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-variant-numeric:tabular-nums;font-size:16px;line-height:1.45}
+.app{max-width:460px;margin:0 auto;padding:16px 16px 100px;display:flex;flex-direction:column;gap:14px;min-width:0}
+h1{margin:0;font-size:28px;line-height:1.15;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+h2{margin:0;font-size:17px;font-weight:700}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:44px}
+.back{border:0;background:none;color:var(--accent-text);font:inherit;font-weight:600;min-height:44px;padding:0 8px 0 0;cursor:pointer}
+.pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.pill.ok{background:var(--good-soft);color:var(--good)}
+.pill.no{background:var(--track);color:var(--muted)}
+.pill.sim{background:var(--warn-soft);color:var(--warn-text);font-size:13px;padding:4px 12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;min-width:0}
+.stat.risk{border:2px solid var(--bad);padding:13px}
+.stat .l{font-size:13px;color:var(--muted)}
+.stat .v{font-size:25px;font-weight:700;margin-top:2px;overflow-wrap:anywhere}
+.stat .s{font-size:12px;color:var(--muted)}
+.v.good{color:var(--good)} .v.bad{color:var(--bad)}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+input[type=number],select{font:inherit;font-size:16px;font-weight:600;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:44px;width:100%;min-width:0}
+.row3{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+.sec{padding-top:6px;display:flex;flex-direction:column;gap:10px}
+.sec p{font-size:14px;color:var(--muted)}
+.opt{display:flex;gap:14px;text-align:left;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:15px;font:inherit;color:inherit;cursor:pointer;min-height:44px}
+.opt[disabled]{background:var(--off);border-style:dashed;color:var(--muted);cursor:not-allowed}
+.opt .ic{flex:none;width:44px;height:44px;border-radius:12px;background:var(--accent-soft);color:var(--accent-text);display:inline-flex;align-items:center;justify-content:center}
+.opt[disabled] .ic{background:var(--line)}
+.opt .tx{display:flex;flex-direction:column;gap:8px;min-width:0}
+.opt .t{font-size:16px;font-weight:600;line-height:1.3}
+.opt .st{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.opt:focus-visible,.btn:focus-visible,.back:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--accent-text);outline-offset:2px}
+.step{display:flex;gap:12px}
+.step .n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);font-weight:700;font-size:14px;display:inline-flex;align-items:center;justify-content:center}
+.step p{font-size:15px;color:var(--ink);overflow-wrap:anywhere}
+.btn{display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:14px;border:0;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:17px;font-weight:700;cursor:pointer;width:100%}
+.btn[disabled]{background:var(--track);color:var(--muted);cursor:not-allowed}
+.btn.sec2{background:transparent;color:var(--muted);font-size:15px;font-weight:600;min-height:44px}
+.btn.danger{background:var(--surface);color:var(--bad);border:1.5px solid var(--bad);min-height:48px;font-size:16px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td{padding:10px 0;border-top:1px solid var(--line)} tr:first-child td{border-top:0}
+td:last-child{text-align:right;font-weight:700;white-space:nowrap}
+.scroll{overflow-x:auto}
+.note{background:var(--accent-soft);border-radius:16px;padding:14px 16px;font-size:15px}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:15px;min-height:44px}
+.chk input{width:22px;height:22px;margin-top:2px;flex:none}
+.bar{position:relative;height:10px;border-radius:999px;background:var(--track)}
+.bar i{position:absolute;top:-3px;width:2px;height:16px;background:var(--muted)}
+.bar b{position:absolute;height:10px;border-radius:999px}
+input[type=range]{width:100%;min-height:44px;accent-color:var(--accent-text)}
+.foot{font-size:12px;color:var(--muted);line-height:1.4}
+.hide{display:none}
+.empty{text-align:center;padding:24px 8px;color:var(--muted)}
+.leg{display:flex;flex-direction:column;gap:2px}
+@media (prefers-reduced-motion:no-preference){.card,.stat,.opt{transition:border-color .15s}}
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-top:1px solid var(--line);padding:6px 8px calc(8px + env(safe-area-inset-bottom))}
+.nav .in{max-width:460px;margin:0 auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:52px;border:0;background:none;font:inherit;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+.nav button[aria-current="page"]{color:var(--accent-text);font-weight:700}
+</style>
+
+<main class="app" id="app" aria-live="polite"></main>
+<nav class="nav" id="nav" aria-label="Principal"></nav>
+
+<script>/*MONTADOR*/</script>
+<script>
+const SNAP = /*SNAPSHOT*/;
+const M = window.Montador;
+const TESES = [
+  {k:"alta_com_caixa", bloco:"Renda", desc:"Receber um prêmio agora, aceitando comprar a ação por um preço menor, com o caixa reservado.", frase:"Aceito comprar a ação por um preço menor e quero receber um prêmio", icone:'<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>'},
+  {k:"alta", bloco:"Direcional", desc:"Montar posição de alta ou de baixa, sabendo de antemão o máximo que pode perder.", frase:"Acho que vai subir e quero saber o máximo que posso perder", icone:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'},
+  {k:"baixa", bloco:null, frase:"Acho que vai cair e quero saber o máximo que posso perder", icone:'<path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/>'},
+  {k:"forte", bloco:"Estruturas de Volatilidade", desc:"Ganhar se o preço se mover muito, para qualquer lado, com perda máxima conhecida.", frase:"Acho que vai se mexer muito, mas não sei para que lado", icone:'<path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/>'}
+];
+const CORRETORAS = ["XP Investimentos","BTG Pactual","Clear","Rico","Inter","NuInvest","Genial","Itaú (Íon)","Bradesco","Safra","Toro","Outra"];
+const DATAS = Object.keys(SNAP.por_data).sort();
+let S = load("estado", {ativo:"BOVA11", data:SNAP.data, capital:12000, perda:300, prazo:45, aposta:300, sinal:{entrada:null, alvo:null, prazo:20, est:"trava"}});
+S.cad = Object.assign({nome:"", corretora:"", corretagem:null}, S.cad||{}); M.setCorretagem(S.cad.corretagem);
+const TESTE = /[?&]teste=1/.test(location.search);   // modo teste: deixa escolher o dia dos preços
+if (!TESTE || !SNAP.por_data[S.data]) S.data = SNAP.data;
+const DIAS_VELHOS = Math.floor((Date.now() - new Date(SNAP.data + "T12:00:00Z")) / 86400000), DEFASADO = DIAS_VELHOS > 5 && !TESTE;
+let tela = "obj", tese = null, ciente = false, slider = null, per = "90", pDe = "", pAte = "", selId = null, perfilAberto = false;
+const opSel = () => load("historico", []).find(o => o.id === selId) || null;
+const abertas = () => { const hoje = S.data; return load("historico", []).filter(o => { const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); return !(rep && rep.venc <= hoje); }); };
+
+function load(k, d){ try{ const v = localStorage.getItem(k); if (!v) return d; const j = JSON.parse(v); return (d && typeof d === "object") ? Object.assign(d, j) : j; }catch(e){ return d; } }
+function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+const brl = (v, d=0) => (v<0?"−":"") + "R$ " + Math.abs(v).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d});
+const sgn = (v) => (v>0?"+":"") + brl(v);
+const pct = (v) => Math.round(v*100) + "%";
+const dBR = (iso) => iso.split("-").reverse().join("/");
+const addDias = (iso, n) => { const d = new Date(iso+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); };
+const dia = () => SNAP.por_data[S.data][S.ativo];
+const vencs = () => [...new Set(dia().chain.filter(x=>x.d>=10 && x.d<=150).map(x=>x.d))].sort((a,b)=>a-b).map(d=>({d, iso:addDias(S.data,d)}));
+const vencSel = () => { const L = vencs(); if (!L.length) return {d:S.prazo||45, iso:addDias(S.data,S.prazo||45)}; return L.find(v=>v.iso===S.venc) || L.slice().sort((a,b)=>Math.abs(a.d-(S.prazo||45))-Math.abs(b.d-(S.prazo||45)))[0]; };
+const sinalVals = () => { const a = dia(), g = S.sinal || (S.sinal = {entrada:null, alvo:null, prazo:20, est:"trava"}); return {entrada: g.entrada ?? Math.round(a.S*100)/100, alvo: g.alvo ?? Math.round(a.S*1.06*100)/100, prazo: g.prazo || 20, est: g.est || "trava"}; };
+const montagem = (t) => { const a = dia();
+  if (t === "aposta_alta" || t === "aposta_baixa") return M.montarAposta(t==="aposta_alta"?"alta":"baixa", a.S, a.chain, a.iv, S.perda || 300);
+  if (t === "sinal_alta" || t === "sinal_put") { const g = sinalVals(); return M.montarSinal(a.S, a.chain, a.iv, S.perda, g.entrada, g.alvo, g.prazo, {estrutura: t==="sinal_put"?"put":"trava", caixa: S.capital}); }
+  return M.montar(t, a.S, a.chain, a.iv, S.perda, {prazoAlvo:vencSel().d, caixa:S.capital}); };
+const esc = (s) => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const svg = (p, w=24) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+
+// resultado real no vencimento, se o vencimento já ocorreu nos dados
+function fechamentoNoVenc(ativo, iso, dias){
+  const venc = addDias(iso, dias), f = SNAP.fechamentos[ativo], ult = Object.keys(f).sort().pop();
+  if (venc > ult) return null;
+  const ds = Object.keys(f).filter(d => d <= venc).sort(); const d = ds.pop();
+  return {data:d, venc, preco:f[d]};
+}
+
+function movimento(){
+  const f = SNAP.fechamentos[S.ativo], ds = Object.keys(f).filter(d => d <= S.data).sort().slice(-60); if (ds.length < 20) return null;
+  const px = ds.map(d => f[d]), ult = px[px.length-1], mx = Math.max(...px), mn = Math.min(...px);
+  return {queda: ult/mx - 1, alta: ult/mn - 1, n: ds.length};
+}
+function navBar(){
+  const at = tela==="acomp" ? "acomp" : tela==="desemp" ? "desemp" : tela==="cad" ? "cad" : "obj";
+  const it = (k, rot, ic) => `<button data-nav="${k}" ${at===k?'aria-current="page"':""}>${svg(ic,22)}${rot}</button>`;
+  document.getElementById("nav").innerHTML = `<div class="in">${it("obj","Início",'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>')}${it("acomp","Operações",'<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l4-5 3 3 4-6"/>')}${it("desemp","Desempenho",'<path d="M5 20V11"/><path d="M12 20V4"/><path d="M19 20v-6"/>')}${it("cad","Cadastro",'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>')}</div>`;
+  document.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { selId = null; slider = null; tela = b.dataset.nav; render(); });
+}
+function render(){
+  const el = document.getElementById("app");
+  el.innerHTML = tela==="obj" ? vObj() : tela==="cartao" ? vCartao() : tela==="cen" ? vCen() : tela==="desemp" ? vDesemp() : tela==="cad" ? vCad() : tela==="sinal" ? vSinal() : vAcomp();
+  window.scrollTo(0,0);
+  navBar();
+  bind();
+}
+const topo = (back, label, passo) => `<div class="top">${back?`<button class="back" data-go="${back}">‹ ${label}</button>`:`<span class="small muted" style="font-weight:600">Passo ${passo} de 4</span>`}<span>${back?`<span class="small muted" style="font-weight:600;margin-right:8px">Passo ${passo} de 4</span>`:""}<span class="pill sim">Modo simulado</span></span></div>`;
+
+function vObj(){
+  const a = dia();
+  let h = topo(null,"",1) + `<h1>Qual é o seu objetivo?</h1><p class="muted">Toque no cartão que melhor descreve a sua ideia. O app monta a operação e mostra o custo e o máximo que você pode ganhar.</p>`;
+  if (DEFASADO) h += `<div class="note" role="alert"><p class="small"><strong>Preços desatualizados.</strong> O último fechamento carregado é de ${dBR(SNAP.data)}. As operações abaixo são só simulação, e a cópia dos parâmetros fica bloqueada até os preços serem atualizados.</p></div>`;
+  if (perfilAberto) {
+  h += `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="font-size:14px;color:var(--muted)">Seu perfil e o dia simulado</h2><button class="back" data-perfil="0" style="min-height:44px">Fechar</button></div>
+   <div class="row3">
+    <label class="f">Capital disponível (R$)<input id="capital" type="number" inputmode="numeric" min="1000" step="500" value="${S.capital}"></label>
+    <label class="f">Perda máxima por operação (R$)<input id="perda" type="number" inputmode="numeric" min="50" step="50" value="${S.perda}"></label>
+   </div><div class="row3">
+    <label class="f">Ativo<select id="ativo">${Object.keys(SNAP.por_data[S.data]).map(n=>`<option ${n===S.ativo?"selected":""}>${n}</option>`).join("")}</select></label>
+    ${TESTE?`<label class="f">Dia dos preços<select id="data">${DATAS.map(d=>`<option value="${d}" ${d===S.data?"selected":""}>${dBR(d)}</option>`).join("")}</select></label>`:""}
+    <label class="f">Vencimento<select id="prazo">${(()=>{ const s = vencSel().iso; return vencs().map(v=>`<option value="${v.iso}" ${v.iso===s?"selected":""}>${dBR(v.iso)} · ${v.d} dias</option>`).join(""); })()}</select></label>
+   </div>
+   <p class="small muted">${S.cad.corretora?`Corretora: ${esc(S.cad.corretora)}. `:""}Perda máxima por operação: ${(S.perda/S.capital*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% do seu capital.</p>
+   <p class="small muted">${S.ativo} fechou em ${brl(a.S,2)} em ${dBR(S.data)}. Volatilidade implícita das opções: ${(a.iv*100).toFixed(0)}% ao ano.</p></section>`;
+  } else {
+    h += `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-weight:700">${S.ativo} · vence ${dBR(vencSel().iso).slice(0,5)} · perda máx. ${brl(S.perda)}</div><div class="small muted">Preços de ${dBR(S.data)}${S.cad.corretora?` · ${esc(S.cad.corretora)}`:""}</div></div><button class="back" data-perfil="1" style="min-height:44px">Editar</button></div></section>`;
+  }
+  let ult = null;
+  for (const t of TESES){
+    if (t.bloco && t.bloco!==ult){ h += `<div class="sec"><div><h2>${t.bloco}</h2></div></div>`; ult = t.bloco; }
+    const m = montagem(t.k), ok = typeof m !== "string";
+    h += `<button class="opt" data-tese="${t.k}" ${ok?"":"disabled"}><span class="ic">${svg(t.icone)}</span><span class="tx"><span class="t">${t.frase}</span>
+      <span class="st"><span class="pill ${ok?"ok":"no"}">${ok?"Disponível":"Indisponível"}</span>${ok?"":`<span>${esc(m)}</span>`}</span></span></button>`;
+  }
+  h += `<button class="btn sec2" data-go="sinal">Tenho um sinal pronto</button>`;
+  h += `<p class="foot">Preços de fechamento da B3 (dados reais de 2025), no modo simulado. Em testes com dados reais de 2015 a 2025, nenhuma estrutura teve lucro médio estável. Nenhuma indicação de investimento.</p>`;
+  return h;
+}
+
+function vSinal(){
+  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Tenho um sinal pronto</h1><p class="muted">Você informa entrada, alvo e prazo. O app monta a operação que respeita o alvo, ou diz por que não dá.</p>`;
+{ const g = sinalVals(), t = g.est==="put" ? "sinal_put" : "sinal_alta", m = montagem(t), ok = typeof m !== "string";
+    h += `<section class="card" aria-label="Sinal recebido"><div class="row3">
+     <label class="f">Preço de entrada (R$)<input id="sentrada" type="number" inputmode="decimal" step="0.01" value="${g.entrada}"></label>
+     <label class="f">Preço-alvo (R$)<input id="salvo" type="number" inputmode="decimal" step="0.01" value="${g.alvo}"></label>
+     <label class="f">Prazo até o alvo (dias)<input id="sprazo" type="number" inputmode="numeric" min="5" step="1" value="${g.prazo}"></label>
+     <label class="f">Estrutura<select id="sest"><option value="trava" ${g.est==="trava"?"selected":""}>Trava de alta (sem caixa)</option><option value="put" ${g.est==="put"?"selected":""}>Put vendida (com caixa)</option></select></label>
+    </div>
+    <p class="small muted">No uso real, estes dados chegam prontos. O app não avalia o sinal: só monta a operação.</p></section>
+    <button class="opt" data-tese="${t}" ${ok?"":"disabled"}><span class="ic">${svg('<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>')}</span><span class="tx"><span class="t">Montar a operação do sinal</span>
+      <span class="st"><span class="pill ${ok?"ok":"no"}">${ok?"Disponível":"Sem operação"}</span><span>${ok?`${esc(m.estrutura)} · ${m.dias} dias`:esc(m)}</span></span></span></button>`; }
+  return h;
+}
+
+function num2(x){ return (Math.round(x*100)/100).toFixed(2).replace(".",","); }
+function textoParametros(m, ativo, data){
+  const venc = dBR(addDias(data, m.dias));
+  const l = m.pernas.map(([lado,o]) => `${lado>0?"COMPRA":"VENDA"} | ${o.s} | ${o.t==="C"?"CALL":"PUT"} | strike ${num2(o.k)} | qtd ${m.lotes*100} | limite ${num2(lado>0?o.a:o.b)}${lado>0?" (máx.)":" (mín.)"}`);
+  return `${m.estrutura} - ${ativo}\nVencimento: ${venc}\n${l.join("\n")}\n${m.premio<0?"Crédito":"Débito"} estimado: R$ ${num2(Math.abs(m.premio))} | Perda máx.: R$ ${num2(m.perdaMax)}\nPreços de fechamento (simulado). Confira o book antes de enviar.`;
+}
+function copiar(txt, btn){
+  const ok = () => { btn.textContent = "Parâmetros copiados"; setTimeout(()=>{ btn.textContent = "Copiar parâmetros"; }, 2000); };
+  const fb = () => { try{ const t = document.createElement("textarea"); t.value = txt; t.style.position="fixed"; t.style.opacity="0"; document.body.appendChild(t); t.select(); const r = document.execCommand("copy"); t.remove(); if (r) return ok(); }catch(e){}
+    const box = document.getElementById("cpbox"); if (box){ box.hidden = false; box.value = txt; box.select(); } btn.textContent = "Selecione e copie abaixo"; };
+  try{ navigator.clipboard.writeText(txt).then(ok, fb); }catch(e){ fb(); }
+}
+function pernasHtml(m){
+  return m.pernas.map(([l,o],i)=>`<div class="step"><span class="n">${i+1}</span><p><strong>${l>0?"Comprar":"Vender"}</strong> ${m.lotes*100} ${o.t==="C"?"opções de compra (call)":"opções de venda (put)"} com strike ${brl(o.k,2)}, que vencem em ${m.dias} dias.<br><span class="muted small">${esc(o.s)} · ${l>0?"você paga até":"você recebe pelo menos"} ${brl(l>0?o.a:o.b,2)} por ação</span></p></div>`).join("");
+}
+function vCartao(){
+  const m = montagem(tese), T = TESES.find(t=>t.k===tese);
+  if (typeof m === "string") { tela="obj"; return vObj(); }
+  const credito = m.premio < 0, a = dia();
+  let h = topo(tese.startsWith("sinal")?"sinal":"obj","Voltar",2) + `<div><span class="pill ok" style="margin-bottom:8px">Operação montada</span><h1>${esc(m.estrutura)}</h1><p class="muted" style="margin-top:6px">${S.ativo} ${brl(a.S,2)} em ${dBR(S.data)} · vence em ${m.dias} dias (${dBR(addDias(S.data,m.dias))})</p></div>`;
+
+  { const par = {alta:"aposta_alta", aposta_alta:"alta", baixa:"aposta_baixa", aposta_baixa:"baixa"};
+    if (par[tese]) { const ks = tese.endsWith("alta") ? ["alta","aposta_alta"] : ["baixa","aposta_baixa"];
+      const nome = (k) => { const x = montagem(k); return typeof x === "string" ? null : x.estrutura; };
+      h += `<div role="group" aria-label="Estrutura" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">` + ks.map(k => { const n = nome(k), on = k===tese; return `<button class="seg" data-estr="${k}" ${n?"":"disabled"} ${on?'aria-pressed="true"':'aria-pressed="false"'} style="min-height:48px;padding:8px 10px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:14px;font-weight:600;cursor:pointer;opacity:${n?1:.5}">${n?esc(n):"Indisponível"}</button>`; }).join("") + `</div><p class="small muted" style="margin-top:-4px">${tese.startsWith("aposta")?"Posição simples: paga o prêmio e perde no máximo o valor pago.":"Trava: custa menos e limita também o ganho."}</p>`; } }  h += `<section class="card"><h2>O que fazer</h2>${pernasHtml(m)}</section>`;
+  h += `<div class="grid2">
+    <div class="stat"><div class="l">${credito?"Você recebe agora":"Você paga agora"}</div><div class="v">${brl(Math.abs(m.premio))}</div></div>
+    <div class="stat risk"><div class="l">Perda máxima</div><div class="v bad">${brl(m.perdaMax)}</div><div class="s">${pct(m.perdaMax/S.capital)} do seu capital</div></div>
+    <div class="stat"><div class="l">Ganho máximo</div><div class="v good">${m.ganhoMax===null?"Sem limite":brl(m.ganhoMax)}</div></div>
+    <div class="stat"><div class="l">${m.equilibrio.length>1?"Lucra fora de":"Lucra "+(tese==="baixa"||tese==="aposta_baixa"?"abaixo de":"acima de")}</div><div class="v">${m.equilibrio.length>1?`${brl(m.equilibrio[0],2)} e ${brl(m.equilibrio[1],2)}`:brl(m.equilibrio[0],2)}</div></div>
+   </div>`;
+  h += `<div class="card" style="flex-direction:row;justify-content:space-between;align-items:center"><div><div class="small muted">Chance implícita no preço</div><div class="small muted" style="margin-top:2px">Calculada a partir do preço das opções. Não é vantagem sua: em testes com dados reais (2015–25), a média foi de prejuízo.</div></div><div style="font-size:26px;font-weight:700">${pct(m.probImplicita)}</div></div>`;
+  h += `<div class="note"><h2 style="font-size:16px;margin-bottom:4px">Para que serve</h2>${paraQue(tese,m)}</div>`;
+  h += `<button class="btn sec2" id="copiar">Copiar parâmetros</button><textarea id="cpbox" class="small" hidden readonly rows="6" style="width:100%;margin-top:8px"></textarea>`;
+  h += `<button class="btn" data-go="cen">Ver cenários</button><button class="btn sec2" data-go="obj">Não agora</button>`;
+  return h;
+}
+function paraQue(t,m){
+  if (t==="aposta_alta") return `<p>Ganhar se a ação subir acima de ${brl(m.equilibrio[0],2)} até o vencimento. Se ela não subir o suficiente, você perde todo o valor pago, ${brl(m.perdaMax)}.</p>`;
+  if (t==="aposta_baixa") return `<p>Ganhar se a ação cair abaixo de ${brl(m.equilibrio[0],2)} até o vencimento. Se ela não cair o suficiente, você perde todo o valor pago, ${brl(m.perdaMax)}.</p>`;
+  if (t==="sinal_alta") return `<p>Ganhar se a ação chegar ao alvo do sinal (${brl(m.pernas[1][1].k,2)}), sem risco de perder mais do que ${brl(m.perdaMax)}. O ganho máximo só vem se o preço chegar lá antes do vencimento. A ferramenta não avalia o sinal.</p>`;
+  if (t==="sinal_put") return `<p>Receber o prêmio agora e, se a ação cair até ${brl(m.pernas[0][1].k,2)}, comprá-la por esse preço, a entrada do sinal. O caixa de ${brl(m.pernas[0][1].k*100*m.lotes)} fica reservado. Se ela não cair, você fica com o prêmio e não compra. A ferramenta não avalia o sinal.</p>`;
+  if (t==="alta") return `<p>Ganhar se a ação subir, sem correr o risco de perder mais do que ${brl(m.perdaMax)}. Se ela não subir, você perde só o que pagou.</p>`;
+  if (t==="baixa") return `<p>Ganhar se a ação cair, sem correr o risco de perder mais do que ${brl(m.perdaMax)}. Se ela não cair, você perde só o que pagou.</p>`;
+  if (t==="forte") return `<p>Ganhar se a ação subir ou cair bastante, para qualquer lado. Se ficar parada, você perde só o que pagou (${brl(m.perdaMax)}).</p>`;
+  return `<p>Receber o prêmio agora. Se a ação terminar acima de ${brl(m.pernas[0][1].k,2)}, você fica com ele. Se terminar abaixo, você compra a ação a esse preço, e a perda pode chegar a ${brl(m.perdaMax)} se ela for a zero. O caixa de ${brl(m.pernas[0][1].k*100*m.lotes)} fica reservado.</p>`;
+}
+function cenarios(m){
+  const a = dia(), pts = [0.85,0.95,1,1.05,1.15].map(f => Math.round(a.S*f*100)/100);
+  return pts.map(p => ({p, r:M.resultadoNoVencimento(m,p)}));
+}
+function vCen(){
+  const m = montagem(tese);
+  if (typeof m === "string") { tela="obj"; return vObj(); }
+  const rows = cenarios(m), rep = fechamentoNoVenc(S.ativo, S.data, m.dias);
+  let h = topo("cartao","Cartão",3) + `<div><h1>O que pode acontecer</h1><p class="muted" style="margin-top:6px">Resultado no vencimento, por preço da ação.</p></div>`;
+  h += `<section class="card scroll"><table>${rows.map(x=>`<tr><td>Ação em ${brl(x.p,2)}</td><td style="color:${x.r>0?"var(--good)":x.r<0?"var(--bad)":"inherit"}">${x.r===0?"R$ 0":sgn(x.r)}</td></tr>`).join("")}</table></section>`;
+  if (rep){ const r = M.resultadoNoVencimento(m, rep.preco);
+    h += `<section class="card"><h2>Se você tivesse entrado neste dia</h2><p class="small">No vencimento (${dBR(rep.venc)}), ${S.ativo} fechou em ${brl(rep.preco,2)}. O resultado teria sido <strong style="color:${r>0?"var(--good)":r<0?"var(--bad)":"inherit"}">${r===0?"R$ 0":sgn(r)}</strong>, antes de imposto. Um único caso não mostra se a estratégia funciona.</p></section>`; }
+  h += `<section class="card"><h2 style="font-size:16px">Risco desta operação</h2><p class="small">${erro(tese,m)}</p></section>`;
+  h += `<label class="chk"><input id="ciente" type="checkbox" ${ciente?"checked":""}><span>Entendi que posso perder até ${brl(m.perdaMax)} nesta operação.</span></label>`;
+  h += `<button class="btn" id="confirmar" ${ciente?"":"disabled"}>Simular esta operação</button><button class="btn sec2" data-go="cartao">Voltar</button>`;
+  return h;
+}
+function erro(t,m){
+  if (t==="aposta_alta") return `Se a ação ficar abaixo de ${brl(m.equilibrio[0],2)} no vencimento, você perde o valor pago (${brl(m.perdaMax)}). O tempo joga contra você, e a maioria das operações deste tipo terminou assim nos testes.`;
+  if (t==="aposta_baixa") return `Se a ação ficar acima de ${brl(m.equilibrio[0],2)} no vencimento, você perde o valor pago (${brl(m.perdaMax)}). O tempo joga contra você, e a maioria das operações deste tipo terminou assim nos testes.`;
+  if (t==="sinal_alta") return `Se a ação não subir até o vencimento, você perde os ${brl(m.perdaMax)}. Se o alvo for atingido só depois do vencimento, o ganho se perde. O tempo joga contra você.`;
+  if (t==="sinal_put") return `Se a ação cair muito abaixo da entrada, você compra a ${brl(m.pernas[0][1].k,2)} e fica com prejuízo, que pode chegar a ${brl(m.perdaMax)} se ela for a zero. Se ela subir sem passar pela entrada, você não compra e perde a oportunidade.`;
+  if (t==="alta") return `Se a ação ficar parada ou cair, você perde os ${brl(m.perdaMax)}. O tempo joga contra você: a cada dia a operação perde valor se a ação não sobe.`;
+  if (t==="baixa") return `Se a ação ficar parada ou subir, você perde os ${brl(m.perdaMax)}. O tempo joga contra você.`;
+  if (t==="forte") return `Se a ação terminar entre ${brl(m.equilibrio[0],2)} e ${brl(m.equilibrio[1],2)}, você perde parte ou todo o valor pago. O tempo joga contra você.`;
+  return `Uma queda forte gera perda grande: de ${brl(m.perdaMax)} se a ação for a zero. Nos testes de 2015–25 no BOVA11, um único mês (fevereiro de 2020) apagou o ganho de vários anos.`;
+}
+
+
+function vDesemp(){
+  const hoje = S.data, hs = load("historico", []);
+  let de, ate = hoje;
+  if (per==="30") de = addDias(hoje,-30); else if (per==="90") de = addDias(hoje,-90); else if (per==="365") de = addDias(hoje,-365);
+  else if (per==="pers"){ de = pDe || "0000-00-00"; ate = pAte || hoje; } else de = "0000-00-00";
+  const linhas = hs.map(o => { const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); const real = rep && rep.venc <= hoje;
+    return {o, venc: addDias(o.data, o.m.dias), res: real ? M.resultadoNoVencimento(o.m, rep.preco) : null, real}; });
+  const fim = linhas.filter(l => l.real && l.venc >= de && l.venc <= ate).sort((a,b)=>b.venc.localeCompare(a.venc));
+  const abertas = linhas.filter(l => !l.real);
+  const tot = fim.reduce((a,l)=>a+l.res,0), gan = fim.filter(l=>l.res>0), per_ = fim.filter(l=>l.res<0);
+  const chip = (k, t) => `<button class="chip${per===k?" on":""}" data-per="${k}" style="padding:8px 12px;border-radius:999px;border:1.5px solid var(--line);background:${per===k?"var(--ink,#0F1B2D)":"transparent"};color:${per===k?"#fff":"inherit"};font:inherit;font-size:14px;font-weight:600;cursor:pointer">${t}</button>`;
+  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Meu desempenho</h1><p class="muted">Resultado das suas operações simuladas que já venceram, antes de imposto. Períodos contados até ${dBR(hoje)}, o dia dos preços.</p>`;
+  h += `<section class="card"><div style="display:flex;gap:8px;flex-wrap:wrap">${chip("30","30 dias")}${chip("90","90 dias")}${chip("365","12 meses")}${chip("tudo","Tudo")}${chip("pers","Período")}</div>`;
+  if (per==="pers") h += `<div class="row3" style="margin-top:10px"><label class="f">De<input id="pde" type="date" value="${pDe}"></label><label class="f">Até<input id="pate" type="date" value="${pAte}"></label></div>`;
+  h += `</section>`;
+  h += `<section class="card"><div class="small muted">Resultado no período</div><div style="font-size:32px;font-weight:700;color:${tot>0?"var(--good)":tot<0?"var(--bad)":"inherit"}">${tot===0?"R$ 0":sgn(tot)}</div>
+   <div class="row3" style="border-top:1px solid var(--line);padding-top:10px;margin-top:8px"><div><div class="small muted">Operações</div><div style="font-weight:700">${fim.length}</div></div><div><div class="small muted">Com ganho</div><div style="font-weight:700;color:var(--good)">${gan.length}</div></div><div><div class="small muted">Com perda</div><div style="font-weight:700;color:var(--bad)">${per_.length}</div></div></div></section>`;
+  if (!fim.length) h += `<div class="card empty"><p>Nenhuma operação vencida neste período.</p><p class="small" style="margin-top:6px">Simule uma operação com data de entrada mais antiga para ver o resultado.</p></div>`;
+  else h += `<section class="card"><h2 style="font-size:16px">Operações do período</h2>` + fim.map(l => `<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)"><div><div style="font-weight:600">${esc(l.o.m.estrutura)} · ${l.o.ativo}</div><div class="small muted">${dBR(l.o.data)} a ${dBR(l.venc)}</div></div><div style="font-weight:700;white-space:nowrap;color:${l.res>0?"var(--good)":l.res<0?"var(--bad)":"inherit"}">${l.res===0?"R$ 0":sgn(l.res)}</div></div>`).join("") + `</section>`;
+  if (abertas.length) h += `<p class="foot">${abertas.length} operação${abertas.length>1?"ões":""} ainda não venceu neste dia simulado e fica fora do resultado.</p>`;
+  h += `<p class="foot">Resultado no vencimento com preços de fechamento reais, em modo simulado, antes de imposto e sem saídas antecipadas.</p><button class="btn sec2" id="limpar-hist">Apagar histórico</button>`;
+  return h;
+}
+
+function vLista(){
+  const L = abertas(), tot = L.reduce((a,o)=>a+o.m.perdaMax,0);
+  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Minhas operações</h1>`;
+  if (!L.length) return h + `<div class="card empty"><p>Nenhuma operação em aberto.</p><p class="small" style="margin-top:6px">Escolha um objetivo, veja os cenários e confirme para acompanhar aqui.</p></div><button class="btn" data-go="obj">Escolher objetivo</button>`;
+  h += `<section class="card"><div class="small muted">Em aberto</div><div style="font-size:24px;font-weight:700">${L.length} operaç${L.length>1?"ões":"ão"}</div><div class="row3" style="border-top:1px solid var(--line);padding-top:10px;margin-top:8px"><div><div class="small muted">Perda máxima somada</div><div style="font-weight:700">${brl(tot)}</div></div><div><div class="small muted">Do seu capital</div><div style="font-weight:700">${(tot/S.capital*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}%</div></div></div></section>`;
+  h += L.slice().sort((a,b)=>addDias(a.data,a.m.dias).localeCompare(addDias(b.data,b.m.dias))).map(o => `<button class="opt" data-op="${o.id}"><span class="tx"><span class="t">${esc(o.m.estrutura)} · ${o.ativo}</span><span class="st"><span>Entrada ${dBR(o.data)} · vence ${dBR(addDias(o.data,o.m.dias))} · perda máx. ${brl(o.m.perdaMax)}</span></span></span></button>`).join("");
+  return h + `<button class="btn" data-go="obj">Nova operação</button>`;
+}
+function vCad(){
+  const c = S.cad;
+  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Meu cadastro</h1><p class="muted">Estes dados ficam guardados só neste aparelho.</p>`;
+  h += `<section class="card"><label class="f">Nome<input id="cnome" type="text" autocomplete="name" value="${esc(c.nome)}" style="font:inherit;font-size:16px;font-weight:600;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:44px;width:100%;min-width:0;box-sizing:border-box"></label>
+   <label class="f">Corretora<select id="ccorr"><option value="">Escolha…</option>${CORRETORAS.map(n=>`<option ${n===c.corretora?"selected":""}>${n}</option>`).join("")}</select></label>
+   <label class="f">Corretagem por ordem de opções (R$)<input id="ccorrtg" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Não sei" value="${c.corretagem===null?"":c.corretagem}"></label>
+   <p class="small muted">${c.corretagem===null?"Sem este valor, o app usa uma margem fixa de R$ 2 por operação no custo.":`O custo das operações usa ${brl(c.corretagem,2)} por ordem, na entrada e na saída de cada perna.`} Consulte a tabela da sua corretora; o app não confere esse valor.</p></section>`;
+  h += `<section class="card"><h2 style="font-size:16px">Seus dados neste aparelho</h2><p class="small muted">Apaga o cadastro, o perfil, as operações simuladas e o histórico.</p><button class="btn danger" id="apagar-tudo">Apagar meus dados</button></section>`;
+  return h;
+}
+
+function vAcomp(){
+  if (selId===null || !opSel()) return vLista();
+  const P = opSel();
+  let h = `<div class="top"><button class="back" data-op="">‹ Operações</button><span class="pill sim">Modo simulado</span></div><h1>Sua operação</h1>`;
+  if (!P || !P.m){ return h + `<div class="card empty"><p>Nenhuma operação simulada ainda.</p><p class="small" style="margin-top:6px">Escolha um objetivo, veja os cenários e confirme para acompanhar aqui.</p></div><button class="btn" data-go="obj">Escolher objetivo</button>`; }
+  const m = P.m, a = SNAP.por_data[P.data][P.ativo];
+  const lo = Math.round(a.S*0.8*100)/100, hi = Math.round(a.S*1.2*100)/100; if (slider===null || slider<lo || slider>hi) slider = Math.round(a.S*100)/100;
+  const r = M.resultadoNoVencimento(m, slider);
+  const pior = -m.perdaMax, melhor = m.ganhoMax===null ? m.perdaMax*2 : m.ganhoMax, span = melhor - pior, pos = Math.min(100,Math.max(0,(r-pior)/span*100)), zero = (0-pior)/span*100;
+  const rep = fechamentoNoVenc(P.ativo, P.data, m.dias);
+  h += `<div class="small muted">${esc(m.estrutura)} · ${P.ativo} · entrada em ${dBR(P.data)}</div>`;
+  h += `<section class="card"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><div><div class="small muted">Resultado no vencimento, se a ação estiver em</div><div id="rv" style="font-size:30px;font-weight:700;color:${r>0?"var(--good)":r<0?"var(--bad)":"inherit"}">${r===0?"R$ 0":sgn(r)}</div></div><div style="text-align:right"><div class="small muted">Ação</div><div id="px" style="font-size:20px;font-weight:700;white-space:nowrap">${brl(slider,2)}</div></div></div>
+   <input id="sl" type="range" min="${lo}" max="${hi}" step="0.01" value="${slider}" aria-label="Preço da ação no vencimento">
+   <div><div class="small muted" style="display:flex;justify-content:space-between"><span>Perda máx. ${sgn(pior)}</span><span>${m.ganhoMax===null?"Sem teto":"Ganho máx. "+sgn(m.ganhoMax)}</span></div><div class="bar" role="img" aria-label="Posição do resultado entre a perda máxima e o ganho máximo"><i style="left:${zero}%"></i><b id="bb" style="background:${r>=0?"var(--good)":"var(--bad)"};left:${Math.min(pos,zero)}%;width:${Math.abs(pos-zero)}%"></b></div></div>
+   <div class="row3" style="border-top:1px solid var(--line);padding-top:10px"><div><div class="small muted">Valor da operação</div><div style="font-weight:700">${brl(Math.abs(m.premio))}</div></div><div><div class="small muted">Perda máx.</div><div style="font-weight:700">${brl(m.perdaMax)}</div></div><div><div class="small muted">Vence em</div><div style="font-weight:700">${dBR(addDias(P.data,m.dias))}</div></div></div></section>`;
+  h += `<section class="card"><h2 style="font-size:16px">Quando sair</h2><p class="small muted">Regras definidas na entrada. Elas não mudam com o humor do mercado.</p>
+   ${m.alvo!==null?`<div class="step"><span class="n" style="background:var(--good-soft);color:var(--good)">✓</span><p><strong>Lucro: sair com ${sgn(m.alvo)}</strong><br><span class="muted small">Metade do ganho máximo.</span></p></div>`:""}
+   ${m.stop!==null?`<div class="step"><span class="n" style="background:var(--bad-soft);color:var(--bad)">!</span><p><strong>Prejuízo: sair com ${sgn(m.stop)}</strong><br><span class="muted small">Evita chegar à perda máxima. Valor padrão, sem validação em testes.</span></p></div>`:`<div class="step"><span class="n" style="background:var(--bad-soft);color:var(--bad)">!</span><p><strong>Sem regra de saída automática</strong><br><span class="muted small">Você pode perder tudo o que pagou (${brl(m.perdaMax)}). Nos testes, sair cedo não melhorou o resultado.</span></p></div>`}
+   ${m.saidaDias>0?`<div class="step"><span class="n" style="background:var(--warn-soft);color:var(--warn-text)">7</span><p><strong>Prazo: sair até ${m.saidaDias} dias antes do vencimento</strong><br><span class="muted small">Em ${dBR(addDias(P.data,m.dias-m.saidaDias))}.</span></p></div>`:`<div class="step"><span class="n" style="background:var(--warn-soft);color:var(--warn-text)">7</span><p><strong>Vencimento em ${dBR(addDias(P.data,m.dias))}</strong><br><span class="muted small">Se o preço não passar do ponto de equilíbrio, a opção vale zero.</span></p></div>`}</section>`;
+  if (rep){ const rr = M.resultadoNoVencimento(m, rep.preco); h += `<section class="card"><h2 style="font-size:16px">Como terminou de verdade</h2><p class="small">Em ${dBR(rep.venc)}, ${P.ativo} fechou em ${brl(rep.preco,2)}. Resultado: <strong style="color:${rr>0?"var(--good)":rr<0?"var(--bad)":"inherit"}">${rr===0?"R$ 0":sgn(rr)}</strong>, antes de imposto.</p></section>`; }
+  h += `<p class="foot">Valores calculados com preços de fechamento reais, em modo simulado. Em testes com dados reais (2015–25), estas regras não deram lucro médio.</p><button class="btn sec2" id="copiar">Copiar parâmetros</button><textarea id="cpbox" class="small" hidden readonly rows="6" style="width:100%;margin-top:8px"></textarea><button class="btn danger" id="encerrar">Encerrar operação simulada</button>`;
+  return h;
+}
+
+function bind(){
+  const q = (s) => document.querySelector(s);
+  document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { tela = b.dataset.go; render(); });
+  document.querySelectorAll("[data-op]").forEach(b => { const prev = b.onclick; b.onclick = () => { selId = b.dataset.op ? +b.dataset.op : null; slider = null; tela = "acomp"; render(); }; });
+  document.querySelectorAll("[data-tese]").forEach(b => b.onclick = () => { tese = b.dataset.tese; ciente = false; tela = "cartao"; render(); });
+  const set = (id, key, num) => { const e = q("#"+id); if (e) e.onchange = () => { S[key] = num ? Math.max(1, +e.value || 1) : e.value; save("estado", S); render(); }; };
+  set("capital","capital",true); set("perda","perda",true); set("ativo","ativo"); set("data","data");
+  ["ativo","data"].forEach(id => { const e = q("#"+id); if (e){ const f = e.onchange; e.onchange = () => { S.sinal = Object.assign(S.sinal||{}, {entrada:null, alvo:null}); f(); }; } }); 
+  const sg = (id, key, f) => { const e = q("#"+id); if (e) e.onchange = () => { S.sinal = S.sinal || {}; S.sinal[key] = f(e.value); save("estado", S); render(); }; };
+  sg("sentrada","entrada",v=>+v>0?+v:null); sg("salvo","alvo",v=>+v>0?+v:null); sg("sprazo","prazo",v=>Math.max(5,+v||20)); sg("sest","est",v=>v);
+  const p = q("#prazo"); if (p) p.onchange = () => { S.venc = p.value; S.prazo = vencSel().d; save("estado", S); render(); };
+  const c = q("#ciente"); if (c) c.onchange = () => { ciente = c.checked; q("#confirmar").disabled = !ciente; };
+  const cf = q("#confirmar"); if (cf) cf.onclick = () => { const m = montagem(tese); if (typeof m==="string") return; { const hs = load("historico", []); selId = Date.now(); hs.push({m, ativo:S.ativo, data:S.data, id:selId}); save("historico", hs); } slider = null; tela = "acomp"; render(); };
+  const sl = q("#sl"); if (sl) sl.oninput = () => {
+    slider = +sl.value; const P = opSel(), m = P.m, r = M.resultadoNoVencimento(m, slider);
+    const pior = -m.perdaMax, melhor = m.ganhoMax===null ? m.perdaMax*2 : m.ganhoMax, span = melhor - pior, pos = Math.min(100,Math.max(0,(r-pior)/span*100)), zero = (0-pior)/span*100;
+    const rv = q("#rv"); rv.textContent = r===0 ? "R$ 0" : sgn(r); rv.style.color = r>0 ? "var(--good)" : r<0 ? "var(--bad)" : "inherit";
+    q("#px").textContent = brl(slider,2); const bb = q("#bb"); bb.style.background = r>=0 ? "var(--good)" : "var(--bad)"; bb.style.left = Math.min(pos,zero)+"%"; bb.style.width = Math.abs(pos-zero)+"%";
+  };
+  const cp = q("#copiar"); if (cp) cp.onclick = () => { if (DEFASADO) { cp.textContent = "Bloqueado: preços desatualizados"; return; } if (tela==="acomp"){ const P = opSel(); if (P && P.m) copiar(textoParametros(P.m, P.ativo, P.data), cp); } else { const m = montagem(tese); if (typeof m!=="string") copiar(textoParametros(m, S.ativo, S.data), cp); } };
+  document.querySelectorAll("[data-per]").forEach(b => b.onclick = () => { per = b.dataset.per; render(); });
+  const pd = q("#pde"); if (pd) pd.onchange = () => { pDe = pd.value; render(); }; const pa = q("#pate"); if (pa) pa.onchange = () => { pAte = pa.value; render(); };
+  const lh = q("#limpar-hist"); if (lh) lh.onclick = () => { if (confirm("Apagar todo o histórico de operações simuladas?")){ try{ localStorage.removeItem("historico"); }catch(e){} render(); } };
+  document.querySelectorAll("[data-perfil]").forEach(b => b.onclick = () => { perfilAberto = b.dataset.perfil === "1"; render(); });
+  document.querySelectorAll("[data-estr]").forEach(b => b.onclick = () => { tese = b.dataset.estr; ciente = false; render(); });
+  const sv = () => { save("estado", S); M.setCorretagem(S.cad.corretagem); };
+  const cn = q("#cnome"); if (cn) cn.onchange = () => { S.cad.nome = cn.value.trim().slice(0,80); sv(); };
+  const cc = q("#ccorr"); if (cc) cc.onchange = () => { S.cad.corretora = cc.value; sv(); };
+  const ct = q("#ccorrtg"); if (ct) ct.onchange = () => { S.cad.corretagem = ct.value === "" || +ct.value < 0 ? null : Math.round(+ct.value*100)/100; sv(); render(); };
+  const ap = q("#apagar-tudo"); if (ap) ap.onclick = () => { if (confirm("Apagar todos os seus dados neste aparelho?")){ try{ ["estado","historico","posicao"].forEach(k=>localStorage.removeItem(k)); }catch(e){} location.reload(); } };
+  const en = q("#encerrar"); if (en) en.onclick = () => { save("historico", load("historico", []).filter(o => o.id !== selId)); selId = null; tela = "acomp"; render(); };
+}
+render();
+</script>
