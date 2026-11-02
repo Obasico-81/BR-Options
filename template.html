@@ -149,8 +149,6 @@ function fechamentoNoVenc(ativo, iso, dias){
   return {data:d, venc, preco:f[d]};
 }
 
-function volReal60(){ const f = SNAP.fechamentos[S.ativo], ds = Object.keys(f).filter(d => d <= S.data).sort().slice(-61); if (ds.length < 21) return null;
-  const r = []; for (let i = 1; i < ds.length; i++) r.push(Math.log(f[ds[i]]/f[ds[i-1]])); const mu = r.reduce((a,b)=>a+b,0)/r.length, sd = Math.sqrt(r.reduce((a,b)=>a+(b-mu)*(b-mu),0)/(r.length-1)); return sd*Math.sqrt(252); }
 function movimento(){
   const f = SNAP.fechamentos[S.ativo], ds = Object.keys(f).filter(d => d <= S.data).sort().slice(-60); if (ds.length < 20) return null;
   const px = ds.map(d => f[d]), ult = px[px.length-1], mx = Math.max(...px), mn = Math.min(...px);
@@ -261,7 +259,7 @@ function vCartao(){
     <div class="stat"><div class="l">${m.equilibrio.length>1?"Lucra fora de":"Lucra "+(tese==="baixa"||tese==="aposta_baixa"?"abaixo de":"acima de")}</div><div class="v">${m.equilibrio.length>1?`${brl(m.equilibrio[0],2)} e ${brl(m.equilibrio[1],2)}`:brl(m.equilibrio[0],2)}</div></div>
    </div>`;
   h += `<div class="card" style="flex-direction:row;justify-content:space-between;align-items:center"><div><div class="small muted">Chance implícita no preço</div><div class="small muted" style="margin-top:2px">Calculada a partir do preço das opções. Não é vantagem sua: em testes com dados reais (2015–25), a média foi de prejuízo.</div></div><div style="font-size:26px;font-weight:700">${pct(m.probImplicita)}</div></div>`;
-  if (tese.startsWith("aposta")) { const eq = m.equilibrio[0], precisa = Math.abs(eq/a.S - 1), vr = volReal60(), tip = vr===null ? null : vr*Math.sqrt(m.dias/365), sobe = tese==="aposta_alta";
+  if (tese.startsWith("aposta")) { const eq = m.equilibrio[0], mv = M.movimentoNecessario(m, a.S, SNAP.fechamentos[S.ativo], S.data), precisa = mv.precisa, tip = mv.oscilacao, sobe = tese==="aposta_alta";
     h += `<section class="card"><h2>Movimento e tempo</h2>
      <p class="small">Para dar lucro no vencimento, a ação precisa ${sobe?"subir":"cair"} ${(precisa*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% (até ${brl(eq,2)}).${tip===null?"":` Pela oscilação dos últimos 60 pregões, a ação costuma variar cerca de ${(tip*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% em ${m.dias} dias.`}</p>
      ${m.thetaDia==null?"":`<p class="small">Custo do tempo: se nada mudar, a operação desvaloriza cerca de ${brl(m.thetaDia)} por dia.</p>`}</section>`; }

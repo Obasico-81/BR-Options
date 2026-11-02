@@ -157,6 +157,20 @@
     for (const [l, x] of m.pernas) { const v = x.t === "C" ? Math.max(ST - x.k, 0) : Math.max(x.k - ST, 0); pay += l * v; }
     return r2((pay * LOTE - m.premio / m.lotes) * m.lotes);
   }
-  const api = { setCorretagem, montar, montarSinal, montarAposta, probAcima, resultadoNoVencimento };
+  // --- Movimento necessário × oscilação típica (bloco "Movimento e tempo"; só informação, sem veredito) ---
+  // fech: {data ISO: fechamento} do papel; ate: data dos preços. Retornos log dos últimos 60 pregões (61 fechamentos até
+  // `ate`), desvio-padrão amostral anualizado por √252. Com menos de 21 fechamentos: null. Espelha vol_real_60 do montador.py.
+  function volReal60(fech, ate) {
+    const ds = Object.keys(fech || {}).filter((d) => d <= ate).sort().slice(-61); if (ds.length < 21) return null;
+    const r = []; for (let i = 1; i < ds.length; i++) r.push(Math.log(fech[ds[i]] / fech[ds[i - 1]]));
+    const mu = r.reduce((a, b) => a + b, 0) / r.length, sd = Math.sqrt(r.reduce((a, b) => a + (b - mu) * (b - mu), 0) / (r.length - 1));
+    return sd * Math.sqrt(252);
+  }
+  // Quanto a ação precisa andar até o (primeiro) ponto de equilíbrio e quanto costuma oscilar no prazo da operação, em fração.
+  function movimentoNecessario(m, S, fech, ate) {
+    const vr = volReal60(fech, ate);
+    return { precisa: Math.abs(m.equilibrio[0] / S - 1), oscilacao: vr === null ? null : vr * Math.sqrt(m.dias / 365), volReal60: vr };
+  }
+  const api = { setCorretagem, montar, montarSinal, montarAposta, probAcima, resultadoNoVencimento, volReal60, movimentoNecessario };
   if (typeof module !== "undefined") module.exports = api; else root.Montador = api;
 })(typeof window !== "undefined" ? window : globalThis);

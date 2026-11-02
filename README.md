@@ -63,7 +63,9 @@ node testes/smoke.js "$PWD/pwa/index.html"   # abre o app (Playwright) e percorr
 
 `paridade.py` compara `montador.py` e `montador.js` em todos os ativos do snapshot: as 4 estruturas, o sinal (trava e
 put), a compra simples no caminho padrão e nos 3 perfis (Lucro maior · Equilibrada · Lucro frequente) com o theta, tudo
-sem e com corretagem cadastrada.
+sem e com corretagem cadastrada, e o movimento necessário × oscilação de 60 pregões (`volReal60` / `movimentoNecessario`).
+O workflow *Testes* roda tudo isso a cada mudança de código; a atualização noturna roda a paridade com o dado do dia
+sem bloquear a publicação.
 Os scripts de `pesquisa/` leem dados que não estão no repositório (histórico de opções 2015–2025 em CSV e séries de
 preço em pickle, em `/tmp/claude-0/`).
 

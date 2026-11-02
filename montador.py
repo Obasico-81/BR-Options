@@ -278,6 +278,27 @@ def _theta_dia(S, o: Opcao):
     return -th / 365
 
 
+def vol_real_60(fech: dict, ate: str) -> Optional[float]:
+    """Volatilidade realizada: retornos log dos últimos 60 pregões (61 fechamentos até `ate`), desvio-padrão amostral
+    anualizado por √252. None com menos de 21 fechamentos. Espelha volReal60 do montador.js (mesma ordem das contas)."""
+    ds = sorted(d for d in (fech or {}) if d <= ate)[-61:]
+    if len(ds) < 21:
+        return None
+    r = [log(fech[ds[i]] / fech[ds[i - 1]]) for i in range(1, len(ds))]
+    mu = 0.0
+    for x in r: mu += x
+    mu /= len(r); q = 0.0
+    for x in r: q += (x - mu) * (x - mu)
+    return sqrt(q / (len(r) - 1)) * sqrt(252)
+
+
+def movimento_necessario(m: Montagem, S: float, fech: dict, ate: str) -> dict:
+    """Bloco "Movimento e tempo" (só informação): quanto a ação precisa andar até o primeiro ponto de equilíbrio e
+    quanto costuma oscilar no prazo da operação, em fração. Espelha movimentoNecessario do montador.js."""
+    vr = vol_real_60(fech, ate); dias = m.pernas[0][1].dias
+    return dict(precisa=abs(m.pontos_equilibrio[0] / S - 1), oscilacao=None if vr is None else vr * sqrt(dias / 365), vol_real_60=vr)
+
+
 def montar_aposta(lado: str, S: float, chain: list, vol_impl: float, valor: float, prazo_alvo: int = 45,
                   spread_max: float = SPREAD_MAX, vol_min: int = 1000, jan: float = 0.05,
                   perfil: Optional[str] = None, tol_delta: Optional[float] = None) -> Montagem | str:
