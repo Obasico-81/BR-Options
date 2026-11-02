@@ -138,6 +138,22 @@ SRV.arquivos.clear(); SRV.dia("2026-01-02", G.ativos_deslocados(SNAP0, BASE, "20
 t = projeto(); rc, out = rodar(t, "--data", "2026-01-02")
 confere("dia incompleto: recusa, nada gravado", rc != 0 and "Dados incompletos" in out and bruto(t) == orig, out)
 
+# I/J. papel novo (não obrigatório): fraco fica de fora só naquele dia; completo entra
+G.PAPEL["ITUB4"] = "ITUB4"
+def com_itub(dia, n_itub=None):
+    at = G.ativos_deslocados(SNAP0, BASE, dia)
+    ch = [dict(o, s="ITUB" + o["s"][4:]) for o in at["BOVA11"]["chain"]]
+    at["ITUB4"] = dict(S=round(at["BOVA11"]["S"] / 4, 2), iv=at["BOVA11"]["iv"], chain=ch[:n_itub] if n_itub else ch)
+    at["ITUB4"]["chain"] = [dict(o, k=round(o["k"] / 4, 2)) for o in at["ITUB4"]["chain"]]
+    return at
+SRV.arquivos.clear(); SRV.dia("2026-01-02", com_itub("2026-01-02", n_itub=10))
+t = projeto(); rc, out = rodar(t, "--data", "2026-01-02"); s = snap(t); dia = s["por_data"].get("2026-01-02", {})
+confere("papel novo com 10 opções: fica de fora, os 3 obrigatórios são gravados",
+        rc == 0 and set(dia) == {"BOVA11", "PETR4", "VALE3"} and "ficaram de fora" in out and "ITUB4" in out, out)
+SRV.arquivos.clear(); SRV.dia("2026-01-02", com_itub("2026-01-02"))
+t = projeto(); rc, out = rodar(t, "--data", "2026-01-02"); s = snap(t); dia = s["por_data"].get("2026-01-02", {})
+confere("papel novo completo: entra no dia", rc == 0 and "ITUB4" in dia and len(dia["ITUB4"]["chain"]) >= 20 and "ITUB4" in s["fechamentos"], out)
+
 # H. sequência do workflow na primeira execução: --ano 2026 e depois sem argumento (hoje)
 from datetime import date, timedelta
 hoje = date.today()

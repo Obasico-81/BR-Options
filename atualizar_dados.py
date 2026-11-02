@@ -16,7 +16,13 @@ from datetime import date, datetime, timedelta, timezone
 from statistics import median
 
 # Papéis do app: nome -> (prefixo das opções, código do papel à vista)
-ATIVOS = {"BOVA11": ("BOVA", "BOVA11"), "PETR4": ("PETR", "PETR4"), "VALE3": ("VALE", "VALE3")}
+ATIVOS = {"BOVA11": ("BOVA", "BOVA11"), "PETR4": ("PETR", "PETR4"), "VALE3": ("VALE", "VALE3"),
+          # incluídos em 02/11/2026: montam em >= 60% dos pregões com o corte do app (pesquisa/liquidez.py)
+          "BBDC4": ("BBDC", "BBDC4"), "BBAS3": ("BBAS", "BBAS3"), "MGLU3": ("MGLU", "MGLU3"), "WEGE3": ("WEGE", "WEGE3"),
+          "ITUB4": ("ITUB", "ITUB4"), "USIM5": ("USIM", "USIM5"), "B3SA3": ("B3SA", "B3SA3")}
+# Se um destes vier sem preço ou com menos de 20 opções, o arquivo do dia está com problema: nada é gravado.
+# Os demais ficam de fora só naquele dia (o app não os lista), com aviso.
+OBRIGATORIOS = ("BOVA11", "PETR4", "VALE3")
 URL_DIA = "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_D{ddmmaaaa}.ZIP"
 URL_ANO = "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_A{aaaa}.ZIP"
 SNAPSHOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "snapshot.json")
@@ -169,9 +175,12 @@ def incorporar(snap, fech, opc, dia_cadeia=None):
                 p = montar_dia(dia_cadeia, S, linhas)
                 if len(p["chain"]) >= 20:          # menos que isso indica arquivo incompleto ou formato diferente
                     por[nome] = p
-        if len(por) < len(ATIVOS):
-            faltam = sorted(set(ATIVOS) - set(por))
+        faltam = [n for n in OBRIGATORIOS if n not in por]
+        if faltam:
             raise SystemExit(f"Dados incompletos em {dia_cadeia}: sem preço ou opções para {faltam}. Nada foi gravado.")
+        fora = sorted(set(ATIVOS) - set(por))
+        if fora:
+            print(f"Aviso: {fora} ficaram de fora em {dia_cadeia} (sem preço ou menos de 20 opções); os demais foram gravados.")
         snap["por_data"][dia_cadeia] = por
         return {n: (p["S"], p["iv"], len(p["chain"])) for n, p in por.items()}
     return {}
@@ -182,7 +191,7 @@ def comparar_com_snapshot(snap, dia, fech, opc):
     if not ref:
         print(f"O snapshot atual não tem o dia {dia} para comparar."); return 1
     ruim = 0
-    for nome in ATIVOS:
+    for nome in [n for n in ATIVOS if n in ref]:      # só os papéis que o snapshot de referência tem
         S = fech[nome].get(dia); novo = montar_dia(dia, S, opc.get(dia, {}).get(nome, [])) if S else None
         if not novo:
             print(f"{nome}: sem dados no arquivo"); ruim += 1; continue
@@ -206,7 +215,7 @@ def main():
 
     if a.validar:
         fech, opc = ler(linhas_do_zip(a.validar))
-        dia = max(opc) if opc else max(max(s) for s in fech.values())
+        dia = max(opc) if opc else max(max(s) for s in fech.values() if s)
         sys.exit(1 if comparar_com_snapshot(snap, dia, fech, opc) else 0)
 
     if a.ano:
@@ -214,7 +223,7 @@ def main():
         if dados is None:
             raise SystemExit("Arquivo anual não encontrado.")
         fech, opc = ler(linhas_do_zip(dados), opc_desde=(date.today() - timedelta(days=20)).isoformat())
-        ultimo = max(max(s) for s in fech.values())
+        ultimo = max(max(s) for s in fech.values() if s)
         resumo = incorporar(snap, fech, opc, ultimo if ultimo in opc else None)
         gravar(snap); print(f"Fechamentos de {a.ano} incorporados. Último dia: {ultimo}", resumo); return
 

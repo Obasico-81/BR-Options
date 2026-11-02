@@ -34,6 +34,17 @@ const arq = 'file://' + process.argv[2];
   await passo('Operações: lista', async () => { await p.click('#nav [data-nav="acomp"]'); await p.waitForTimeout(150); });
   await passo('Operações: abrir a operação antiga', async () => { await p.click('[data-op="1"]', { timeout: 3000 }); await p.waitForTimeout(200); if (!(await p.locator('text=Sua operação').count())) throw new Error('tela "Sua operação" não abriu'); });
   await passo('Desempenho com a operação', async () => { await p.click('#nav [data-nav="desemp"]'); await p.waitForTimeout(150); });
+  // ativo salvo que não existe no dia carregado (papel novo que ficou de fora num pregão): cai para PETR4 sem quebrar
+  await passo('ativo salvo ausente no dia', async () => {
+    await p.evaluate(() => { localStorage.setItem('estado', JSON.stringify({ ativo: 'XXXX3' })); localStorage.removeItem('historico'); });
+    await p.reload(); await p.waitForSelector('#nav');
+    const at = await p.evaluate(() => S.ativo); if (at !== 'PETR4') throw new Error('ativo depois do reload: ' + at);
+  });
+  // perfil padrão de quem abre o app pela primeira vez
+  await passo('perfil padrão (PETR4, risco R$ 500)', async () => {
+    await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('#nav');
+    const v = await p.evaluate(() => [S.ativo, S.perda]); if (v[0] !== 'PETR4' || v[1] !== 500) throw new Error('padrão: ' + v);
+  });
   console.log(erros.length ? `\n${erros.length} erro(s)` : '\nsem erros');
   await b.close(); process.exit(erros.length ? 1 : 0);
 })();

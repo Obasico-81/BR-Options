@@ -81,7 +81,7 @@ pesquisa_perfis.py` dentro de `pesquisa/`, depois de montar a base.
 
 ## Limites conhecidos
 
-- Só BOVA11, PETR4 e VALE3. Para incluir outro papel, edite `ATIVOS` em `atualizar_dados.py`.
+- Ativos: BOVA11, PETR4, VALE3, BBDC4, BBAS3, MGLU3, WEGE3, ITUB4, USIM5 e B3SA3 (`ATIVOS` em `atualizar_dados.py`; os 7 últimos entraram em 02/11/2026 por montarem em >= 60% dos pregões, ver `pesquisa/liquidez.py`). BOVA11, PETR4 e VALE3 são obrigatórios: se um deles vier incompleto, nada é gravado; um dos outros que vier com menos de 20 opções fica de fora só naquele dia.
 - A cotação vem do fechamento do dia (melhor oferta de compra e venda no encerramento), não do preço ao vivo.
 - Os dados do usuário (cadastro, operações simuladas) ficam só no aparelho.
 - O app é uma calculadora: não indica o que operar e não promete resultado.

@@ -98,7 +98,7 @@ const TESES = [
 ];
 const CORRETORAS = ["XP Investimentos","BTG Pactual","Clear","Rico","Inter","NuInvest","Genial","Itaú (Íon)","Bradesco","Safra","Toro","Outra"];
 const DATAS = Object.keys(SNAP.por_data).sort();
-let S = load("estado", {ativo:"BOVA11", data:SNAP.data, capital:12000, perda:300, prazo:45, aposta:300, pf:"eq", sinal:{entrada:null, alvo:null, prazo:20, est:"trava"}});
+let S = load("estado", {ativo:"PETR4", data:SNAP.data, capital:12000, perda:500, prazo:45, aposta:300, pf:"eq", sinal:{entrada:null, alvo:null, prazo:20, est:"trava"}});
 S.cad = Object.assign({nome:"", corretora:"", corretagem:null}, S.cad||{}); M.setCorretagem(S.cad.corretagem);
 const TESTE = /[?&]teste=1/.test(location.search);   // modo teste: deixa escolher o dia dos preços
 if (!TESTE || !SNAP.por_data[S.data]) S.data = SNAP.data;
@@ -163,6 +163,8 @@ function navBar(){
   document.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { selId = null; slider = null; tela = b.dataset.nav; render(); });
 }
 function render(){
+  // o ativo salvo pode não existir no dia carregado (papel novo que ficou de fora num pregão, ou dia antigo no ?teste=1)
+  { const doDia = SNAP.por_data[S.data]; if (!doDia[S.ativo]) S.ativo = doDia.PETR4 ? "PETR4" : Object.keys(doDia)[0]; }
   const el = document.getElementById("app");
   el.innerHTML = tela==="obj" ? vObj() : tela==="cartao" ? vCartao() : tela==="cen" ? vCen() : tela==="desemp" ? vDesemp() : tela==="cad" ? vCad() : tela==="sinal" ? vSinal() : vAcomp();
   window.scrollTo(0,0);
@@ -176,7 +178,7 @@ function listaAtivos(q){ q = (q||"").trim().toUpperCase(); const d = SNAP.por_da
   return L.length ? L.map(n => `<button class="opt" role="option" data-ativo="${n}" aria-selected="${n===S.ativo}" style="border:0;border-top:1px solid var(--line);border-radius:0;justify-content:space-between;align-items:center;padding:12px 6px;${n===S.ativo?"font-weight:700":""}"><span>${n}</span><span class="muted">${brl(d[n].S,2)}</span></button>`).join("") : `<p class="small muted" style="padding:12px 6px">Nenhum ativo encontrado.</p>`; }
 function vObj(){
   const a = dia();
-  let h = topo(null,"",1) + `<h1>Qual é o seu objetivo?</h1><p class="muted">Toque no cartão que melhor descreve a sua ideia. O app monta a operação e mostra o custo e o máximo que você pode ganhar.</p>`;
+  let h = topo(null,"",1) + `<h1>Monte sua operação</h1>`;
   if (DEFASADO) h += `<div class="note" role="alert"><p class="small"><strong>Preços desatualizados.</strong> O último fechamento carregado é de ${dBR(SNAP.data)}. As operações abaixo são só simulação, e a cópia dos parâmetros fica bloqueada até os preços serem atualizados.</p></div>`;
   { const nomes = Object.keys(SNAP.por_data[S.data]);
     h += `<section class="card" aria-label="Ativo"><button class="opt" id="atvBtn" aria-expanded="${ativoAberto}" style="justify-content:space-between;align-items:center;padding:12px 14px"><span style="display:flex;flex-direction:column"><span class="small muted">Ativo</span><span style="font-weight:700;font-size:18px">${S.ativo} <span class="muted" style="font-weight:500;font-size:15px">· ${brl(SNAP.por_data[S.data][S.ativo].S,2)}</span></span></span><span class="muted" aria-hidden="true">${ativoAberto?"▴":"▾"}</span></button>`;
@@ -197,6 +199,7 @@ function vObj(){
   } else {
     h += `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-weight:700">${S.ativo} · vence ${dBR(vencSel().iso).slice(0,5)} · risco máx. ${brl(S.perda)}</div><div class="small muted">Preços de ${dBR(S.data)}${S.cad.corretora?` · ${esc(S.cad.corretora)}`:""}</div></div><button class="back" data-perfil="1" style="min-height:44px">Editar</button></div></section>`;
   }
+  h += `<p class="muted" style="margin-top:4px">Diga o que você espera do papel. O app calcula o custo, o risco máximo em R$ e os cenários no vencimento.</p>`;
   let ult = null;
   for (const t of TESES){
     if (t.bloco && t.bloco!==ult){ h += `<div class="sec"><div><h2>${t.bloco}</h2></div></div>`; ult = t.bloco; }
