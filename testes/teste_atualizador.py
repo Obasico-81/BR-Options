@@ -10,8 +10,11 @@ sys.path.insert(0, AQUI)
 import gerar_cotahist as G
 
 PROJ = os.path.abspath(sys.argv[1])
-SNAP0 = json.load(open(os.path.join(PROJ, "snapshot.json")))
+# Os cenários usam datas fixas do começo de 2026 e partem de uma cópia fixa do snapshot original (12 dias de
+# cadeia até 30/12/2025, o dia do --validar), e não do snapshot.json que o workflow atualiza todo dia.
+SNAP0 = json.load(open(os.path.join(AQUI, "snapshot_base.json")))
 BASE = SNAP0["data"]                      # 2025-12-30
+FIXTURE = json.dumps(SNAP0, separators=(",", ":")).encode()
 
 
 class Servidor:
@@ -61,8 +64,8 @@ def rodar(tmp, *args):
 
 def projeto():
     tmp = tempfile.mkdtemp(dir=os.path.join(AQUI, "tmp"))
-    for f in ("atualizar_dados.py", "snapshot.json"):
-        shutil.copy(os.path.join(PROJ, f), tmp)
+    shutil.copy(os.path.join(PROJ, "atualizar_dados.py"), tmp)
+    open(os.path.join(tmp, "snapshot.json"), "wb").write(FIXTURE)
     return tmp
 
 
@@ -86,7 +89,7 @@ def confere(nome, cond, saida):
 
 
 os.makedirs(os.path.join(AQUI, "tmp"), exist_ok=True)
-orig = open(os.path.join(PROJ, "snapshot.json"), "rb").read()
+orig = FIXTURE
 
 # G. --validar com o dia do snapshot
 t = projeto(); z = os.path.join(t, "COTAHIST_D30122025.ZIP")

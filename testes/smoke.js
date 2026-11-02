@@ -19,8 +19,10 @@ const arq = 'file://' + process.argv[2];
     await p.evaluate(() => {
       // procura qualquer ativo/objetivo que monte com os preços do snapshot
       let m = null, ativo = null;
-      for (const at of Object.keys(SNAP.ativos)) { S.ativo = at;
-        for (const t of ['alta','baixa','forte','alta_com_caixa']) { m = montagem(t); if (typeof m !== 'string') { ativo = at; break; } }
+      for (const perda of [S.perda, 1000, 6000, 20000]) { S.perda = perda; S.capital = Math.max(S.capital, perda);
+        for (const at of Object.keys(SNAP.ativos)) { S.ativo = at;
+          for (const t of ['alta','baixa','forte','alta_com_caixa']) { m = montagem(t); if (typeof m !== 'string') { ativo = at; break; } }
+          if (ativo) break; }
         if (ativo) break; }
       if (!ativo) throw new Error('nenhum ativo/objetivo monta com os preços do snapshot: ' + m);
       // entrada no pregão mais recente que tem fechamento mas já não tem cadeia em por_data (ainda não venceu)
