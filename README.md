@@ -55,9 +55,16 @@ Modo teste (escolher o dia dos preços): abra o app com `?teste=1` no endereço.
 ## Testes (sem acesso à B3)
 
 ```
+python3 build.py && python3 build_pwa.py
+python3 paridade.py                          # montador.py × montador.js no snapshot atual (esperado: 0 falha(s))
 python3 -I testes/teste_atualizador.py .     # atualizador contra um servidor local que imita a B3
 node testes/smoke.js "$PWD/pwa/index.html"   # abre o app (Playwright) e percorre as telas
 ```
+
+`paridade.py` cobre o caminho padrão do montador (4 estruturas, sinal e compra simples sem perfil). Os perfis da
+compra simples (Lucro maior · Equilibrada · Lucro frequente) e o bloco de theta ainda não existem em `montador.py`.
+Os scripts de `pesquisa/` leem dados que não estão no repositório (histórico de opções 2015–2025 em CSV e séries de
+preço em pickle, em `/tmp/claude-0/`).
 
 `teste_atualizador.py` gera arquivos COTAHIST sintéticos e cobre: `--validar`, feriado, pregão perdido (recupera o
 fechamento), buraco maior que uma semana (avisa para rodar `--ano`), B3 respondendo 403 ou HTML (falha visível em vez

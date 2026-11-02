@@ -92,18 +92,18 @@ const SNAP = /*SNAPSHOT*/;
 const M = window.Montador;
 const TESES = [
   {k:"alta_com_caixa", bloco:"Renda", desc:"Receber um prêmio agora, aceitando comprar a ação por um preço menor, com o caixa reservado.", frase:"Aceito comprar a ação por um preço menor e quero receber um prêmio", icone:'<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>'},
-  {k:"alta", bloco:"Direcional", desc:"Montar posição de alta ou de baixa, sabendo de antemão o máximo que pode perder.", frase:"Acho que vai subir e quero saber o máximo que posso perder", icone:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'},
-  {k:"baixa", bloco:null, frase:"Acho que vai cair e quero saber o máximo que posso perder", icone:'<path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/>'},
-  {k:"forte", bloco:"Estruturas de Volatilidade", desc:"Ganhar se o preço se mover muito, para qualquer lado, com perda máxima conhecida.", frase:"Acho que vai se mexer muito, mas não sei para que lado", icone:'<path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/>'}
+  {k:"alta", bloco:"Direcional", desc:"Montar posição de alta ou de baixa, sabendo de antemão quanto vai arriscar.", frase:"Acho que vai subir e quero saber quanto vou arriscar", icone:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'},
+  {k:"baixa", bloco:null, frase:"Acho que vai cair e quero saber quanto vou arriscar", icone:'<path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/>'},
+  {k:"forte", bloco:"Estruturas de Volatilidade", desc:"Ganhar se o preço se mover muito, para qualquer lado, com risco máximo conhecido.", frase:"Acho que vai se mexer muito, mas não sei para que lado", icone:'<path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/>'}
 ];
 const CORRETORAS = ["XP Investimentos","BTG Pactual","Clear","Rico","Inter","NuInvest","Genial","Itaú (Íon)","Bradesco","Safra","Toro","Outra"];
 const DATAS = Object.keys(SNAP.por_data).sort();
-let S = load("estado", {ativo:"BOVA11", data:SNAP.data, capital:12000, perda:300, prazo:45, aposta:300, sinal:{entrada:null, alvo:null, prazo:20, est:"trava"}});
+let S = load("estado", {ativo:"BOVA11", data:SNAP.data, capital:12000, perda:300, prazo:45, aposta:300, pf:"eq", sinal:{entrada:null, alvo:null, prazo:20, est:"trava"}});
 S.cad = Object.assign({nome:"", corretora:"", corretagem:null}, S.cad||{}); M.setCorretagem(S.cad.corretagem);
 const TESTE = /[?&]teste=1/.test(location.search);   // modo teste: deixa escolher o dia dos preços
 if (!TESTE || !SNAP.por_data[S.data]) S.data = SNAP.data;
 const DIAS_VELHOS = Math.floor((Date.now() - new Date(SNAP.data + "T12:00:00Z")) / 86400000), DEFASADO = DIAS_VELHOS > 5 && !TESTE;
-let tela = "obj", tese = null, ciente = false, slider = null, per = "90", pDe = "", pAte = "", selId = null, perfilAberto = false;
+let tela = "obj", tese = null, ciente = false, slider = null, per = "90", pDe = "", pAte = "", selId = null, perfilAberto = false, ativoAberto = false;
 const opSel = () => load("historico", []).find(o => o.id === selId) || null;
 const abertas = () => { const hoje = S.data; return load("historico", []).filter(o => { const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); return !(rep && rep.venc <= hoje); }); };
 
@@ -118,10 +118,26 @@ const dia = () => SNAP.por_data[S.data][S.ativo];
 const vencs = () => [...new Set(dia().chain.filter(x=>x.d>=10 && x.d<=150).map(x=>x.d))].sort((a,b)=>a-b).map(d=>({d, iso:addDias(S.data,d)}));
 const vencSel = () => { const L = vencs(); if (!L.length) return {d:S.prazo||45, iso:addDias(S.data,S.prazo||45)}; return L.find(v=>v.iso===S.venc) || L.slice().sort((a,b)=>Math.abs(a.d-(S.prazo||45))-Math.abs(b.d-(S.prazo||45)))[0]; };
 const sinalVals = () => { const a = dia(), g = S.sinal || (S.sinal = {entrada:null, alvo:null, prazo:20, est:"trava"}); return {entrada: g.entrada ?? Math.round(a.S*100)/100, alvo: g.alvo ?? Math.round(a.S*1.06*100)/100, prazo: g.prazo || 20, est: g.est || "trava"}; };
+const PFS = ["eq","maior","freq"];
+const pfMont = (t, p) => { const a = dia(); return M.montarAposta(t==="aposta_alta"?"alta":"baixa", a.S, a.chain, a.iv, S.perda || 300, {perfil: p}); };
+const pfDisp = (t, p) => typeof pfMont(t, p) !== "string";
+const pfAtual = (t) => { const p = S.pf || "eq"; if (pfDisp(t, p)) return p; return PFS.find(x => pfDisp(t, x)) || p; };
 const montagem = (t) => { const a = dia();
-  if (t === "aposta_alta" || t === "aposta_baixa") return M.montarAposta(t==="aposta_alta"?"alta":"baixa", a.S, a.chain, a.iv, S.perda || 300);
-  if (t === "sinal_alta" || t === "sinal_put") { const g = sinalVals(); return M.montarSinal(a.S, a.chain, a.iv, S.perda, g.entrada, g.alvo, g.prazo, {estrutura: t==="sinal_put"?"put":"trava", caixa: S.capital}); }
-  return M.montar(t, a.S, a.chain, a.iv, S.perda, {prazoAlvo:vencSel().d, caixa:S.capital}); };
+  if (t === "aposta_alta" || t === "aposta_baixa") return limiteRisco(M.montarAposta(t==="aposta_alta"?"alta":"baixa", a.S, a.chain, a.iv, S.perda || 300, {perfil: pfAtual(t)}));
+  if (t === "sinal_alta" || t === "sinal_put") { const g = sinalVals(), f = (caixa) => M.montarSinal(a.S, a.chain, a.iv, S.perda, g.entrada, g.alvo, g.prazo, {estrutura: t==="sinal_put"?"put":"trava", caixa}); return limiteRisco(f(S.capital), f); }
+  const f = (caixa) => M.montar(t, a.S, a.chain, a.iv, S.perda, {prazoAlvo:vencSel().d, caixa});
+  return limiteRisco(f(S.capital), f); };
+// O risco máximo por operação do perfil vale para toda operação. A put vendida é dimensionada pelo caixa no montador;
+// aqui o número de lotes é reduzido para caber no limite. Se nem a menor operação cabe, o cartão informa quanto o
+// limite precisaria ser (informação, não sugestão de aumentar).
+const msgLimite = (v) => `A menor operação arrisca ${v}. Seu risco máximo por operação é ${brl(S.perda)}: para ver esta operação, ele precisaria ser de pelo menos ${v}.`;
+function limiteRisco(m, refazer){
+  if (typeof m === "string") { const x = m.match(/^A menor operação (?:arrisca|perde|custa) (R\$ [\d.]+)/); return x ? msgLimite(x[1]) : m; }
+  if (m.perdaMax <= S.perda) return m;
+  const r1 = m.perdaMax / m.lotes, caixa1 = m.pernas[0][1].k * 100;
+  if (refazer && r1 <= S.perda) { const m2 = refazer(Math.min(S.capital, Math.floor(S.perda / r1) * caixa1)); if (typeof m2 !== "string" && m2.perdaMax <= S.perda) return m2; }
+  return msgLimite(brl(Math.ceil(r1)));
+}
 const esc = (s) => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const svg = (p, w=24) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 
@@ -133,6 +149,8 @@ function fechamentoNoVenc(ativo, iso, dias){
   return {data:d, venc, preco:f[d]};
 }
 
+function volReal60(){ const f = SNAP.fechamentos[S.ativo], ds = Object.keys(f).filter(d => d <= S.data).sort().slice(-61); if (ds.length < 21) return null;
+  const r = []; for (let i = 1; i < ds.length; i++) r.push(Math.log(f[ds[i]]/f[ds[i-1]])); const mu = r.reduce((a,b)=>a+b,0)/r.length, sd = Math.sqrt(r.reduce((a,b)=>a+(b-mu)*(b-mu),0)/(r.length-1)); return sd*Math.sqrt(252); }
 function movimento(){
   const f = SNAP.fechamentos[S.ativo], ds = Object.keys(f).filter(d => d <= S.data).sort().slice(-60); if (ds.length < 20) return null;
   const px = ds.map(d => f[d]), ult = px[px.length-1], mx = Math.max(...px), mn = Math.min(...px);
@@ -153,24 +171,31 @@ function render(){
 }
 const topo = (back, label, passo) => `<div class="top">${back?`<button class="back" data-go="${back}">‹ ${label}</button>`:`<span class="small muted" style="font-weight:600">Passo ${passo} de 4</span>`}<span>${back?`<span class="small muted" style="font-weight:600;margin-right:8px">Passo ${passo} de 4</span>`:""}<span class="pill sim">Modo simulado</span></span></div>`;
 
+function listaAtivos(q){ q = (q||"").trim().toUpperCase(); const d = SNAP.por_data[S.data];
+  const L = Object.keys(d).filter(n => n.includes(q)).sort();
+  return L.length ? L.map(n => `<button class="opt" role="option" data-ativo="${n}" aria-selected="${n===S.ativo}" style="border:0;border-top:1px solid var(--line);border-radius:0;justify-content:space-between;align-items:center;padding:12px 6px;${n===S.ativo?"font-weight:700":""}"><span>${n}</span><span class="muted">${brl(d[n].S,2)}</span></button>`).join("") : `<p class="small muted" style="padding:12px 6px">Nenhum ativo encontrado.</p>`; }
 function vObj(){
   const a = dia();
   let h = topo(null,"",1) + `<h1>Qual é o seu objetivo?</h1><p class="muted">Toque no cartão que melhor descreve a sua ideia. O app monta a operação e mostra o custo e o máximo que você pode ganhar.</p>`;
   if (DEFASADO) h += `<div class="note" role="alert"><p class="small"><strong>Preços desatualizados.</strong> O último fechamento carregado é de ${dBR(SNAP.data)}. As operações abaixo são só simulação, e a cópia dos parâmetros fica bloqueada até os preços serem atualizados.</p></div>`;
+  { const nomes = Object.keys(SNAP.por_data[S.data]);
+    h += `<section class="card" aria-label="Ativo"><button class="opt" id="atvBtn" aria-expanded="${ativoAberto}" style="justify-content:space-between;align-items:center;padding:12px 14px"><span style="display:flex;flex-direction:column"><span class="small muted">Ativo</span><span style="font-weight:700;font-size:18px">${S.ativo} <span class="muted" style="font-weight:500;font-size:15px">· ${brl(SNAP.por_data[S.data][S.ativo].S,2)}</span></span></span><span class="muted" aria-hidden="true">${ativoAberto?"▴":"▾"}</span></button>`;
+    if (ativoAberto) h += `<input id="atvQ" type="search" placeholder="Buscar ativo (${nomes.length} disponíveis)" autocomplete="off" style="font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:44px;width:100%"><div id="atvL" role="listbox" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column">${listaAtivos("")}</div>`;
+    h += `</section>`; }
   if (perfilAberto) {
   h += `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="font-size:14px;color:var(--muted)">Seu perfil e o dia simulado</h2><button class="back" data-perfil="0" style="min-height:44px">Fechar</button></div>
    <div class="row3">
     <label class="f">Capital disponível (R$)<input id="capital" type="number" inputmode="numeric" min="1000" step="500" value="${S.capital}"></label>
-    <label class="f">Perda máxima por operação (R$)<input id="perda" type="number" inputmode="numeric" min="50" step="50" value="${S.perda}"></label>
+    <label class="f">Risco máximo por operação (R$)<input id="perda" type="number" inputmode="numeric" min="50" step="50" value="${S.perda}"></label>
    </div><div class="row3">
     <label class="f">Ativo<select id="ativo">${Object.keys(SNAP.por_data[S.data]).map(n=>`<option ${n===S.ativo?"selected":""}>${n}</option>`).join("")}</select></label>
     ${TESTE?`<label class="f">Dia dos preços<select id="data">${DATAS.map(d=>`<option value="${d}" ${d===S.data?"selected":""}>${dBR(d)}</option>`).join("")}</select></label>`:""}
     <label class="f">Vencimento<select id="prazo">${(()=>{ const s = vencSel().iso; return vencs().map(v=>`<option value="${v.iso}" ${v.iso===s?"selected":""}>${dBR(v.iso)} · ${v.d} dias</option>`).join(""); })()}</select></label>
    </div>
-   <p class="small muted">${S.cad.corretora?`Corretora: ${esc(S.cad.corretora)}. `:""}Perda máxima por operação: ${(S.perda/S.capital*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% do seu capital.</p>
+   <p class="small muted">${S.cad.corretora?`Corretora: ${esc(S.cad.corretora)}. `:""}Risco máximo por operação: ${(S.perda/S.capital*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% do seu capital.</p>
    <p class="small muted">${S.ativo} fechou em ${brl(a.S,2)} em ${dBR(S.data)}. Volatilidade implícita das opções: ${(a.iv*100).toFixed(0)}% ao ano.</p></section>`;
   } else {
-    h += `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-weight:700">${S.ativo} · vence ${dBR(vencSel().iso).slice(0,5)} · perda máx. ${brl(S.perda)}</div><div class="small muted">Preços de ${dBR(S.data)}${S.cad.corretora?` · ${esc(S.cad.corretora)}`:""}</div></div><button class="back" data-perfil="1" style="min-height:44px">Editar</button></div></section>`;
+    h += `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-weight:700">${S.ativo} · vence ${dBR(vencSel().iso).slice(0,5)} · risco máx. ${brl(S.perda)}</div><div class="small muted">Preços de ${dBR(S.data)}${S.cad.corretora?` · ${esc(S.cad.corretora)}`:""}</div></div><button class="back" data-perfil="1" style="min-height:44px">Editar</button></div></section>`;
   }
   let ult = null;
   for (const t of TESES){
@@ -202,7 +227,7 @@ function num2(x){ return (Math.round(x*100)/100).toFixed(2).replace(".",","); }
 function textoParametros(m, ativo, data){
   const venc = dBR(addDias(data, m.dias));
   const l = m.pernas.map(([lado,o]) => `${lado>0?"COMPRA":"VENDA"} | ${o.s} | ${o.t==="C"?"CALL":"PUT"} | strike ${num2(o.k)} | qtd ${m.lotes*100} | limite ${num2(lado>0?o.a:o.b)}${lado>0?" (máx.)":" (mín.)"}`);
-  return `${m.estrutura} - ${ativo}\nVencimento: ${venc}\n${l.join("\n")}\n${m.premio<0?"Crédito":"Débito"} estimado: R$ ${num2(Math.abs(m.premio))} | Perda máx.: R$ ${num2(m.perdaMax)}\nPreços de fechamento (simulado). Confira o book antes de enviar.`;
+  return `${m.estrutura} - ${ativo}\nVencimento: ${venc}\n${l.join("\n")}\n${m.premio<0?"Crédito":"Débito"} estimado: R$ ${num2(Math.abs(m.premio))} | Risco máx.: R$ ${num2(m.perdaMax)}\nPreços de fechamento (simulado). Confira o book antes de enviar.`;
 }
 function copiar(txt, btn){
   const ok = () => { btn.textContent = "Parâmetros copiados"; setTimeout(()=>{ btn.textContent = "Copiar parâmetros"; }, 2000); };
@@ -222,28 +247,35 @@ function vCartao(){
   { const par = {alta:"aposta_alta", aposta_alta:"alta", baixa:"aposta_baixa", aposta_baixa:"baixa"};
     if (par[tese]) { const ks = tese.endsWith("alta") ? ["alta","aposta_alta"] : ["baixa","aposta_baixa"];
       const nome = (k) => { const x = montagem(k); return typeof x === "string" ? null : x.estrutura; };
-      h += `<div role="group" aria-label="Estrutura" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">` + ks.map(k => { const n = nome(k), on = k===tese; return `<button class="seg" data-estr="${k}" ${n?"":"disabled"} ${on?'aria-pressed="true"':'aria-pressed="false"'} style="min-height:48px;padding:8px 10px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:14px;font-weight:600;cursor:pointer;opacity:${n?1:.5}">${n?esc(n):"Indisponível"}</button>`; }).join("") + `</div><p class="small muted" style="margin-top:-4px">${tese.startsWith("aposta")?"Posição simples: paga o prêmio e perde no máximo o valor pago.":"Trava: custa menos e limita também o ganho."}</p>`; } }  h += `<section class="card"><h2>O que fazer</h2>${pernasHtml(m)}</section>`;
+      h += `<div role="group" aria-label="Estrutura" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">` + ks.map(k => { const n = nome(k), on = k===tese; return `<button class="seg" data-estr="${k}" ${n?"":"disabled"} ${on?'aria-pressed="true"':'aria-pressed="false"'} style="min-height:48px;padding:8px 10px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:14px;font-weight:600;cursor:pointer;opacity:${n?1:.5}">${n?esc(n):"Indisponível"}</button>`; }).join("") + `</div><p class="small muted" style="margin-top:-4px">${tese.startsWith("aposta")?"Posição simples: paga o prêmio e arrisca no máximo o valor pago.":"Trava: custa menos e limita também o ganho."}</p>`; } }
+  if (tese.startsWith("aposta")) { const PF = [["maior","Lucro maior","Acerta menos vezes. Se acertar, o lucro é maior."],["eq","Equilibrada","Meio-termo entre frequência e tamanho do lucro."],["freq","Lucro frequente","Acerta mais vezes, com lucro menor. O custo para entrar e sair é um pouco maior."]], cur = pfAtual(tese);
+    h += `<div role="group" aria-label="Perfil da operação" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px">` + PF.map(([k,n]) => { const on = k===cur, ok = pfDisp(tese,k); return `<button class="seg" data-pf="${k}" ${ok?"":"disabled"} aria-pressed="${on}" style="min-height:48px;padding:6px 6px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:13px;font-weight:600;cursor:pointer;line-height:1.2;opacity:${ok?1:.5}">${n}${ok?"":"<br><span style='font-weight:500;font-size:11px'>indisponível hoje</span>"}</button>`; }).join("") + `</div><p class="small muted" style="margin-top:-4px">${PF.find(p=>p[0]===cur)[2]}</p>`; }
+  h += `<section class="card"><h2>O que fazer</h2>${pernasHtml(m)}</section>`;
   h += `<div class="grid2">
     <div class="stat"><div class="l">${credito?"Você recebe agora":"Você paga agora"}</div><div class="v">${brl(Math.abs(m.premio))}</div></div>
-    <div class="stat risk"><div class="l">Perda máxima</div><div class="v bad">${brl(m.perdaMax)}</div><div class="s">${pct(m.perdaMax/S.capital)} do seu capital</div></div>
+    <div class="stat risk"><div class="l">Risco máximo</div><div class="v bad">${brl(m.perdaMax)}</div><div class="s">${pct(m.perdaMax/S.capital)} do seu capital · dentro do seu limite de ${brl(S.perda)}</div></div>
     <div class="stat"><div class="l">Ganho máximo</div><div class="v good">${m.ganhoMax===null?"Sem limite":brl(m.ganhoMax)}</div></div>
     <div class="stat"><div class="l">${m.equilibrio.length>1?"Lucra fora de":"Lucra "+(tese==="baixa"||tese==="aposta_baixa"?"abaixo de":"acima de")}</div><div class="v">${m.equilibrio.length>1?`${brl(m.equilibrio[0],2)} e ${brl(m.equilibrio[1],2)}`:brl(m.equilibrio[0],2)}</div></div>
    </div>`;
   h += `<div class="card" style="flex-direction:row;justify-content:space-between;align-items:center"><div><div class="small muted">Chance implícita no preço</div><div class="small muted" style="margin-top:2px">Calculada a partir do preço das opções. Não é vantagem sua: em testes com dados reais (2015–25), a média foi de prejuízo.</div></div><div style="font-size:26px;font-weight:700">${pct(m.probImplicita)}</div></div>`;
+  if (tese.startsWith("aposta")) { const eq = m.equilibrio[0], precisa = Math.abs(eq/a.S - 1), vr = volReal60(), tip = vr===null ? null : vr*Math.sqrt(m.dias/365), sobe = tese==="aposta_alta";
+    h += `<section class="card"><h2>Movimento e tempo</h2>
+     <p class="small">Para dar lucro no vencimento, a ação precisa ${sobe?"subir":"cair"} ${(precisa*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% (até ${brl(eq,2)}).${tip===null?"":` Pela oscilação dos últimos 60 pregões, a ação costuma variar cerca de ${(tip*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% em ${m.dias} dias.`}</p>
+     ${m.thetaDia==null?"":`<p class="small">Custo do tempo: se nada mudar, a operação desvaloriza cerca de ${brl(m.thetaDia)} por dia.</p>`}</section>`; }
   h += `<div class="note"><h2 style="font-size:16px;margin-bottom:4px">Para que serve</h2>${paraQue(tese,m)}</div>`;
   h += `<button class="btn sec2" id="copiar">Copiar parâmetros</button><textarea id="cpbox" class="small" hidden readonly rows="6" style="width:100%;margin-top:8px"></textarea>`;
   h += `<button class="btn" data-go="cen">Ver cenários</button><button class="btn sec2" data-go="obj">Não agora</button>`;
   return h;
 }
 function paraQue(t,m){
-  if (t==="aposta_alta") return `<p>Ganhar se a ação subir acima de ${brl(m.equilibrio[0],2)} até o vencimento. Se ela não subir o suficiente, você perde todo o valor pago, ${brl(m.perdaMax)}.</p>`;
-  if (t==="aposta_baixa") return `<p>Ganhar se a ação cair abaixo de ${brl(m.equilibrio[0],2)} até o vencimento. Se ela não cair o suficiente, você perde todo o valor pago, ${brl(m.perdaMax)}.</p>`;
-  if (t==="sinal_alta") return `<p>Ganhar se a ação chegar ao alvo do sinal (${brl(m.pernas[1][1].k,2)}), sem risco de perder mais do que ${brl(m.perdaMax)}. O ganho máximo só vem se o preço chegar lá antes do vencimento. A ferramenta não avalia o sinal.</p>`;
+  if (t==="aposta_alta") return `<p>Ganhar se a ação subir acima de ${brl(m.equilibrio[0],2)} até o vencimento. Se ela não subir o suficiente, o risco é todo o valor pago, ${brl(m.perdaMax)}.</p>`;
+  if (t==="aposta_baixa") return `<p>Ganhar se a ação cair abaixo de ${brl(m.equilibrio[0],2)} até o vencimento. Se ela não cair o suficiente, o risco é todo o valor pago, ${brl(m.perdaMax)}.</p>`;
+  if (t==="sinal_alta") return `<p>Ganhar se a ação chegar ao alvo do sinal (${brl(m.pernas[1][1].k,2)}), com risco limitado a ${brl(m.perdaMax)}. O ganho máximo só vem se o preço chegar lá antes do vencimento. A ferramenta não avalia o sinal.</p>`;
   if (t==="sinal_put") return `<p>Receber o prêmio agora e, se a ação cair até ${brl(m.pernas[0][1].k,2)}, comprá-la por esse preço, a entrada do sinal. O caixa de ${brl(m.pernas[0][1].k*100*m.lotes)} fica reservado. Se ela não cair, você fica com o prêmio e não compra. A ferramenta não avalia o sinal.</p>`;
-  if (t==="alta") return `<p>Ganhar se a ação subir, sem correr o risco de perder mais do que ${brl(m.perdaMax)}. Se ela não subir, você perde só o que pagou.</p>`;
-  if (t==="baixa") return `<p>Ganhar se a ação cair, sem correr o risco de perder mais do que ${brl(m.perdaMax)}. Se ela não cair, você perde só o que pagou.</p>`;
-  if (t==="forte") return `<p>Ganhar se a ação subir ou cair bastante, para qualquer lado. Se ficar parada, você perde só o que pagou (${brl(m.perdaMax)}).</p>`;
-  return `<p>Receber o prêmio agora. Se a ação terminar acima de ${brl(m.pernas[0][1].k,2)}, você fica com ele. Se terminar abaixo, você compra a ação a esse preço, e a perda pode chegar a ${brl(m.perdaMax)} se ela for a zero. O caixa de ${brl(m.pernas[0][1].k*100*m.lotes)} fica reservado.</p>`;
+  if (t==="alta") return `<p>Ganhar se a ação subir, com risco limitado a ${brl(m.perdaMax)}. Se ela não subir, o risco é só o que pagou.</p>`;
+  if (t==="baixa") return `<p>Ganhar se a ação cair, com risco limitado a ${brl(m.perdaMax)}. Se ela não cair, o risco é só o que pagou.</p>`;
+  if (t==="forte") return `<p>Ganhar se a ação subir ou cair bastante, para qualquer lado. Se ficar parada, o risco é só o que pagou (${brl(m.perdaMax)}).</p>`;
+  return `<p>Receber o prêmio agora. Se a ação terminar acima de ${brl(m.pernas[0][1].k,2)}, você fica com ele. Se terminar abaixo, você compra a ação a esse preço, e o risco pode chegar a ${brl(m.perdaMax)} se ela for a zero. O caixa de ${brl(m.pernas[0][1].k*100*m.lotes)} fica reservado.</p>`;
 }
 function cenarios(m){
   const a = dia(), pts = [0.85,0.95,1,1.05,1.15].map(f => Math.round(a.S*f*100)/100);
@@ -258,19 +290,19 @@ function vCen(){
   if (rep){ const r = M.resultadoNoVencimento(m, rep.preco);
     h += `<section class="card"><h2>Se você tivesse entrado neste dia</h2><p class="small">No vencimento (${dBR(rep.venc)}), ${S.ativo} fechou em ${brl(rep.preco,2)}. O resultado teria sido <strong style="color:${r>0?"var(--good)":r<0?"var(--bad)":"inherit"}">${r===0?"R$ 0":sgn(r)}</strong>, antes de imposto. Um único caso não mostra se a estratégia funciona.</p></section>`; }
   h += `<section class="card"><h2 style="font-size:16px">Risco desta operação</h2><p class="small">${erro(tese,m)}</p></section>`;
-  h += `<label class="chk"><input id="ciente" type="checkbox" ${ciente?"checked":""}><span>Entendi que posso perder até ${brl(m.perdaMax)} nesta operação.</span></label>`;
+  h += `<label class="chk"><input id="ciente" type="checkbox" ${ciente?"checked":""}><span>Entendi que o risco máximo desta operação é ${brl(m.perdaMax)} nesta operação.</span></label>`;
   h += `<button class="btn" id="confirmar" ${ciente?"":"disabled"}>Simular esta operação</button><button class="btn sec2" data-go="cartao">Voltar</button>`;
   return h;
 }
 function erro(t,m){
-  if (t==="aposta_alta") return `Se a ação ficar abaixo de ${brl(m.equilibrio[0],2)} no vencimento, você perde o valor pago (${brl(m.perdaMax)}). O tempo joga contra você, e a maioria das operações deste tipo terminou assim nos testes.`;
-  if (t==="aposta_baixa") return `Se a ação ficar acima de ${brl(m.equilibrio[0],2)} no vencimento, você perde o valor pago (${brl(m.perdaMax)}). O tempo joga contra você, e a maioria das operações deste tipo terminou assim nos testes.`;
-  if (t==="sinal_alta") return `Se a ação não subir até o vencimento, você perde os ${brl(m.perdaMax)}. Se o alvo for atingido só depois do vencimento, o ganho se perde. O tempo joga contra você.`;
+  if (t==="aposta_alta") return `Se a ação ficar abaixo de ${brl(m.equilibrio[0],2)} no vencimento, o risco é o valor pago (${brl(m.perdaMax)}). O tempo joga contra você, e a maioria das operações deste tipo terminou assim nos testes.`;
+  if (t==="aposta_baixa") return `Se a ação ficar acima de ${brl(m.equilibrio[0],2)} no vencimento, o risco é o valor pago (${brl(m.perdaMax)}). O tempo joga contra você, e a maioria das operações deste tipo terminou assim nos testes.`;
+  if (t==="sinal_alta") return `Se a ação não subir até o vencimento, o risco é de ${brl(m.perdaMax)}. Se o alvo for atingido só depois do vencimento, o ganho se perde. O tempo joga contra você.`;
   if (t==="sinal_put") return `Se a ação cair muito abaixo da entrada, você compra a ${brl(m.pernas[0][1].k,2)} e fica com prejuízo, que pode chegar a ${brl(m.perdaMax)} se ela for a zero. Se ela subir sem passar pela entrada, você não compra e perde a oportunidade.`;
-  if (t==="alta") return `Se a ação ficar parada ou cair, você perde os ${brl(m.perdaMax)}. O tempo joga contra você: a cada dia a operação perde valor se a ação não sobe.`;
-  if (t==="baixa") return `Se a ação ficar parada ou subir, você perde os ${brl(m.perdaMax)}. O tempo joga contra você.`;
-  if (t==="forte") return `Se a ação terminar entre ${brl(m.equilibrio[0],2)} e ${brl(m.equilibrio[1],2)}, você perde parte ou todo o valor pago. O tempo joga contra você.`;
-  return `Uma queda forte gera perda grande: de ${brl(m.perdaMax)} se a ação for a zero. Nos testes de 2015–25 no BOVA11, um único mês (fevereiro de 2020) apagou o ganho de vários anos.`;
+  if (t==="alta") return `Se a ação ficar parada ou cair, o risco é de ${brl(m.perdaMax)}. O tempo joga contra você: a cada dia a operação perde valor se a ação não sobe.`;
+  if (t==="baixa") return `Se a ação ficar parada ou subir, o risco é de ${brl(m.perdaMax)}. O tempo joga contra você.`;
+  if (t==="forte") return `Se a ação terminar entre ${brl(m.equilibrio[0],2)} e ${brl(m.equilibrio[1],2)}, o risco é parte ou todo o valor pago. O tempo joga contra você.`;
+  return `Uma queda forte gera risco alto: até ${brl(m.perdaMax)} se a ação for a zero. Nos testes de 2015–25 no BOVA11, um único mês (fevereiro de 2020) apagou o ganho de vários anos.`;
 }
 
 
@@ -290,7 +322,7 @@ function vDesemp(){
   if (per==="pers") h += `<div class="row3" style="margin-top:10px"><label class="f">De<input id="pde" type="date" value="${pDe}"></label><label class="f">Até<input id="pate" type="date" value="${pAte}"></label></div>`;
   h += `</section>`;
   h += `<section class="card"><div class="small muted">Resultado no período</div><div style="font-size:32px;font-weight:700;color:${tot>0?"var(--good)":tot<0?"var(--bad)":"inherit"}">${tot===0?"R$ 0":sgn(tot)}</div>
-   <div class="row3" style="border-top:1px solid var(--line);padding-top:10px;margin-top:8px"><div><div class="small muted">Operações</div><div style="font-weight:700">${fim.length}</div></div><div><div class="small muted">Com ganho</div><div style="font-weight:700;color:var(--good)">${gan.length}</div></div><div><div class="small muted">Com perda</div><div style="font-weight:700;color:var(--bad)">${per_.length}</div></div></div></section>`;
+   <div class="row3" style="border-top:1px solid var(--line);padding-top:10px;margin-top:8px"><div><div class="small muted">Operações</div><div style="font-weight:700">${fim.length}</div></div><div><div class="small muted">Com ganho</div><div style="font-weight:700;color:var(--good)">${gan.length}</div></div><div><div class="small muted">Com resultado negativo</div><div style="font-weight:700;color:var(--bad)">${per_.length}</div></div></div></section>`;
   if (!fim.length) h += `<div class="card empty"><p>Nenhuma operação vencida neste período.</p><p class="small" style="margin-top:6px">Simule uma operação com data de entrada mais antiga para ver o resultado.</p></div>`;
   else h += `<section class="card"><h2 style="font-size:16px">Operações do período</h2>` + fim.map(l => `<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)"><div><div style="font-weight:600">${esc(l.o.m.estrutura)} · ${l.o.ativo}</div><div class="small muted">${dBR(l.o.data)} a ${dBR(l.venc)}</div></div><div style="font-weight:700;white-space:nowrap;color:${l.res>0?"var(--good)":l.res<0?"var(--bad)":"inherit"}">${l.res===0?"R$ 0":sgn(l.res)}</div></div>`).join("") + `</section>`;
   if (abertas.length) h += `<p class="foot">${abertas.length} operação${abertas.length>1?"ões":""} ainda não venceu neste dia simulado e fica fora do resultado.</p>`;
@@ -302,8 +334,8 @@ function vLista(){
   const L = abertas(), tot = L.reduce((a,o)=>a+o.m.perdaMax,0);
   let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Minhas operações</h1>`;
   if (!L.length) return h + `<div class="card empty"><p>Nenhuma operação em aberto.</p><p class="small" style="margin-top:6px">Escolha um objetivo, veja os cenários e confirme para acompanhar aqui.</p></div><button class="btn" data-go="obj">Escolher objetivo</button>`;
-  h += `<section class="card"><div class="small muted">Em aberto</div><div style="font-size:24px;font-weight:700">${L.length} operaç${L.length>1?"ões":"ão"}</div><div class="row3" style="border-top:1px solid var(--line);padding-top:10px;margin-top:8px"><div><div class="small muted">Perda máxima somada</div><div style="font-weight:700">${brl(tot)}</div></div><div><div class="small muted">Do seu capital</div><div style="font-weight:700">${(tot/S.capital*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}%</div></div></div></section>`;
-  h += L.slice().sort((a,b)=>addDias(a.data,a.m.dias).localeCompare(addDias(b.data,b.m.dias))).map(o => `<button class="opt" data-op="${o.id}"><span class="tx"><span class="t">${esc(o.m.estrutura)} · ${o.ativo}</span><span class="st"><span>Entrada ${dBR(o.data)} · vence ${dBR(addDias(o.data,o.m.dias))} · perda máx. ${brl(o.m.perdaMax)}</span></span></span></button>`).join("");
+  h += `<section class="card"><div class="small muted">Em aberto</div><div style="font-size:24px;font-weight:700">${L.length} operaç${L.length>1?"ões":"ão"}</div><div class="row3" style="border-top:1px solid var(--line);padding-top:10px;margin-top:8px"><div><div class="small muted">Risco máximo somado</div><div style="font-weight:700">${brl(tot)}</div></div><div><div class="small muted">Do seu capital</div><div style="font-weight:700">${(tot/S.capital*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}%</div></div></div></section>`;
+  h += L.slice().sort((a,b)=>addDias(a.data,a.m.dias).localeCompare(addDias(b.data,b.m.dias))).map(o => `<button class="opt" data-op="${o.id}"><span class="tx"><span class="t">${esc(o.m.estrutura)} · ${o.ativo}</span><span class="st"><span>Entrada ${dBR(o.data)} · vence ${dBR(addDias(o.data,o.m.dias))} · risco máx. ${brl(o.m.perdaMax)}</span></span></span></button>`).join("");
   return h + `<button class="btn" data-go="obj">Nova operação</button>`;
 }
 function vCad(){
@@ -331,11 +363,11 @@ function vAcomp(){
   h += `<div class="small muted">${esc(m.estrutura)} · ${P.ativo} · entrada em ${dBR(P.data)}</div>`;
   h += `<section class="card"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><div><div class="small muted">Resultado no vencimento, se a ação estiver em</div><div id="rv" style="font-size:30px;font-weight:700;color:${r>0?"var(--good)":r<0?"var(--bad)":"inherit"}">${r===0?"R$ 0":sgn(r)}</div></div><div style="text-align:right"><div class="small muted">Ação</div><div id="px" style="font-size:20px;font-weight:700;white-space:nowrap">${brl(slider,2)}</div></div></div>
    <input id="sl" type="range" min="${lo}" max="${hi}" step="0.01" value="${slider}" aria-label="Preço da ação no vencimento">
-   <div><div class="small muted" style="display:flex;justify-content:space-between"><span>Perda máx. ${sgn(pior)}</span><span>${m.ganhoMax===null?"Sem teto":"Ganho máx. "+sgn(m.ganhoMax)}</span></div><div class="bar" role="img" aria-label="Posição do resultado entre a perda máxima e o ganho máximo"><i style="left:${zero}%"></i><b id="bb" style="background:${r>=0?"var(--good)":"var(--bad)"};left:${Math.min(pos,zero)}%;width:${Math.abs(pos-zero)}%"></b></div></div>
-   <div class="row3" style="border-top:1px solid var(--line);padding-top:10px"><div><div class="small muted">Valor da operação</div><div style="font-weight:700">${brl(Math.abs(m.premio))}</div></div><div><div class="small muted">Perda máx.</div><div style="font-weight:700">${brl(m.perdaMax)}</div></div><div><div class="small muted">Vence em</div><div style="font-weight:700">${dBR(addDias(P.data,m.dias))}</div></div></div></section>`;
+   <div><div class="small muted" style="display:flex;justify-content:space-between"><span>Risco máx. ${sgn(pior)}</span><span>${m.ganhoMax===null?"Sem teto":"Ganho máx. "+sgn(m.ganhoMax)}</span></div><div class="bar" role="img" aria-label="Posição do resultado entre a risco máximo e o ganho máximo"><i style="left:${zero}%"></i><b id="bb" style="background:${r>=0?"var(--good)":"var(--bad)"};left:${Math.min(pos,zero)}%;width:${Math.abs(pos-zero)}%"></b></div></div>
+   <div class="row3" style="border-top:1px solid var(--line);padding-top:10px"><div><div class="small muted">Valor da operação</div><div style="font-weight:700">${brl(Math.abs(m.premio))}</div></div><div><div class="small muted">Risco máx.</div><div style="font-weight:700">${brl(m.perdaMax)}</div></div><div><div class="small muted">Vence em</div><div style="font-weight:700">${dBR(addDias(P.data,m.dias))}</div></div></div></section>`;
   h += `<section class="card"><h2 style="font-size:16px">Quando sair</h2><p class="small muted">Regras definidas na entrada. Elas não mudam com o humor do mercado.</p>
    ${m.alvo!==null?`<div class="step"><span class="n" style="background:var(--good-soft);color:var(--good)">✓</span><p><strong>Lucro: sair com ${sgn(m.alvo)}</strong><br><span class="muted small">Metade do ganho máximo.</span></p></div>`:""}
-   ${m.stop!==null?`<div class="step"><span class="n" style="background:var(--bad-soft);color:var(--bad)">!</span><p><strong>Prejuízo: sair com ${sgn(m.stop)}</strong><br><span class="muted small">Evita chegar à perda máxima. Valor padrão, sem validação em testes.</span></p></div>`:`<div class="step"><span class="n" style="background:var(--bad-soft);color:var(--bad)">!</span><p><strong>Sem regra de saída automática</strong><br><span class="muted small">Você pode perder tudo o que pagou (${brl(m.perdaMax)}). Nos testes, sair cedo não melhorou o resultado.</span></p></div>`}
+   ${m.stop!==null?`<div class="step"><span class="n" style="background:var(--bad-soft);color:var(--bad)">!</span><p><strong>Prejuízo: sair com ${sgn(m.stop)}</strong><br><span class="muted small">Evita chegar à risco máximo. Valor padrão, sem validação em testes.</span></p></div>`:`<div class="step"><span class="n" style="background:var(--bad-soft);color:var(--bad)">!</span><p><strong>Sem regra de saída automática</strong><br><span class="muted small">O risco é tudo o que pagou (${brl(m.perdaMax)}). Nos testes, sair cedo não melhorou o resultado.</span></p></div>`}
    ${m.saidaDias>0?`<div class="step"><span class="n" style="background:var(--warn-soft);color:var(--warn-text)">7</span><p><strong>Prazo: sair até ${m.saidaDias} dias antes do vencimento</strong><br><span class="muted small">Em ${dBR(addDias(P.data,m.dias-m.saidaDias))}.</span></p></div>`:`<div class="step"><span class="n" style="background:var(--warn-soft);color:var(--warn-text)">7</span><p><strong>Vencimento em ${dBR(addDias(P.data,m.dias))}</strong><br><span class="muted small">Se o preço não passar do ponto de equilíbrio, a opção vale zero.</span></p></div>`}</section>`;
   if (rep){ const rr = M.resultadoNoVencimento(m, rep.preco); h += `<section class="card"><h2 style="font-size:16px">Como terminou de verdade</h2><p class="small">Em ${dBR(rep.venc)}, ${P.ativo} fechou em ${brl(rep.preco,2)}. Resultado: <strong style="color:${rr>0?"var(--good)":rr<0?"var(--bad)":"inherit"}">${rr===0?"R$ 0":sgn(rr)}</strong>, antes de imposto.</p></section>`; }
   h += `<p class="foot">Valores calculados com preços de fechamento reais, em modo simulado. Em testes com dados reais (2015–25), estas regras não deram lucro médio.</p><button class="btn sec2" id="copiar">Copiar parâmetros</button><textarea id="cpbox" class="small" hidden readonly rows="6" style="width:100%;margin-top:8px"></textarea><button class="btn danger" id="encerrar">Encerrar operação simulada</button>`;
@@ -365,7 +397,12 @@ function bind(){
   document.querySelectorAll("[data-per]").forEach(b => b.onclick = () => { per = b.dataset.per; render(); });
   const pd = q("#pde"); if (pd) pd.onchange = () => { pDe = pd.value; render(); }; const pa = q("#pate"); if (pa) pa.onchange = () => { pAte = pa.value; render(); };
   const lh = q("#limpar-hist"); if (lh) lh.onclick = () => { if (confirm("Apagar todo o histórico de operações simuladas?")){ try{ localStorage.removeItem("historico"); }catch(e){} render(); } };
+  const pickAtv = (b) => b.onclick = () => { S.ativo = b.dataset.ativo; S.sinal = Object.assign(S.sinal||{}, {entrada:null, alvo:null}); ativoAberto = false; save("estado", S); render(); };
+  document.querySelectorAll("[data-ativo]").forEach(pickAtv);
+  const ab = q("#atvBtn"); if (ab) ab.onclick = () => { ativoAberto = !ativoAberto; render(); const i = q("#atvQ"); if (i) i.focus(); };
+  const aq = q("#atvQ"); if (aq) aq.oninput = () => { q("#atvL").innerHTML = listaAtivos(aq.value); document.querySelectorAll("#atvL [data-ativo]").forEach(pickAtv); };
   document.querySelectorAll("[data-perfil]").forEach(b => b.onclick = () => { perfilAberto = b.dataset.perfil === "1"; render(); });
+  document.querySelectorAll("[data-pf]").forEach(b => b.onclick = () => { S.pf = b.dataset.pf; save("estado", S); render(); });
   document.querySelectorAll("[data-estr]").forEach(b => b.onclick = () => { tese = b.dataset.estr; ciente = false; render(); });
   const sv = () => { save("estado", S); M.setCorretagem(S.cad.corretagem); };
   const cn = q("#cnome"); if (cn) cn.onchange = () => { S.cad.nome = cn.value.trim().slice(0,80); sv(); };

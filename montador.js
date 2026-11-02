@@ -54,7 +54,7 @@
       if (caixa < caixa1) return "Falta caixa: a put vendida exige reservar R$ " + fmt(caixa1) + ".";
       lotes = Math.floor(caixa / caixa1); stop = -Math.min(stopFrac * perda1, perdaAceita);
     } else { lotes = perda1 > 0 ? Math.floor(perdaAceita / perda1) : 0; stop = -stopFrac * perda1; }
-    if (lotes < 1) return "A menor operação perde R$ " + fmt(perda1) + ", acima do seu limite de R$ " + fmt(perdaAceita) + ".";
+    if (lotes < 1) return "A menor operação arrisca R$ " + fmt(perda1) + ", acima do seu limite de R$ " + fmt(perdaAceita) + ".";
     const taxas = pernas.reduce((s, [l, x]) => s + TAXA_B3 * mid(x) * LOTE, 0) * 2;
     const custo = Math.abs(premio - premioMid) + taxas + fixo(pernas.length);
     const alvo = ganho1 === null ? null : alvoFrac * ganho1;
@@ -97,9 +97,9 @@
       const [perda1, ganho1, eq] = payoff(tese === "sinal_put" ? "alta_com_caixa" : "alta", pernas, premio);
       let lotes, stop;
       if (tese === "sinal_alta") {
-        if (perda1 <= 0 || ganho1 / perda1 < minRR) { motivo = "A trava custa " + brl0(perda1) + " para ganhar no máximo " + brl0(ganho1) + ": ganho menor que a perda. Não compensa."; continue; }
+        if (perda1 <= 0 || ganho1 / perda1 < minRR) { motivo = "A trava custa " + brl0(perda1) + " para ganhar no máximo " + brl0(ganho1) + ": ganho máximo menor que o risco."; continue; }
         lotes = Math.floor(perdaAceita / perda1); stop = -stopFrac * perda1;
-        if (lotes < 1) { motivo = "A menor operação perde " + brl0(perda1) + ", acima do seu limite de " + brl0(perdaAceita) + "."; continue; }
+        if (lotes < 1) { motivo = "A menor operação arrisca " + brl0(perda1) + ", acima do seu limite de " + brl0(perdaAceita) + "."; continue; }
       } else { lotes = Math.floor(caixa / (p.k * LOTE)); stop = -Math.min(stopFrac * perda1, perdaAceita); }
       const taxas = pernas.reduce((s, [l, x]) => s + TAXA_B3 * mid(x) * LOTE, 0) * 2, custo = Math.abs(premio - premioMid) + taxas + fixo(pernas.length);
       const prob = probAcima(S, eq[0], d, volImpl);
@@ -109,11 +109,36 @@
     return motivo;
   }
 
+  // --- delta de Black-Scholes pelo preço de mercado (juro 10% a.a.), usado só nos perfis da compra simples ---
+  const R_BS = 0.10;
+  const bsPreco = (S, K, T, v, tipo) => { const d1 = (Math.log(S / K) + (R_BS + v * v / 2) * T) / (v * Math.sqrt(T)), d2 = d1 - v * Math.sqrt(T);
+    return tipo === "C" ? S * N(d1) - K * Math.exp(-R_BS * T) * N(d2) : K * Math.exp(-R_BS * T) * N(-d2) - S * N(-d1); };
+  const ivOpt = (S, o) => { const T = o.d / 365, p = mid(o); let lo = 0.02, hi = 3;
+    if (!(p > 0) || bsPreco(S, o.k, T, hi, o.t) < p || bsPreco(S, o.k, T, lo, o.t) > p) return null;
+    for (let i = 0; i < 60; i++) { const mdl = (lo + hi) / 2; if (bsPreco(S, o.k, T, mdl, o.t) < p) lo = mdl; else hi = mdl; }
+    return (lo + hi) / 2; };
+  const deltaAbs = (S, o) => { const v = ivOpt(S, o); if (v === null) return null; const T = o.d / 365, d1 = (Math.log(S / o.k) + (R_BS + v * v / 2) * T) / (v * Math.sqrt(T));
+    return o.t === "C" ? N(d1) : 1 - N(d1); };
+  // theta por ação por dia corrido (R$ que a opção perde por dia se nada mudar), pela IV do próprio preço
+  const thetaDia = (S, o) => { const v = ivOpt(S, o); if (v === null) return null; const T = o.d / 365, K = o.k, sq = Math.sqrt(T),
+      d1 = (Math.log(S / K) + (R_BS + v * v / 2) * T) / (v * sq), d2 = d1 - v * sq, pdf = Math.exp(-d1 * d1 / 2) / Math.sqrt(2 * Math.PI);
+    const th = o.t === "C" ? -S * pdf * v / (2 * sq) - R_BS * K * Math.exp(-R_BS * T) * N(d2) : -S * pdf * v / (2 * sq) + R_BS * K * Math.exp(-R_BS * T) * N(-d2);
+    return -th / 365; };
+  const PERFIS = { maior: 0.20, eq: 0.42, freq: 0.72 }; // delta-alvo de cada perfil da compra simples
   // Aposta simples: call ATM (alta) ou put ATM (baixa), só opções muito líquidas. Espelha montar_aposta de montador.py.
   function montarAposta(lado, S, chain, volImpl, valor, o = {}) {
-    const prazoAlvo = o.prazoAlvo ?? 45, spreadMax = o.spreadMax ?? 0.10, volMin = o.volMin ?? 1000, jan = o.jan ?? 0.05, tipo = lado === "alta" ? "C" : "P";
+    const prazoAlvo = o.prazoAlvo ?? 45, spreadMax = o.spreadMax ?? (o.perfil === "freq" ? 0.15 : 0.10), volMin = o.volMin ?? 1000, jan = o.jan ?? 0.05, tipo = lado === "alta" ? "C" : "P";
     const dias = [...new Set(chain.filter((x) => x.d >= Math.max(prazoAlvo - 15, 7) && x.d <= prazoAlvo + 15).map((x) => x.d))].sort((a, b) => Math.abs(a - prazoAlvo) - Math.abs(b - prazoAlvo) || a - b);
     let esc = null;
+    if (o.perfil && PERFIS[o.perfil] !== undefined) {
+      const alvoD = PERFIS[o.perfil];
+      for (const d of dias) {
+        const L = liquidas(chain.filter((x) => x.d === d), tipo, spreadMax, volMin).filter((y) => Math.abs(y.k / S - 1) <= 0.20);
+        let best = null;
+        for (const y of L) { const dl = deltaAbs(S, y); if (dl === null) continue; const gap = Math.abs(dl - alvoD); if (gap <= (o.tolDelta ?? (o.perfil === "freq" ? 0.15 : 0.12)) && (!best || gap < best.gap || (gap === best.gap && spread(y) < spread(best.o)))) best = { o: y, gap }; }
+        if (best) { esc = best.o; break; }
+      }
+    } else
     for (const d of dias) { const L = liquidas(chain.filter((x) => x.d === d), tipo, spreadMax, volMin); const x = perto(L.filter((y) => Math.abs(y.k / S - 1) <= jan), S); if (x) { esc = x; break; } }
     if (!esc) return "Sem opção muito líquida perto do preço atual neste prazo.";
     const custo1 = esc.a * LOTE, lotes = Math.floor(valor / custo1);
@@ -123,7 +148,7 @@
     else { ganho = (esc.k - prem) * LOTE * lotes; eq = [esc.k - prem]; prob = 1 - probAcima(S, eq[0], esc.d, volImpl); est = "Put comprada (posição de baixa)"; tese = "aposta_baixa"; }
     const custo = (esc.a - mid(esc)) * LOTE + TAXA_B3 * mid(esc) * LOTE * 2 + fixo(1), perda = prem * LOTE * lotes;
     return { tese, estrutura: est, pernas: [[1, esc]], lotes, dias: esc.d, premio: r2(perda), perdaMax: r2(perda), ganhoMax: ganho === null ? null : r2(ganho), equilibrio: eq.map(r2),
-      probImplicita: Math.round(prob * 1000) / 1000, custoTotal: r2(custo * lotes), alvo: null, stop: null, saidaDias: 0 };
+      probImplicita: Math.round(prob * 1000) / 1000, custoTotal: r2(custo * lotes), alvo: null, stop: null, saidaDias: 0, thetaDia: (() => { const t = thetaDia(S, esc); return t === null ? null : r2(t * LOTE * lotes); })() };
   }
   // resultado no vencimento para um preço final da ação (por todos os lotes)
   function resultadoNoVencimento(m, ST) {
