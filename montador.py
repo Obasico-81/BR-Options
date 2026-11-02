@@ -4,12 +4,13 @@ Teses: alta | baixa | forte (movimento forte, direção incerta) | alta_com_caix
 Estruturas de risco ilimitado não são oferecidas."""
 from __future__ import annotations
 from dataclasses import dataclass, field
-from math import log, sqrt, erf
+from math import log, sqrt, erf, exp, pi
 from typing import Optional
 
 TAXA_B3 = 0.00134          # 0,134% do prêmio por lado (swing, PF) — conferir vigência
 CUSTO_FIXO = 2.0           # R$ por estrutura (corretagem zero; margem de segurança)
 LOTE = 100
+_CORRETAGEM: Optional[float] = None   # R$ por ordem; None = não informada (vale a margem fixa)
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,7 @@ class Montagem:
     stop: float                # resultado (negativo) que dispara a saída por perda
     data_max_dias: int         # sair quando faltar este número de dias
     avisos: tuple = ()
+    theta_dia: Optional[float] = None   # R$/dia que a operação desvaloriza se nada mudar (só compra simples)
 
 
 SPREAD_MAX = 0.20  # spread máximo (venda − compra) / médio, no fechamento; era 10% até 02/11/2026
@@ -56,6 +58,20 @@ def brl2(v: float) -> str:
 
 
 def _n(x: float) -> float: return 0.5 * (1 + erf(x / sqrt(2)))
+
+
+def set_corretagem(v) -> None:
+    """Corretagem do usuário em R$ por ordem; None (ou inválida/negativa) volta para a margem fixa. Espelha setCorretagem."""
+    global _CORRETAGEM
+    try:
+        _CORRETAGEM = None if v is None or float(v) < 0 else float(v)
+    except (TypeError, ValueError):
+        _CORRETAGEM = None
+
+
+def _fixo(n_pernas: int) -> float:
+    """Custo fixo ida e volta: margem de R$ 2 × 2 sem corretagem cadastrada; senão corretagem × pernas × 2 (como o JS)."""
+    return CUSTO_FIXO * 2 if _CORRETAGEM is None else _CORRETAGEM * n_pernas * 2
 
 
 def prob_acima(S: float, K: float, dias: int, vol: float) -> float:
@@ -110,7 +126,7 @@ def montar(tese: str, S: float, chain: list, vol_impl: float, perda_aceita: floa
         return f"A menor operação arrisca {brl(perda1)}, acima do seu limite de {brl(perda_aceita)}."
     taxas = sum(TAXA_B3 * o.mid * LOTE for l, o in pernas) * 2
     spread_custo = abs(premio - premio_mid)
-    custo = (spread_custo + taxas + CUSTO_FIXO * 2)
+    custo = (spread_custo + taxas + _fixo(len(pernas)))
     ganho = ganho1
     alvo = alvo_frac * ganho1 if ganho1 is not None else None
     ks = [o.strike for l, o in pernas]
@@ -212,7 +228,7 @@ def montar_sinal(S: float, chain: list, vol_impl: float, perda_aceita: float, en
         else:
             lotes = int(caixa // (p.strike * LOTE)); stop = -min(stop_frac * perda1, perda_aceita)
         taxas = sum(TAXA_B3 * o.mid * LOTE for l, o in pernas) * 2
-        custo = abs(premio - premio_mid) + taxas + CUSTO_FIXO * 2
+        custo = abs(premio - premio_mid) + taxas + _fixo(len(pernas))
         prob = prob_acima(S, eq[0], d, vol_impl)
         avisos = ["Probabilidade implícita no preço de mercado; não é vantagem do usuário.",
                   "O alvo vem do sinal recebido; a ferramenta não valida o sinal.",
@@ -223,17 +239,71 @@ def montar_sinal(S: float, chain: list, vol_impl: float, perda_aceita: float, en
     return motivo
 
 
+# --- Black-Scholes pelo preço de mercado (juro 10% a.a.), usado só nos perfis e no theta da compra simples ---
+R_BS = 0.10
+PERFIS = {"maior": 0.20, "eq": 0.42, "freq": 0.72}   # delta-alvo: Lucro maior · Equilibrada · Lucro frequente
+
+
+def _bs_preco(S, K, T, v, tipo):
+    d1 = (log(S / K) + (R_BS + v * v / 2) * T) / (v * sqrt(T)); d2 = d1 - v * sqrt(T)
+    return S * _n(d1) - K * exp(-R_BS * T) * _n(d2) if tipo == "C" else K * exp(-R_BS * T) * _n(-d2) - S * _n(-d1)
+
+
+def _iv_opcao(S, o: Opcao):
+    """IV pelo preço médio da opção, bisseção em [2%, 300%] (60 passos, como o JS). None se fora do intervalo."""
+    T = o.dias / 365; p = o.mid; lo, hi = 0.02, 3.0
+    if not p > 0 or _bs_preco(S, o.strike, T, hi, o.tipo) < p or _bs_preco(S, o.strike, T, lo, o.tipo) > p:
+        return None
+    for _ in range(60):
+        m = (lo + hi) / 2
+        if _bs_preco(S, o.strike, T, m, o.tipo) < p: lo = m
+        else: hi = m
+    return (lo + hi) / 2
+
+
+def _delta_abs(S, o: Opcao):
+    v = _iv_opcao(S, o)
+    if v is None: return None
+    T = o.dias / 365; d1 = (log(S / o.strike) + (R_BS + v * v / 2) * T) / (v * sqrt(T))
+    return _n(d1) if o.tipo == "C" else 1 - _n(d1)
+
+
+def _theta_dia(S, o: Opcao):
+    """R$ por ação que a opção perde por dia corrido se nada mudar, pela IV do próprio preço."""
+    v = _iv_opcao(S, o)
+    if v is None: return None
+    T = o.dias / 365; K = o.strike; sq = sqrt(T)
+    d1 = (log(S / K) + (R_BS + v * v / 2) * T) / (v * sq); d2 = d1 - v * sq; pdf = exp(-d1 * d1 / 2) / sqrt(2 * pi)
+    th = (-S * pdf * v / (2 * sq) - R_BS * K * exp(-R_BS * T) * _n(d2)) if o.tipo == "C" else (-S * pdf * v / (2 * sq) + R_BS * K * exp(-R_BS * T) * _n(-d2))
+    return -th / 365
+
+
 def montar_aposta(lado: str, S: float, chain: list, vol_impl: float, valor: float, prazo_alvo: int = 45,
-                  spread_max: float = SPREAD_MAX, vol_min: int = 1000, jan: float = 0.05) -> Montagem | str:
+                  spread_max: float = SPREAD_MAX, vol_min: int = 1000, jan: float = 0.05,
+                  perfil: Optional[str] = None, tol_delta: Optional[float] = None) -> Montagem | str:
     """Aposta simples: lado "alta" compra call ATM; lado "baixa" compra put ATM. Só opções muito líquidas.
     Perda máxima = valor pago (prêmio). Sem stop e sem alvo: o teste de 2015–2025 não mostrou que saída antecipada ajude."""
     tipo = "C" if lado == "alta" else "P"
     dias_disp = sorted({o.dias for o in chain if max(prazo_alvo - 15, 7) <= o.dias <= prazo_alvo + 15}, key=lambda d: (abs(d - prazo_alvo), d))
     escolha = None
-    for d in dias_disp:
-        L = _liquidas([o for o in chain if o.dias == d], tipo, 0, 999, spread_max, vol_min)
-        o = _perto([x for x in L if abs(x.strike / S - 1) <= jan], S)
-        if o: escolha = o; break
+    if perfil in PERFIS:
+        # perfil: opção com |delta| mais perto do alvo, dentro da tolerância; empate -> menor spread
+        alvo_d = PERFIS[perfil]; tol = tol_delta if tol_delta is not None else (0.15 if perfil == "freq" else 0.12)
+        for d in dias_disp:
+            L = [x for x in _liquidas([o for o in chain if o.dias == d], tipo, 0, 999, spread_max, vol_min) if abs(x.strike / S - 1) <= 0.20]
+            best = None
+            for y in L:
+                dl = _delta_abs(S, y)
+                if dl is None: continue
+                gap = abs(dl - alvo_d)
+                if gap <= tol and (best is None or gap < best[1] or (gap == best[1] and y.spread < best[0].spread)):
+                    best = (y, gap)
+            if best: escolha = best[0]; break
+    else:
+        for d in dias_disp:
+            L = _liquidas([o for o in chain if o.dias == d], tipo, 0, 999, spread_max, vol_min)
+            o = _perto([x for x in L if abs(x.strike / S - 1) <= jan], S)
+            if o: escolha = o; break
     if escolha is None:
         return "Sem opção muito líquida perto do preço atual neste prazo."
     o = escolha; custo1 = o.ask * LOTE
@@ -243,13 +313,14 @@ def montar_aposta(lado: str, S: float, chain: list, vol_impl: float, valor: floa
     prem = o.ask
     if tipo == "C":
         ganho = None; eq = (o.strike + prem,); prob = prob_acima(S, eq[0], o.dias, vol_impl)
-        est = "Call comprada (aposta na alta)"; tese = "aposta_alta"
+        est = "Call comprada (posição de alta)"; tese = "aposta_alta"
     else:
         ganho = (o.strike - prem) * LOTE * lotes; eq = (o.strike - prem,); prob = 1 - prob_acima(S, eq[0], o.dias, vol_impl)
-        est = "Put comprada (aposta em mais queda)"; tese = "aposta_baixa"
-    taxas = TAXA_B3 * o.mid * LOTE * 2; custo = (o.ask - o.mid) * LOTE + taxas + CUSTO_FIXO * 2
+        est = "Put comprada (posição de baixa)"; tese = "aposta_baixa"
+    taxas = TAXA_B3 * o.mid * LOTE * 2; custo = (o.ask - o.mid) * LOTE + taxas + _fixo(1)
     perda = prem * LOTE * lotes
     avisos = ("Probabilidade implícita no preço de mercado; não é vantagem do usuário.",
-              "Nos testes de 2015–2025, apostas deste tipo perderam o valor pago na maior parte dos casos.")
+              "Nos testes de 2015–2025, na maior parte dos casos a opção comprada venceu sem valor.")
     return Montagem(tese, est, ((+1, o),), lotes, round(perda, 2), round(perda, 2), None if ganho is None else round(ganho, 2),
-                    tuple(round(x, 2) for x in eq), round(prob, 3), round(custo * lotes, 2), None, None, 0, avisos)
+                    tuple(round(x, 2) for x in eq), round(prob, 3), round(custo * lotes, 2), None, None, 0, avisos,
+                    None if (th := _theta_dia(S, o)) is None else round(th * LOTE * lotes, 2))

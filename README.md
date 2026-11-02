@@ -61,8 +61,9 @@ python3 -I testes/teste_atualizador.py .     # atualizador contra um servidor lo
 node testes/smoke.js "$PWD/pwa/index.html"   # abre o app (Playwright) e percorre as telas
 ```
 
-`paridade.py` cobre o caminho padrão do montador (4 estruturas, sinal e compra simples sem perfil). Os perfis da
-compra simples (Lucro maior · Equilibrada · Lucro frequente) e o bloco de theta ainda não existem em `montador.py`.
+`paridade.py` compara `montador.py` e `montador.js` em todos os ativos do snapshot: as 4 estruturas, o sinal (trava e
+put), a compra simples no caminho padrão e nos 3 perfis (Lucro maior · Equilibrada · Lucro frequente) com o theta, tudo
+sem e com corretagem cadastrada.
 Os scripts de `pesquisa/` leem dados que não estão no repositório (histórico de opções 2015–2025 em CSV e séries de
 preço em pickle, em `/tmp/claude-0/`).
 
