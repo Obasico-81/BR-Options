@@ -11,7 +11,7 @@ const linhas = [];
 for (const [pf, { papel, por_data }] of Object.entries(dados)) {
   const dias = Object.keys(por_data).sort(); if (!dias.length) continue;
   const r = { pf, papel, dias: dias.length };
-  for (const risco of [300, 1000]) {
+  for (const risco of [300, 500, 1000]) {
     const cont = Object.fromEntries([...TESES, "compra_alta", "compra_baixa", "alguma"].map((k) => [k, 0]));
     for (const d of dias) {
       const { S, iv, chain } = por_data[d]; let alguma = false;
@@ -28,7 +28,7 @@ for (const [pf, { papel, por_data }] of Object.entries(dados)) {
 }
 const col = (r, k) => String(r[k] ?? "").padStart(6);
 console.log(`% dos pregões em que monta dentro do risco máximo (prazo-alvo 45 dias, capital R$ ${CAPITAL})`);
-for (const risco of [300, 1000]) {
+for (const risco of [300, 500, 1000]) {
   console.log(`\nRisco máximo por operação: R$ ${risco}`);
   console.log("prefixo papel   dias  alguma  trava↑  trava↓  strang  put_cx  call   put    kB snapshot");
   for (const r of linhas) console.log(`${r.pf.padEnd(8)}${r.papel.padEnd(8)}${String(r.dias).padStart(4)}${col(r, "alguma_" + risco)}%${col(r, "alta_" + risco)}%${col(r, "baixa_" + risco)}%${col(r, "forte_" + risco)}%${col(r, "alta_com_caixa_" + risco)}%${col(r, "compra_alta_" + risco)}%${col(r, "compra_baixa_" + risco)}%${String(r.kb_snapshot).padStart(8)}`);

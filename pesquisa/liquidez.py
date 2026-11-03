@@ -2,7 +2,8 @@
 """Quais papéis têm opções líquidas o bastante para o app? (etapa 3: ampliar os ativos)
 
 Lê um COTAHIST anual e, para cada prefixo de opção (4 letras: PETR, ITUB, ...):
-  - escolhe o papel à vista do prefixo (o de maior volume financeiro no ano: PETR4, ITUB4, ...);
+  - escolhe o papel à vista do prefixo (o de maior volume financeiro no ano: PETR4, ITUB4, ...) e só conta as opções
+    cujo papel-objeto é ele (CODISI da opção = ISIN do papel; o prefixo BBDC também traz opções de BBDC3, por exemplo);
   - mede o volume financeiro diário das opções e quantas séries passam no corte de liquidez do app;
   - para os TOP prefixos, grava as cadeias dos últimos N pregões no mesmo formato do snapshot.json
     (montar_dia do atualizador), para o montador.js testar se as estruturas montam (liquidez_montador.js).
@@ -32,13 +33,14 @@ def main():
     a = ap.parse_args(); os.makedirs(a.saida, exist_ok=True)
 
     # 1ª passada: papéis à vista (fechamento e volume) e prefixos que têm opções
-    fech, vol_vista, prefixos = defaultdict(dict), defaultdict(float), set()
+    fech, vol_vista, prefixos, isin = defaultdict(dict), defaultdict(float), set(), {}
     for ln in linhas_do_zip(a.zip):
         if len(ln) < 210 or ln[0:2] != "01":
             continue
         tp = ln[24:27]
         if tp == "010":
             cod = campo(ln, "codneg"); p = preco(campo(ln, "preult"))
+            isin[cod] = campo(ln, "codisi")
             if p > 0:
                 fech[cod][iso(campo(ln, "data"))] = p; vol_vista[cod] += voltot(ln)
         elif tp in ("070", "080"):
@@ -54,6 +56,7 @@ def main():
     vol_opc = defaultdict(lambda: defaultdict(float))        # pf -> dia -> R$
     liq = defaultdict(lambda: defaultdict(lambda: [0, 0]))   # pf -> dia -> [calls, puts] líquidas perto do dinheiro
     cadeia = defaultdict(lambda: defaultdict(list))          # pf -> dia -> linhas (só últimos N dias)
+    fora = defaultdict(lambda: [0, 0.0])                     # pf -> [linhas, R$] de opções de outro papel-objeto
     for ln in linhas_do_zip(a.zip):
         if len(ln) < 210 or ln[0:2] != "01":
             continue
@@ -63,6 +66,8 @@ def main():
         pf = ln[12:16]
         if pf not in vista:
             continue
+        if campo(ln, "codisi") != isin.get(vista[pf]):
+            fora[pf][0] += 1; fora[pf][1] += voltot(ln); continue
         d = iso(campo(ln, "data")); vol_opc[pf][d] += voltot(ln)
         S = fech[vista[pf]].get(d)
         if not S:
@@ -90,6 +95,12 @@ def main():
     print(f"{'prefixo':8}{'papel':8}{'dias':>5}{'vol. opções/dia (R$ mil, mediana)':>36}{'calls líq.':>12}{'puts líq.':>11}{'% dias c/ 2C+2P':>17}{'preço':>10}")
     for r in linhas[:60]:
         print(f"{r['prefixo']:8}{r['papel']:8}{r['dias']:>5}{r['vol_mediano_mil']:>36,.0f}{r['calls_liq']:>12.0f}{r['puts_liq']:>11.0f}{r['dias_2c2p']:>16.0f}%{r['preco']:>10.2f}")
+
+    mostrar = sorted((pf for pf in fora if pf in {r["prefixo"] for r in linhas[:60]}), key=lambda pf: -fora[pf][1])
+    if mostrar:
+        print("\nOpções de outro papel-objeto com o mesmo prefixo, fora da conta (linhas no ano · R$ milhões no ano):")
+        for pf in mostrar:
+            print(f"  {pf} (papel do ranking: {vista[pf]}): {fora[pf][0]} · {fora[pf][1] / 1e6:,.1f}")
 
     # cadeias dos últimos N pregões para os TOP prefixos, no formato do snapshot
     saida = {}
