@@ -319,16 +319,20 @@ function vDesemp(){
   const abertas = linhas.filter(l => !l.real);
   const tot = fim.reduce((a,l)=>a+l.res,0), gan = fim.filter(l=>l.res>0), per_ = fim.filter(l=>l.res<0);
   const chip = (k, t) => `<button class="chip${per===k?" on":""}" data-per="${k}" style="padding:8px 12px;border-radius:999px;border:1.5px solid var(--line);background:${per===k?"var(--ink,#0F1B2D)":"transparent"};color:${per===k?"#fff":"inherit"};font:inherit;font-size:14px;font-weight:600;cursor:pointer">${t}</button>`;
-  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Meu desempenho</h1><p class="muted">Resultado das suas operações simuladas que já venceram, antes de imposto. Períodos contados até ${dBR(hoje)}, o dia dos preços.</p>`;
+  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Meu desempenho</h1><p class="muted">Resultado das suas operações simuladas que já venceram, antes de imposto.</p>`;
   h += `<section class="card"><div style="display:flex;gap:8px;flex-wrap:wrap">${chip("30","30 dias")}${chip("90","90 dias")}${chip("365","12 meses")}${chip("tudo","Tudo")}${chip("pers","Período")}</div>`;
   if (per==="pers") h += `<div class="row3" style="margin-top:10px"><label class="f">De<input id="pde" type="date" value="${pDe}"></label><label class="f">Até<input id="pate" type="date" value="${pAte}"></label></div>`;
   h += `</section>`;
   h += `<section class="card"><div class="small muted">Resultado no período</div><div style="font-size:32px;font-weight:700;color:${tot>0?"var(--good)":tot<0?"var(--bad)":"inherit"}">${tot===0?"R$ 0":sgn(tot)}</div>
    <div class="row3" style="border-top:1px solid var(--line);padding-top:10px;margin-top:8px"><div><div class="small muted">Operações</div><div style="font-weight:700">${fim.length}</div></div><div><div class="small muted">Com ganho</div><div style="font-weight:700;color:var(--good)">${gan.length}</div></div><div><div class="small muted">Com resultado negativo</div><div style="font-weight:700;color:var(--bad)">${per_.length}</div></div></div></section>`;
-  if (!fim.length) h += `<div class="card empty"><p>Nenhuma operação vencida neste período.</p><p class="small" style="margin-top:6px">Simule uma operação com data de entrada mais antiga para ver o resultado.</p></div>`;
+  if (!fim.length) { const prox = abertas.map(l => l.venc).sort()[0], venceu = linhas.some(l => l.real);
+    const dica = venceu ? `Escolha outro período para ver as operações que já venceram.${prox ? ` A próxima em aberto vence em ${dBR(prox)}.` : ""}`
+      : prox ? `O resultado aparece aqui quando suas operações vencerem. A próxima vence em ${dBR(prox)}.`
+      : `Monte uma operação e confirme a simulação; o resultado aparece aqui no vencimento.`;
+    h += `<div class="card empty"><p>Nenhuma operação vencida neste período.</p><p class="small" style="margin-top:6px">${dica}</p></div>`; }
   else h += `<section class="card"><h2 style="font-size:16px">Operações do período</h2>` + fim.map(l => `<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)"><div><div style="font-weight:600">${esc(l.o.m.estrutura)} · ${l.o.ativo}</div><div class="small muted">${dBR(l.o.data)} a ${dBR(l.venc)}</div></div><div style="font-weight:700;white-space:nowrap;color:${l.res>0?"var(--good)":l.res<0?"var(--bad)":"inherit"}">${l.res===0?"R$ 0":sgn(l.res)}</div></div>`).join("") + `</section>`;
-  if (abertas.length) h += `<p class="foot">${abertas.length} operação${abertas.length>1?"ões":""} ainda não venceu neste dia simulado e fica fora do resultado.</p>`;
-  h += `<p class="foot">Resultado no vencimento com preços de fechamento reais, em modo simulado, antes de imposto e sem saídas antecipadas.</p><button class="btn sec2" id="limpar-hist">Apagar histórico</button>`;
+  if (abertas.length && fim.length) h += `<p class="foot">${abertas.length} ${abertas.length>1?"operações ainda não venceram e ficam":"operação ainda não venceu e fica"} fora do resultado.</p>`;
+  h += `<p class="foot">Calculado no vencimento, sem as saídas antecipadas (alvo, limite e prazo).</p><button class="btn sec2" id="limpar-hist">Apagar histórico</button>`;
   return h;
 }
 
