@@ -34,6 +34,30 @@ const arq = 'file://' + process.argv[2];
   await passo('Operações: lista', async () => { await p.click('#nav [data-nav="acomp"]'); await p.waitForTimeout(150); });
   await passo('Operações: abrir a operação antiga', async () => { await p.click('[data-op="1"]', { timeout: 3000 }); await p.waitForTimeout(200); if (!(await p.locator('text=Sua operação').count())) throw new Error('tela "Sua operação" não abriu'); });
   await passo('Desempenho com a operação', async () => { await p.click('#nav [data-nav="desemp"]'); await p.waitForTimeout(150); });
+  // custos em "Detalhes da operação": fechado por padrão; margem de R$ 4 por ordem sem corretagem, corretagem cadastrada
+  // com ela; por ordem (não cresce com os lotes); operação antiga sem os campos novos não mostra o bloco nem quebra
+  await passo('Detalhes da operação (custos)', async () => {
+    const r = await p.evaluate(() => {
+      const ver = () => { const d = document.querySelector('details.det'); return d && { aberto: d.open, txt: d.textContent }; };
+      let m = null; S.perda = 6000; S.capital = Math.max(S.capital, 6000);
+      for (const at of Object.keys(SNAP.ativos)) { S.ativo = at; for (const t of ['alta','baixa']) { const x = montagem(t); if (typeof x !== 'string' && x.lotes > 1) { m = x; tese = t; break; } } if (m) break; }
+      if (!m) return 'nenhuma trava com mais de 1 lote';
+      const out = { lotes: m.lotes, soma: Math.abs(m.custoSpread + m.custoTaxas + m.custoFixo - m.custoTotal) < 0.011, fixo: m.custoFixo };
+      tela = 'cartao'; render(); out.sem = ver();
+      S.cad.corretagem = 5; M.setCorretagem(5); render(); out.com = ver(); out.fixo5 = montagem(tese).custoFixo;
+      S.cad.corretagem = null; M.setCorretagem(null);
+      const velho = JSON.parse(JSON.stringify(m)); for (const k of ['custoSpread','custoTaxas','custoFixo']) delete velho[k];
+      const data = Object.keys(SNAP.fechamentos[S.ativo]).sort().pop();
+      localStorage.setItem('historico', JSON.stringify([{ m: velho, ativo: S.ativo, data, id: 2 }])); selId = 2; tela = 'acomp'; render(); out.velho = ver();
+      return out;
+    });
+    if (typeof r === 'string') throw new Error(r);
+    const f = []; if (!r.soma) f.push('total ≠ soma das partes'); if (r.fixo !== 16 || r.fixo5 !== 20) f.push(`fixo da trava ${r.fixo} / ${r.fixo5} (esperado 16 / 20, com ${r.lotes} lotes)`);
+    if (!r.sem || r.sem.aberto || !/Margem fixa \(4 ordens × R\$\s4,00\)/.test(r.sem.txt)) f.push('sem corretagem: ' + JSON.stringify(r.sem));
+    if (!r.com || !/Corretagem \(4 ordens × R\$\s5,00\)/.test(r.com.txt) || !/R\$ 20,00/.test(r.com.txt)) f.push('com corretagem: ' + JSON.stringify(r.com));
+    if (r.velho) f.push('operação antiga mostrou o bloco');
+    if (f.length) throw new Error(f.join(' | '));
+  });
   // ativo salvo que não existe no dia carregado (papel novo que ficou de fora num pregão): cai para PETR4 sem quebrar
   await passo('ativo salvo ausente no dia', async () => {
     await p.evaluate(() => { localStorage.setItem('estado', JSON.stringify({ ativo: 'XXXX3' })); localStorage.removeItem('historico'); });

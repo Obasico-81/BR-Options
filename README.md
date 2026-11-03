@@ -70,7 +70,13 @@ cada operação simulada: "Se encerrar hoje" em *Sua operação* e, no *Desempen
 `paridade.py` compara `montador.py` e `montador.js` em todos os ativos do snapshot: as 4 estruturas, o sinal (trava e
 put), a compra simples no caminho padrão e nos 3 perfis (Lucro maior · Equilibrada · Lucro frequente) com o theta, tudo
 sem e com corretagem cadastrada, o movimento necessário × oscilação de 60 pregões (`volReal60` / `movimentoNecessario`) e a
-marcação diária: "Se encerrar hoje" e as regras de saída (`resultadoNoDia` / `regraDeSaida`).
+marcação diária: "Se encerrar hoje" e as regras de saída (`resultadoNoDia` / `regraDeSaida`), e os custos separados
+(`custoSpread`, `custoTaxas`, `custoFixo`, `custoTotal`).
+
+Custos: taxas da B3 de 0,134% do prêmio por lado (entrada e saída, por lote); corretagem por ordem (cada perna, na
+entrada e na saída), que não cresce com os lotes: a cadastrada pelo usuário ou, sem ela, uma margem fixa de R$ 4 por ordem
+(trava ou strangle: R$ 16; compra simples ou put vendida: R$ 8). O spread em relação ao preço médio já está no prêmio.
+O app mostra os custos só no bloco recolhido "Detalhes da operação"; os resultados não descontam taxas e corretagem.
 O workflow *Testes* roda tudo isso a cada mudança de código; a atualização noturna roda a paridade com o dado do dia
 sem bloquear a publicação.
 Os scripts de `pesquisa/` leem dados que não estão no repositório (histórico de opções 2015–2025 em CSV e séries de

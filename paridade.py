@@ -3,8 +3,8 @@
 Cobre: as 4 estruturas; o sinal (trava e put, 3 cenários); a compra simples no caminho padrão e nos 3 perfis
 (Lucro maior · Equilibrada · Lucro frequente), com o theta; o movimento necessário × oscilação de 60 pregões em todo
 caso montado e a volatilidade de 60 pregões em 3 datas por ativo; a marcação diária ("Se encerrar hoje" com os preços
-do dia, com preços 7% mais altos e sem o preço de uma perna) e a regra de saída em duas sequências de dias; tudo duas vezes, sem corretagem cadastrada (margem
-fixa) e com corretagem de R$ 5 por ordem. Uso: python3 paridade.py   (esperado: "0 falha(s)")
+do dia, com preços 7% mais altos e sem o preço de uma perna) e a regra de saída em duas sequências de dias; os custos separados (spread,
+taxas da B3, corretagem por ordem e total); tudo duas vezes, sem corretagem cadastrada (margem fixa) e com corretagem de R$ 5 por ordem. Uso: python3 paridade.py   (esperado: "0 falha(s)")
 """
 import json, math, subprocess, sys
 from datetime import date, timedelta
@@ -42,7 +42,7 @@ def resumo(m, nome, S, theta=False):
     if isinstance(m, str):
         return m
     d = dict(lotes=m.lotes, premio=m.premio, perda=m.perda_max, ganho=m.ganho_max, eq=list(m.pontos_equilibrio), prob=m.prob_implicita,
-             custo=m.custo_total, alvo=m.alvo or 0, stop=m.stop or 0, ks=[(l, o.tipo, o.strike, o.dias) for l, o in m.pernas])
+             custo=m.custo_total, c_spread=m.custo_spread, c_taxas=m.custo_taxas, c_fixo=m.custo_fixo, alvo=m.alvo or 0, stop=m.stop or 0, ks=[(l, o.tipo, o.strike, o.dias) for l, o in m.pernas])
     if theta:
         d["theta"] = m.theta_dia
     mv = movimento_necessario(m, S, snap["fechamentos"][nome], snap["data"]); d["mov"] = [mv["precisa"], mv["oscilacao"]]
@@ -81,7 +81,7 @@ const FA=[0.1,-0.2,0.3,null,-0.5,0.6,-0.8,0.9,-1.0,1.2];
 const addD=(iso,n)=>{const d=new Date(iso+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10);};
 const marcas=(perda,dias,peq)=>{const o=[], passo=peq?1:5; for(let i=1;passo*i<=dias+5;i++){const f=peq?0.01*((-1)**i):FA[(i-1)%FA.length]; o.push({d:addD(s.data,passo*i),r:f===null?null:f*perda});} return o;};
 const res=(m,theta,n,S)=>{ if(typeof m==='string') return m;
-  const d={lotes:m.lotes,premio:m.premio,perda:m.perdaMax,ganho:m.ganhoMax,eq:m.equilibrio,prob:m.probImplicita,custo:m.custoTotal,alvo:m.alvo||0,stop:m.stop||0,ks:m.pernas.map(([l,o])=>[l,o.t,o.k,o.d])};
+  const d={lotes:m.lotes,premio:m.premio,perda:m.perdaMax,ganho:m.ganhoMax,eq:m.equilibrio,prob:m.probImplicita,custo:m.custoTotal,c_spread:m.custoSpread,c_taxas:m.custoTaxas,c_fixo:m.custoFixo,alvo:m.alvo||0,stop:m.stop||0,ks:m.pernas.map(([l,o])=>[l,o.t,o.k,o.d])};
   if(theta) d.theta=m.thetaDia; const mv=M.movimentoNecessario(m,S,s.fechamentos[n],s.data); d.mov=[mv.precisa,mv.oscilacao];
   const [p0,p1]=PR[n], venc=addD(s.data,m.dias), sem={...p0}; delete sem[m.pernas[0][1].s];
   d.marc=[M.resultadoNoDia(m,p0),M.resultadoNoDia(m,p1),M.resultadoNoDia(m,sem)];
@@ -124,7 +124,7 @@ for cor in CORRETAGENS:
             falhas += 0 if ok else 1; continue
         montados += 1
         for x in v["regras"]: regras[x["regra"] if x else "nenhuma"] = regras.get(x["regra"] if x else "nenhuma", 0) + 1
-        ok = all(perto(v[f], j[f]) for f in ("lotes", "premio", "perda", "custo", "stop", "alvo")) and (v["ganho"] is None) == (j["ganho"] is None) \
+        ok = all(perto(v[f], j[f]) for f in ("lotes", "premio", "perda", "custo", "c_spread", "c_taxas", "c_fixo", "stop", "alvo")) and (v["ganho"] is None) == (j["ganho"] is None) \
             and all(perto(a, b) for a, b in zip(v["eq"], j["eq"])) and abs(v["prob"] - j["prob"]) < 0.002 and [list(x) for x in v["ks"]] == j["ks"] \
             and ("theta" not in v or perto(v["theta"], j["theta"])) and all(perto(a, b, 1e-12) for a, b in zip(v["mov"], j["mov"])) \
             and all(perto(a, b) for a, b in zip(v["marc"], j["marc"])) and v["marc"][2] is None and j["marc"][2] is None \

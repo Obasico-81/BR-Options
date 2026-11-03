@@ -1,11 +1,12 @@
 // Port de montador.py (mesmas regras). Funciona no navegador (window.Montador) e no Node (module.exports).
 (function (root) {
-  const TAXA_B3 = 0.00134, CUSTO_FIXO = 2.0, LOTE = 100;
+  const TAXA_B3 = 0.00134, CUSTO_FIXO = 4.0, LOTE = 100; // CUSTO_FIXO: R$ por ordem sem corretagem cadastrada (era R$ 2 por estrutura até 03/11/2026)
   const SPREAD_MAX = 0.20; // spread máximo (venda − compra) / médio, no fechamento; era 10% (15% no Lucro frequente) até 02/11/2026
-  // Corretagem do usuário (R$ por ordem). null = não informada: vale a margem fixa de R$ 2 por estrutura.
+  // Corretagem do usuário (R$ por ordem). null = não informada: vale a margem fixa de R$ 4 por ordem.
   let CORRETAGEM = null;
   const setCorretagem = (v) => { CORRETAGEM = (v === null || v === undefined || isNaN(+v) || +v < 0) ? null : +v; };
-  const fixo = (n) => CORRETAGEM === null ? CUSTO_FIXO * 2 : CORRETAGEM * n * 2;
+  // corretagem (ou margem fixa) por ordem: cada perna, na entrada e na saída; não cresce com os lotes
+  const fixo = (n) => (CORRETAGEM === null ? CUSTO_FIXO : CORRETAGEM) * n * 2;
   const mid = (o) => (o.b + o.a) / 2;
   const spread = (o) => (mid(o) > 0 ? (o.a - o.b) / mid(o) : 9.9);
   const erf = (x) => { // Abramowitz-Stegun 7.1.26 não basta p/ paridade; usa série de alta precisão
@@ -38,6 +39,12 @@
     const cred = -deb; return [(ks[0] - cred) * LOTE, cred * LOTE, [ks[0] - cred]];
   }
   const r2 = (x) => Math.round(x * 100) / 100;
+  // custos da operação (R$): spread em relação ao preço médio (já está no prêmio) e taxas da B3 de entrada e saída, por lote;
+  // corretagem ou margem fixa, por ordem. custoTotal = soma dos três.
+  const custos = (spread1, taxas1, n, lotes) => {
+    const s = spread1 * lotes, t = taxas1 * lotes, f = fixo(n);
+    return { custoSpread: r2(s), custoTaxas: r2(t), custoFixo: r2(f), custoTotal: r2(s + t + f) };
+  };
   function montar(tese, S, chain, volImpl, perdaAceita, o = {}) {
     const prazoAlvo = o.prazoAlvo ?? 45, caixa = o.caixa ?? 0, spreadMax = o.spreadMax ?? SPREAD_MAX, volMin = o.volMin ?? 500, stopFrac = o.stopFrac ?? 0.70, alvoFrac = o.alvoFrac ?? 0.50;
     const jmin = Math.max(prazoAlvo - 15, 7), jmax = prazoAlvo + 15;
@@ -57,14 +64,13 @@
     } else { lotes = perda1 > 0 ? Math.floor(perdaAceita / perda1) : 0; stop = -stopFrac * perda1; }
     if (lotes < 1) return "A menor operação arrisca R$ " + fmt(perda1) + ", acima do seu limite de R$ " + fmt(perdaAceita) + ".";
     const taxas = pernas.reduce((s, [l, x]) => s + TAXA_B3 * mid(x) * LOTE, 0) * 2;
-    const custo = Math.abs(premio - premioMid) + taxas + fixo(pernas.length);
     const alvo = ganho1 === null ? null : alvoFrac * ganho1;
     let prob;
     if (tese === "forte") prob = probAcima(S, eq[1], venc, volImpl) + 1 - probAcima(S, eq[0], venc, volImpl);
     else if (tese === "alta" || tese === "alta_com_caixa") prob = probAcima(S, eq[0], venc, volImpl);
     else prob = 1 - probAcima(S, eq[0], venc, volImpl);
     return { tese, estrutura: NOMES[tese], pernas, lotes, dias: venc, premio: r2(premio * lotes), perdaMax: r2(perda1 * lotes), ganhoMax: ganho1 === null ? null : r2(ganho1 * lotes),
-      equilibrio: eq.map(r2), probImplicita: Math.round(prob * 1000) / 1000, custoTotal: r2(custo * lotes), alvo: alvo === null ? null : r2(alvo * lotes), stop: r2(stop * lotes), saidaDias: 7 };
+      equilibrio: eq.map(r2), probImplicita: Math.round(prob * 1000) / 1000, ...custos(Math.abs(premio - premioMid), taxas, pernas.length, lotes), alvo: alvo === null ? null : r2(alvo * lotes), stop: r2(stop * lotes), saidaDias: 7 };
   }
 
   const brl0 = (v) => "R$ " + Math.round(v).toLocaleString("pt-BR", { maximumFractionDigits: 0 });
@@ -102,10 +108,10 @@
         lotes = Math.floor(perdaAceita / perda1); stop = -stopFrac * perda1;
         if (lotes < 1) { motivo = "A menor operação arrisca " + brl0(perda1) + ", acima do seu limite de " + brl0(perdaAceita) + "."; continue; }
       } else { lotes = Math.floor(caixa / (p.k * LOTE)); stop = -Math.min(stopFrac * perda1, perdaAceita); }
-      const taxas = pernas.reduce((s, [l, x]) => s + TAXA_B3 * mid(x) * LOTE, 0) * 2, custo = Math.abs(premio - premioMid) + taxas + fixo(pernas.length);
+      const taxas = pernas.reduce((s, [l, x]) => s + TAXA_B3 * mid(x) * LOTE, 0) * 2;
       const prob = probAcima(S, eq[0], d, volImpl);
       return { tese, estrutura: est, pernas, lotes, dias: d, premio: r2(premio * lotes), perdaMax: r2(perda1 * lotes), ganhoMax: r2(ganho1 * lotes), equilibrio: eq.map(r2),
-        probImplicita: Math.round(prob * 1000) / 1000, custoTotal: r2(custo * lotes), alvo: r2(alvoFrac * ganho1 * lotes), stop: r2(stop * lotes), saidaDias: 7 };
+        probImplicita: Math.round(prob * 1000) / 1000, ...custos(Math.abs(premio - premioMid), taxas, pernas.length, lotes), alvo: r2(alvoFrac * ganho1 * lotes), stop: r2(stop * lotes), saidaDias: 7 };
     }
     return motivo;
   }
@@ -147,9 +153,9 @@
     const prem = esc.a; let ganho, eq, prob, est, tese;
     if (tipo === "C") { ganho = null; eq = [esc.k + prem]; prob = probAcima(S, eq[0], esc.d, volImpl); est = "Call comprada (posição de alta)"; tese = "aposta_alta"; }
     else { ganho = (esc.k - prem) * LOTE * lotes; eq = [esc.k - prem]; prob = 1 - probAcima(S, eq[0], esc.d, volImpl); est = "Put comprada (posição de baixa)"; tese = "aposta_baixa"; }
-    const custo = (esc.a - mid(esc)) * LOTE + TAXA_B3 * mid(esc) * LOTE * 2 + fixo(1), perda = prem * LOTE * lotes;
+    const perda = prem * LOTE * lotes;
     return { tese, estrutura: est, pernas: [[1, esc]], lotes, dias: esc.d, premio: r2(perda), perdaMax: r2(perda), ganhoMax: ganho === null ? null : r2(ganho), equilibrio: eq.map(r2),
-      probImplicita: Math.round(prob * 1000) / 1000, custoTotal: r2(custo * lotes), alvo: null, stop: null, saidaDias: 0, thetaDia: (() => { const t = thetaDia(S, esc); return t === null ? null : r2(t * LOTE * lotes); })() };
+      probImplicita: Math.round(prob * 1000) / 1000, ...custos((esc.a - mid(esc)) * LOTE, TAXA_B3 * mid(esc) * LOTE * 2, 1, lotes), alvo: null, stop: null, saidaDias: 0, thetaDia: (() => { const t = thetaDia(S, esc); return t === null ? null : r2(t * LOTE * lotes); })() };
   }
   // resultado no vencimento para um preço final da ação (por todos os lotes)
   function resultadoNoVencimento(m, ST) {

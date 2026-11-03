@@ -67,6 +67,8 @@ table{width:100%;border-collapse:collapse;font-size:15px}
 td{padding:10px 0;border-top:1px solid var(--line)} tr:first-child td{border-top:0}
 td:last-child{text-align:right;font-weight:700;white-space:nowrap}
 .scroll{overflow-x:auto}
+.det{display:block}.det>summary{cursor:pointer;font-weight:700;font-size:16px;list-style:none;display:flex;justify-content:space-between;align-items:center;min-height:28px}.det>summary::-webkit-details-marker{display:none}.det>summary::after{content:"+";font-size:22px;font-weight:500;color:var(--muted)}.det[open]>summary::after{content:"−"}
+.detc{display:flex;flex-direction:column;gap:10px;margin-top:12px}.kv{display:flex;justify-content:space-between;gap:12px;font-size:15px}.kv>span:last-child{font-weight:700;white-space:nowrap}.kv.tot{border-top:1px solid var(--line);padding-top:10px}
 .note{background:var(--accent-soft);border-radius:16px;padding:14px 16px;font-size:15px}
 .chk{display:flex;gap:10px;align-items:flex-start;font-size:15px;min-height:44px}
 .chk input{width:22px;height:22px;margin-top:2px;flex:none}
@@ -262,6 +264,20 @@ function copiar(txt, btn){
     const box = document.getElementById("cpbox"); if (box){ box.hidden = false; box.value = txt; box.select(); } btn.textContent = "Selecione e copie abaixo"; };
   try{ navigator.clipboard.writeText(txt).then(ok, fb); }catch(e){ fb(); }
 }
+// Custos, recolhidos em "Detalhes da operação": os números em destaque não mudam (decisão de 03/11/2026).
+// cor = corretagem por ordem usada na montagem (null = margem fixa do app). Operações antigas, sem os campos, não mostram.
+function custosHtml(m, cor){
+  if (m.custoFixo === undefined) return "";
+  const n = m.pernas.length * 2, extra = m.custoTaxas + m.custoFixo, linha = (l, v, c="") => `<div class="kv${c}"><span>${l}</span><span>${brl(v,2)}</span></div>`;
+  return `<details class="card det"><summary>Detalhes da operação</summary><div class="detc">
+   ${linha("Spread na entrada", m.custoSpread)}<p class="small muted" style="margin-top:-6px">Diferença para o preço médio das opções. Já está no valor pago ou recebido e no risco máximo.</p>
+   ${linha("Taxas da B3 (entrada e saída, estimadas)", m.custoTaxas, " tot")}
+   ${linha(`${cor===null?"Margem fixa":"Corretagem"} (${n} ordens × ${brl(m.custoFixo/n,2).replace(" ","&nbsp;")})`, m.custoFixo)}
+   ${linha("Taxas e corretagem", extra)}
+   ${linha("Risco máximo com taxas e corretagem", m.perdaMax + extra, " tot")}${m.ganhoMax===null?"":linha("Ganho máximo com taxas e corretagem", m.ganhoMax - extra)}
+   <p class="small muted">${cor===null?"Sem a corretagem cadastrada, o app usa R$&nbsp;4 por ordem (cada perna, na entrada e na saída). Cadastre o valor da sua corretora em Cadastro.":"Corretagem do seu cadastro, por ordem, na entrada e na saída de cada perna."} Os resultados dos cenários, de “Se encerrar hoje” e do Desempenho não descontam taxas e corretagem.</p>
+  </div></details>`;
+}
 function pernasHtml(m){
   return m.pernas.map(([l,o],i)=>`<div class="step"><span class="n">${i+1}</span><p><strong>${l>0?"Comprar":"Vender"}</strong> ${m.lotes*100} ${o.t==="C"?"opções de compra (call)":"opções de venda (put)"} com strike ${brl(o.k,2)}, que vencem em ${m.dias} dias.<br><span class="muted small">${esc(o.s)} · ${l>0?"você paga até":"você recebe pelo menos"} ${brl(l>0?o.a:o.b,2)} por ação</span></p></div>`).join("");
 }
@@ -293,6 +309,7 @@ function vCartao(){
      <p class="small">Para dar lucro no vencimento, a ação precisa ${sobe?"subir":"cair"} ${(precisa*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% (até ${brl(eq,2)}).${tip===null?"":` Pela oscilação dos últimos 60 pregões, a ação costuma variar cerca de ${(tip*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% em ${m.dias} dias.`}</p>
      ${m.thetaDia==null?"":`<p class="small">Custo do tempo: se nada mudar, a operação desvaloriza cerca de ${brl(m.thetaDia)} por dia.</p>`}</section>`; }
   { const o = obsOperacao(tese, m); if (o) h += `<div class="note"><p>${o}</p></div>`; }
+  h += custosHtml(m, S.cad.corretagem);
   h += `<button class="btn" data-go="cen">Ver cenários</button><button class="btn sec2" data-go="obj">Não agora</button>`;
   return h;
 }
@@ -382,7 +399,7 @@ function vCad(){
   let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Meu cadastro</h1><p class="muted">Estes dados ficam guardados só neste aparelho.</p>`;
   h += `<section class="card"><label class="f">Corretora<select id="ccorr"><option value="">Escolha…</option>${CORRETORAS.map(n=>`<option ${n===c.corretora?"selected":""}>${n}</option>`).join("")}</select></label>
    <label class="f">Corretagem por ordem de opções (R$)<input id="ccorrtg" type="text" inputmode="decimal" autocomplete="off" placeholder="Não sei" value="${fmtBR(c.corretagem,2)}"></label>
-   <p class="small muted">${c.corretagem===null?"Sem este valor, o app usa uma margem fixa de R$ 4 por operação no custo (R$ 2 na entrada e R$ 2 na saída).":`O custo das operações usa ${brl(c.corretagem,2)} por ordem, na entrada e na saída de cada perna.`} Consulte a tabela da sua corretora; o app não confere esse valor.</p></section>`;
+   <p class="small muted">${c.corretagem===null?"Sem este valor, o app usa uma margem fixa de R$&nbsp;4 por ordem (cada perna, na entrada e na saída). O custo aparece em Detalhes da operação.":`O custo das operações usa ${brl(c.corretagem,2).replace(" ","&nbsp;")} por ordem, na entrada e na saída de cada perna. Aparece em Detalhes da operação.`} Consulte a tabela da sua corretora; o app não confere esse valor.</p></section>`;
   h += `<section class="card"><h2 style="font-size:16px">Seus dados neste aparelho</h2><p class="small muted">Apaga o cadastro, o perfil, as operações simuladas e o histórico.</p><button class="btn danger" id="apagar-tudo">Apagar meus dados</button></section>`;
   return h;
 }
@@ -412,6 +429,7 @@ function vAcomp(){
    ${m.alvo!==null?`<div class="step"><span class="n" style="background:var(--good-soft);color:var(--good)">✓</span><p><strong>Sair no alvo: ${sgn(m.alvo)}</strong><br><span class="muted small">Metade do ganho máximo.</span></p></div>`:""}
    ${m.stop!==null?`<div class="step"><span class="n" style="background:var(--bad-soft);color:var(--bad)">!</span><p><strong>Sair no limite: ${sgn(m.stop)}</strong><br><span class="muted small">Antes de chegar ao risco máximo. Valor padrão do app.</span></p></div>`:`<div class="step"><span class="n" style="background:var(--bad-soft);color:var(--bad)">!</span><p><strong>Sem regra de saída automática</strong><br><span class="muted small">O risco é tudo o que pagou (${brl(m.perdaMax)}).</span></p></div>`}
    ${m.saidaDias>0?`<div class="step"><span class="n" style="background:var(--warn-soft);color:var(--warn-text)">7</span><p><strong>Prazo: sair até ${m.saidaDias} dias antes do vencimento</strong><br><span class="muted small">Em ${dBR(addDias(P.data,m.dias-m.saidaDias))}.</span></p></div>`:`<div class="step"><span class="n" style="background:var(--warn-soft);color:var(--warn-text)">7</span><p><strong>Vencimento em ${dBR(addDias(P.data,m.dias))}</strong><br><span class="muted small">Se o preço não passar do ponto de equilíbrio, a opção vale zero.</span></p></div>`}</section>`;
+  h += custosHtml(m, P.cor ?? null);
   if (rep){ const rr = M.resultadoNoVencimento(m, rep.preco); h += `<section class="card"><h2 style="font-size:16px">Como terminou de verdade</h2><p class="small">Em ${dBR(rep.venc)}, ${P.ativo} fechou em ${brl(rep.preco,2)}. Resultado: <strong style="color:${rr>0?"var(--good)":rr<0?"var(--bad)":"inherit"}">${rr===0?"R$ 0":sgn(rr)}</strong>, antes de imposto.</p></section>`; }
   h += `<p class="foot">Valores calculados com preços de fechamento reais, em modo simulado.</p><button class="btn sec2" id="copiar">Copiar parâmetros</button><textarea id="cpbox" class="small" hidden readonly rows="6" style="width:100%;margin-top:8px"></textarea><button class="btn danger" id="encerrar">Encerrar operação simulada</button>`;
   return h;
@@ -429,7 +447,7 @@ function bind(){
   sg("sentrada","entrada",v=>numBR(v)>0?numBR(v):null); sg("salvo","alvo",v=>numBR(v)>0?numBR(v):null); sg("sprazo","prazo",v=>Math.max(5,+v||20)); sg("sest","est",v=>v);
   const p = q("#prazo"); if (p) p.onchange = () => { S.venc = p.value; S.prazo = vencSel().d; save("estado", S); render(); };
   const c = q("#ciente"); if (c) c.onchange = () => { ciente = c.checked; q("#confirmar").disabled = !ciente; };
-  const cf = q("#confirmar"); if (cf) cf.onclick = () => { const m = montagem(tese); if (typeof m==="string") return; { const hs = load("historico", []); selId = Date.now(); hs.push({m, ativo:S.ativo, data:S.data, id:selId}); save("historico", hs); } slider = null; tela = "acomp"; render(); atualizarStatus(); };
+  const cf = q("#confirmar"); if (cf) cf.onclick = () => { const m = montagem(tese); if (typeof m==="string") return; { const hs = load("historico", []); selId = Date.now(); hs.push({m, ativo:S.ativo, data:S.data, id:selId, cor:S.cad.corretagem}); save("historico", hs); } slider = null; tela = "acomp"; render(); atualizarStatus(); };
   const sl = q("#sl"); if (sl) sl.oninput = () => {
     slider = +sl.value; const P = opSel(), m = P.m, r = M.resultadoNoVencimento(m, slider);
     const pior = -m.perdaMax, melhor = m.ganhoMax===null ? m.perdaMax*2 : m.ganhoMax, span = melhor - pior, pos = Math.min(100,Math.max(0,(r-pior)/span*100)), zero = (0-pior)/span*100;

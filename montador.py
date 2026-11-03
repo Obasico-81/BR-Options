@@ -9,7 +9,7 @@ from datetime import date, timedelta
 from typing import Optional
 
 TAXA_B3 = 0.00134          # 0,134% do prêmio por lado (swing, PF) — conferir vigência
-CUSTO_FIXO = 2.0           # R$ por estrutura (corretagem zero; margem de segurança)
+CUSTO_FIXO = 4.0           # R$ por ordem sem corretagem cadastrada (era R$ 2 por estrutura até 03/11/2026)
 LOTE = 100
 _CORRETAGEM: Optional[float] = None   # R$ por ordem; None = não informada (vale a margem fixa)
 
@@ -41,12 +41,15 @@ class Montagem:
     ganho_max: Optional[float] # None = ilimitado
     pontos_equilibrio: tuple
     prob_implicita: float      # probabilidade implícita no preço de terminar com lucro
-    custo_total: float         # spread vs. meio + taxas B3 + fixo, ida e volta
+    custo_total: float         # custo_spread + custo_taxas + custo_fixo
     alvo: Optional[float]      # resultado em R$ que dispara a saída por ganho
     stop: float                # resultado (negativo) que dispara a saída por perda
     data_max_dias: int         # sair quando faltar este número de dias
     avisos: tuple = ()
     theta_dia: Optional[float] = None   # R$/dia que a operação desvaloriza se nada mudar (só compra simples)
+    custo_spread: float = 0.0  # spread em relação ao preço médio (já está no prêmio), por todos os lotes
+    custo_taxas: float = 0.0   # taxas da B3 de entrada e saída, por todos os lotes
+    custo_fixo: float = 0.0    # corretagem (ou margem fixa) por ordem: pernas × 2, não cresce com os lotes
 
 
 SPREAD_MAX = 0.20  # spread máximo (venda − compra) / médio, no fechamento; era 10% até 02/11/2026
@@ -72,8 +75,14 @@ def set_corretagem(v) -> None:
 
 
 def _fixo(n_pernas: int) -> float:
-    """Custo fixo ida e volta: margem de R$ 2 × 2 sem corretagem cadastrada; senão corretagem × pernas × 2 (como o JS)."""
-    return CUSTO_FIXO * 2 if _CORRETAGEM is None else _CORRETAGEM * n_pernas * 2
+    """Corretagem por ordem (cada perna, na entrada e na saída): a do usuário ou a margem fixa de R$ 4. Não cresce com os lotes."""
+    return (CUSTO_FIXO if _CORRETAGEM is None else _CORRETAGEM) * n_pernas * 2
+
+
+def _custos(spread1: float, taxas1: float, n_pernas: int, lotes: int) -> dict:
+    """Custos da operação em R$, como custos() do JS: spread e taxas por lote; corretagem por ordem."""
+    s, t, f = spread1 * lotes, taxas1 * lotes, _fixo(n_pernas)
+    return dict(custo_total=_r2(s + t + f), custo_spread=_r2(s), custo_taxas=_r2(t), custo_fixo=_r2(f))
 
 
 def prob_acima(S: float, K: float, dias: int, vol: float) -> float:
@@ -127,8 +136,7 @@ def montar(tese: str, S: float, chain: list, vol_impl: float, perda_aceita: floa
     if lotes < 1:
         return f"A menor operação arrisca {brl(perda1)}, acima do seu limite de {brl(perda_aceita)}."
     taxas = sum(TAXA_B3 * o.mid * LOTE for l, o in pernas) * 2
-    spread_custo = abs(premio - premio_mid)
-    custo = (spread_custo + taxas + _fixo(len(pernas)))
+    c = _custos(abs(premio - premio_mid), taxas, len(pernas), lotes)
     ganho = ganho1
     alvo = alvo_frac * ganho1 if ganho1 is not None else None
     ks = [o.strike for l, o in pernas]
@@ -139,9 +147,9 @@ def montar(tese: str, S: float, chain: list, vol_impl: float, perda_aceita: floa
               "Nos testes de 2015–2025 nenhuma estrutura teve lucro médio estável."]
     return Montagem(tese, est, tuple(pernas), lotes, round(premio * lotes, 2), round(perda1 * lotes, 2),
                     None if ganho is None else round(ganho * lotes, 2), tuple(round(x, 2) for x in eq),
-                    round(prob, 3), round(custo * lotes, 2),
+                    round(prob, 3), c.pop("custo_total"),
                     None if alvo is None else round(alvo * lotes, 2), round(stop * lotes, 2),
-                    7, tuple(avisos))
+                    7, tuple(avisos), **c)
 
 
 def _escolher(tese, S, ch, spread_max, vol_min):
@@ -230,14 +238,14 @@ def montar_sinal(S: float, chain: list, vol_impl: float, perda_aceita: float, en
         else:
             lotes = int(caixa // (p.strike * LOTE)); stop = -min(stop_frac * perda1, perda_aceita)
         taxas = sum(TAXA_B3 * o.mid * LOTE for l, o in pernas) * 2
-        custo = abs(premio - premio_mid) + taxas + _fixo(len(pernas))
+        c = _custos(abs(premio - premio_mid), taxas, len(pernas), lotes)
         prob = prob_acima(S, eq[0], d, vol_impl)
         avisos = ["Probabilidade implícita no preço de mercado; não é vantagem do usuário.",
                   "O alvo vem do sinal recebido; a ferramenta não valida o sinal.",
                   "Nos testes de 2015–2025 nenhuma estrutura teve lucro médio estável."]
         return Montagem(tese, est, tuple(pernas), lotes, round(premio * lotes, 2), round(perda1 * lotes, 2),
                         round(ganho1 * lotes, 2), tuple(round(x, 2) for x in eq), round(prob, 3),
-                        round(custo * lotes, 2), round(alvo_frac * ganho1 * lotes, 2), round(stop * lotes, 2), 7, tuple(avisos))
+                        c.pop("custo_total"), round(alvo_frac * ganho1 * lotes, 2), round(stop * lotes, 2), 7, tuple(avisos), **c)
     return motivo
 
 
@@ -340,13 +348,13 @@ def montar_aposta(lado: str, S: float, chain: list, vol_impl: float, valor: floa
     else:
         ganho = (o.strike - prem) * LOTE * lotes; eq = (o.strike - prem,); prob = 1 - prob_acima(S, eq[0], o.dias, vol_impl)
         est = "Put comprada (posição de baixa)"; tese = "aposta_baixa"
-    taxas = TAXA_B3 * o.mid * LOTE * 2; custo = (o.ask - o.mid) * LOTE + taxas + _fixo(1)
+    c = _custos((o.ask - o.mid) * LOTE, TAXA_B3 * o.mid * LOTE * 2, 1, lotes)
     perda = prem * LOTE * lotes
     avisos = ("Probabilidade implícita no preço de mercado; não é vantagem do usuário.",
               "Nos testes de 2015–2025, na maior parte dos casos a opção comprada venceu sem valor.")
     return Montagem(tese, est, ((+1, o),), lotes, round(perda, 2), round(perda, 2), None if ganho is None else round(ganho, 2),
-                    tuple(round(x, 2) for x in eq), round(prob, 3), round(custo * lotes, 2), None, None, 0, avisos,
-                    None if (th := _theta_dia(S, o)) is None else round(th * LOTE * lotes, 2))
+                    tuple(round(x, 2) for x in eq), round(prob, 3), c.pop("custo_total"), None, None, 0, avisos,
+                    None if (th := _theta_dia(S, o)) is None else round(th * LOTE * lotes, 2), **c)
 
 
 # --- Marcação diária: valor de hoje e regras de saída (espelha resultadoNoDia e regraDeSaida do montador.js) ---
