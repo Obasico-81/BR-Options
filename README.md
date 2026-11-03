@@ -1,6 +1,6 @@
 # Montador de Opções — app instalável com dados diários
 
-Ferramenta que monta operações com opções (custo, perda máxima, equilíbrio e cenários). Modo simulado.
+Ferramenta que monta operações com opções (custo, risco máximo, equilíbrio e cenários). Modo simulado.
 Funciona no navegador do celular e pode ser instalada na tela inicial (PWA).
 
 ## Como funciona a atualização diária

@@ -2,23 +2,20 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
 <style>
 /* Layout: uma coluna de celular (até 460px), quatro telas trocadas na própria página. Cores do canvas de telas aprovado. */
+/* Tema: escuro por padrão para todos (decisão de 03/11/2026), independente do tema do aparelho. O claro fica
+   disponível por data-theme="light" no <html>, sem opção na tela por enquanto. */
 :root{
+  --bg:#1E1E20; --surface:#28282B; --ink:#EDEBE4; --muted:#A9A7A0; --line:#3C3C40;
+  --accent:#F5C400; --accent-ink:#1E1E20; --accent-soft:#2E2A16; --accent-text:#F5C400;
+  --good:#7BD389; --good-soft:#1F3328; --bad:#FF8A7F; --bad-soft:#3A2220; --warn-soft:#3A2F14; --warn-text:#F0C060;
+  --off:#2A2A2D; --track:#38383C; color-scheme:dark;
+  --font:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+:root[data-theme="light"]{
   --bg:#E3E3E0; --surface:#FFFFFF; --ink:#0F1B2D; --muted:#4B5B6B; --line:#CBCBC7;
   --accent:#F5C400; --accent-ink:#0F1B2D; --accent-soft:#FFF3C4; --accent-text:#8A6500;
   --good:#17663F; --good-soft:#E1F3E8; --bad:#B42318; --bad-soft:#FBE4E1; --warn-soft:#FDF0D5; --warn-text:#7A4A00;
-  --off:#D6D6D3; --track:#E8ECEF;
-  --font:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
-}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#1E1E20; --surface:#28282B; --ink:#EDEBE4; --muted:#A9A7A0; --line:#3C3C40;
-  --accent:#F5C400; --accent-ink:#1E1E20; --accent-soft:#2E2A16; --accent-text:#F5C400;
-  --good:#7BD389; --good-soft:#1F3328; --bad:#FF8A7F; --bad-soft:#3A2220; --warn-soft:#3A2F14; --warn-text:#F0C060;
-  --off:#2A2A2D; --track:#38383C; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#1E1E20; --surface:#28282B; --ink:#EDEBE4; --muted:#A9A7A0; --line:#3C3C40;
-  --accent:#F5C400; --accent-ink:#1E1E20; --accent-soft:#2E2A16; --accent-text:#F5C400;
-  --good:#7BD389; --good-soft:#1F3328; --bad:#FF8A7F; --bad-soft:#3A2220; --warn-soft:#3A2F14; --warn-text:#F0C060;
-  --off:#2A2A2D; --track:#38383C; color-scheme:dark}
+  --off:#D6D6D3; --track:#E8ECEF; color-scheme:light}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-variant-numeric:tabular-nums;font-size:16px;line-height:1.45}
 .app{max-width:460px;margin:0 auto;padding:16px 16px 100px;display:flex;flex-direction:column;gap:14px;min-width:0}
@@ -223,7 +220,7 @@ function vObj(){
    <p class="small muted">${S.cad.corretora?`Corretora: ${esc(S.cad.corretora)}. `:""}Risco máximo por operação: ${(S.perda/S.capital*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% do seu capital.</p>
    <p class="small muted">Preços de ${dBR(S.data)}. Volatilidade implícita das opções: ${(a.iv*100).toFixed(0)}% ao ano.</p></section>`;
   } else {
-    h += `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-weight:700">Vence ${dBR(vencSel().iso).slice(0,5)} · risco máx. ${brl(S.perda)}</div><div class="small muted">Preços de ${dBR(S.data)}${S.cad.corretora?` · ${esc(S.cad.corretora)}`:""}</div></div><button class="back" data-perfil="1" style="min-height:44px">Editar</button></div></section>`;
+    h += `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-weight:700">Vence ${dBR(vencSel().iso).slice(0,5)} · risco máx. ${brl(S.perda).replace(" ","&nbsp;")}</div><div class="small muted">Preços de ${dBR(S.data)}${S.cad.corretora?` · ${esc(S.cad.corretora)}`:""}</div></div><button class="back" data-perfil="1" style="min-height:44px">Editar</button></div></section>`;
   }
   h += `<p class="muted" style="margin-top:4px">Diga o que você espera do papel. O app calcula o custo, o risco máximo em R$ e os cenários no vencimento.</p>`;
   let ult = null;
@@ -366,7 +363,7 @@ function vDesemp(){
   const fim = linhas.filter(l => l.real && l.fecha >= de && l.fecha <= ate).sort((a,b)=>b.fecha.localeCompare(a.fecha));
   const abertas = linhas.filter(l => !l.real);
   const tot = fim.reduce((a,l)=>a+l.res,0), gan = fim.filter(l=>l.res>0), per_ = fim.filter(l=>l.res<0);
-  const chip = (k, t) => `<button class="chip${per===k?" on":""}" data-per="${k}" style="padding:8px 12px;border-radius:999px;border:1.5px solid var(--line);background:${per===k?"var(--ink,#0F1B2D)":"transparent"};color:${per===k?"#fff":"inherit"};font:inherit;font-size:14px;font-weight:600;cursor:pointer">${t}</button>`;
+  const chip = (k, t) => `<button class="chip${per===k?" on":""}" data-per="${k}" style="padding:8px 12px;border-radius:999px;border:1.5px solid var(--line);background:${per===k?"var(--ink)":"transparent"};color:${per===k?"var(--bg)":"inherit"};font:inherit;font-size:14px;font-weight:600;cursor:pointer">${t}</button>`;
   let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Meu desempenho</h1><p class="muted">Resultado das suas operações simuladas já encerradas, antes de imposto.</p>`;
   h += `<section class="card"><div style="display:flex;gap:8px;flex-wrap:wrap">${chip("30","30 dias")}${chip("90","90 dias")}${chip("365","12 meses")}${chip("tudo","Tudo")}${chip("pers","Período")}</div>`;
   if (per==="pers") h += `<div class="row3" style="margin-top:10px"><label class="f">De<input id="pde" type="date" value="${pDe}"></label><label class="f">Até<input id="pate" type="date" value="${pAte}"></label></div>`;
