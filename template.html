@@ -101,6 +101,11 @@ const CORRETORAS = ["XP Investimentos","BTG Pactual","Clear","Rico","Inter","NuI
 const DATAS = Object.keys(SNAP.por_data).sort();
 let S = load("estado", {ativo:"PETR4", data:SNAP.data, capital:12000, perda:500, prazo:45, aposta:300, pf:"eq", sinal:{entrada:null, alvo:null, prazo:20, est:"trava"}});
 S.cad = Object.assign({corretora:"", corretagem:null}, S.cad||{}); delete S.cad.nome; M.setCorretagem(S.cad.corretagem);   // o nome não era usado em lugar nenhum
+// Tema: escuro por padrão; o claro é escolha do usuário em Meus dados (guardada em S.tema)
+const aplicarTema = () => { const claro = S.tema === "claro", r = document.documentElement;
+  if (claro) r.dataset.theme = "light"; else delete r.dataset.theme;
+  const mt = document.querySelector('meta[name="theme-color"]'); if (mt) mt.setAttribute("content", claro ? "#E3E3E0" : "#1E1E20"); };
+aplicarTema();
 // Números digitados no formato brasileiro: "4,90", "4.90", "12.000", "12000", "R$ 1.234,56". null = vazio; NaN = inválido.
 // (Campos de texto: o campo numérico do navegador lê "4,90" como 490 e "12.000" como 12.)
 const numBR = (v) => { let t = String(v ?? "").replace(/R\$|\s/g, ""); if (!t) return null;
@@ -183,7 +188,7 @@ function fechamentoNoVenc(ativo, iso, dias){
 function navBar(){
   const at = tela==="acomp" ? "acomp" : tela==="desemp" ? "desemp" : tela==="cad" ? "cad" : "obj";
   const it = (k, rot, ic) => `<button data-nav="${k}" ${at===k?'aria-current="page"':""}>${svg(ic,22)}${rot}</button>`;
-  document.getElementById("nav").innerHTML = `<div class="in">${it("obj","Início",'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>')}${it("acomp","Operações",'<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l4-5 3 3 4-6"/>')}${it("desemp","Desempenho",'<path d="M5 20V11"/><path d="M12 20V4"/><path d="M19 20v-6"/>')}${it("cad","Cadastro",'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>')}</div>`;
+  document.getElementById("nav").innerHTML = `<div class="in">${it("obj","Início",'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>')}${it("acomp","Operações",'<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l4-5 3 3 4-6"/>')}${it("desemp","Desempenho",'<path d="M5 20V11"/><path d="M12 20V4"/><path d="M19 20v-6"/>')}${it("cad","Meus dados",'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>')}</div>`;
   document.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { selId = null; slider = null; tela = b.dataset.nav; render(); });
 }
 function render(){
@@ -271,7 +276,7 @@ function custosHtml(m, cor){
    ${linha("Taxas da B3 (entrada e saída, estimadas)", m.custoTaxas, " tot")}
    ${cor===null?`<div class="kv"><span>Corretagem</span><span>não cadastrada</span></div>`:linha(`Corretagem (${n} ordens × ${brl(m.custoFixo/n,2).replace(" ","&nbsp;")})`, m.custoFixo)+linha("Taxas e corretagem", extra)}
    ${linha(`Risco máximo com ${rot}`, m.perdaMax + extra, " tot")}${m.ganhoMax===null?"":linha(`Ganho máximo com ${rot}`, m.ganhoMax - extra)}
-   <p class="small muted">${cor===null?"Sem a corretagem cadastrada, o app não a soma. Cadastre o valor por ordem da sua corretora em Cadastro.":"Corretagem do seu cadastro, por ordem, na entrada e na saída de cada perna."} Os resultados dos cenários, de “Se encerrar hoje” e do Desempenho não descontam taxas e corretagem.</p>
+   <p class="small muted">${cor===null?"Sem a corretagem cadastrada, o app não a soma. Cadastre o valor por ordem da sua corretora em Meus dados.":"Corretagem do seu cadastro, por ordem, na entrada e na saída de cada perna."} Os resultados dos cenários, de “Se encerrar hoje” e do Desempenho não descontam taxas e corretagem.</p>
   </div></details>`;
 }
 function pernasHtml(m){
@@ -392,11 +397,12 @@ function vLista(){
 }
 function vCad(){
   const c = S.cad;
-  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Meu cadastro</h1><p class="muted">Estes dados ficam guardados só neste aparelho.</p>`;
+  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Meus dados</h1><p class="muted">Estes dados ficam guardados só neste aparelho.</p>`;
   h += `<section class="card"><label class="f">Corretora<select id="ccorr"><option value="">Escolha…</option>${CORRETORAS.map(n=>`<option ${n===c.corretora?"selected":""}>${n}</option>`).join("")}</select></label>
    <label class="f">Corretagem por ordem de opções (R$)<input id="ccorrtg" type="text" inputmode="decimal" autocomplete="off" placeholder="Não sei" value="${fmtBR(c.corretagem,2)}"></label>
    <p class="small muted">${c.corretagem===null?"Sem este valor, o custo das operações não inclui corretagem. Os custos aparecem em Detalhes da operação.":`O custo das operações usa ${brl(c.corretagem,2).replace(" ","&nbsp;")} por ordem, na entrada e na saída de cada perna. Aparece em Detalhes da operação.`} Consulte a tabela da sua corretora; o app não confere esse valor.</p></section>`;
-  h += `<section class="card"><h2 style="font-size:16px">Seus dados neste aparelho</h2><p class="small muted">Apaga o cadastro, o perfil, as operações simuladas e o histórico.</p><button class="btn danger" id="apagar-tudo">Apagar meus dados</button></section>`;
+  h += `<section class="card" aria-label="Aparência"><h2 style="font-size:16px">Aparência</h2><div role="group" aria-label="Tema" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${[["escuro","Escuro"],["claro","Claro"]].map(([k,n]) => { const on = (S.tema||"escuro") === k; return `<button class="seg" data-tema="${k}" aria-pressed="${on}" style="min-height:48px;padding:8px 10px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:15px;font-weight:600;cursor:pointer">${n}</button>`; }).join("")}</div></section>`;
+  h += `<section class="card"><h2 style="font-size:16px">Seus dados neste aparelho</h2><p class="small muted">Apaga a corretora, o perfil, o tema, as operações simuladas e o histórico.</p><button class="btn danger" id="apagar-tudo">Apagar meus dados</button></section>`;
   return h;
 }
 
@@ -464,6 +470,7 @@ function bind(){
   const sv = () => { save("estado", S); M.setCorretagem(S.cad.corretagem); };
   const cc = q("#ccorr"); if (cc) cc.onchange = () => { S.cad.corretora = cc.value; sv(); };
   const ct = q("#ccorrtg"); if (ct) ct.onchange = () => { const n = numBR(ct.value); S.cad.corretagem = n === null || !(n >= 0) ? null : Math.round(n*100)/100; sv(); render(); };
+  document.querySelectorAll("[data-tema]").forEach(b => b.onclick = () => { S.tema = b.dataset.tema; save("estado", S); aplicarTema(); render(); });
   const ap = q("#apagar-tudo"); if (ap) ap.onclick = () => { if (confirm("Apagar todos os seus dados neste aparelho?")){ try{ ["estado","historico","posicao"].forEach(k=>localStorage.removeItem(k)); }catch(e){} location.reload(); } };
   const en = q("#encerrar"); if (en) en.onclick = () => { save("historico", load("historico", []).filter(o => o.id !== selId)); selId = null; tela = "acomp"; render(); };
 }
