@@ -18,3 +18,5 @@ assert t.lstrip().startswith("<title>")
 t = cab + t.replace('<main class="app"', '</head>\n<body>\n<main class="app"', 1)
 t = t.rstrip() + '\n<script>if("serviceWorker" in navigator && location.protocol.startsWith("http")){ navigator.serviceWorker.register("sw.js").catch(function(){}); }</script>\n</body>\n</html>\n'
 open("pwa/index.html", "w", encoding="utf-8").write(t); print(len(t)//1024, "KB")
+# cópia publicada do snapshot: o app nativo baixa daqui os dados do dia (o código vai dentro do app)
+import shutil; shutil.copyfile("snapshot.json", "pwa/snapshot.json")

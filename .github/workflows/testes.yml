@@ -15,6 +15,7 @@ on:
       - "atualizar_dados.py"
       - "build.py"
       - "build_pwa.py"
+      - "build_nativo.py"
       - "testes/**"
       - ".github/workflows/testes.yml"
   workflow_dispatch:
@@ -65,3 +66,6 @@ jobs:
 
       - name: Números no formato brasileiro (vírgula, ponto de milhar)
         run: node testes/numeros.js
+
+      - name: App nativo — dados do site, cópia no aparelho e snapshot embutido
+        run: node testes/nativo.js

@@ -6,3 +6,5 @@ __pycache__/
 *.zip
 testes/tmp/
 node_modules/
+pwa/snapshot.json
+nativo/www/

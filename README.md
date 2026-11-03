@@ -87,6 +87,25 @@ fechamento), buraco maior que uma semana (avisa para rodar `--ano`), B3 responde
 de "nada a fazer"), dia incompleto, opção de outro papel-objeto com o mesmo prefixo, `--ano` refazendo uma cadeia guardada e a sequência `--ano` + execução diária do workflow. Os arquivos sintéticos usam o
 mesmo layout do leitor; **não substituem** o `--validar` com o arquivo real.
 
+## App nativo (Android e iPhone)
+
+`nativo/` é o projeto Capacitor 8.6.0 (versões fixas em `nativo/package.json`) que embrulha o mesmo código do site
+num app de Android e de iPhone. `build_nativo.py` gera `nativo/www/index.html` a partir de `index.html`: o código vai
+inteiro dentro do app; ao abrir, um carregador baixa `snapshot.json` do site publicado (até 5 s), guarda a cópia no
+aparelho para abrir sem internet e só então roda a interface (vale a mais nova entre a baixada e a embutida no build).
+Os preços diários vêm de `<site>/precos/`. O site publica `snapshot.json` (cópia feita por `build_pwa.py`).
+
+```
+python3 build.py && python3 build_nativo.py      # código do app em nativo/www
+cd nativo && npm ci && npx cap sync              # copia para nativo/android e nativo/ios
+```
+
+O workflow *App nativo* gera o APK de teste do Android e compila o app de iPhone para o simulador, com uma foto da
+tela aberta (artefatos da execução). `testes/nativo.js` cobre o carregador: dados do site, cópia guardada, snapshot
+embutido, site com dados mais velhos, site lento e preços diários pelo endereço do site.
+Provisórios até a escolha do nome: `appId` `br.com.montadordeopcoes.app` (não muda depois de publicado na loja) e
+`appName` "Montador de Opções". Ainda faltam: ícone e tela de abertura próprios, assinatura e envio às lojas.
+
 ## Pesquisa (reteste fora da amostra)
 
 *Actions → Pesquisa fora da amostra (2026) → Run workflow* baixa os COTAHIST anuais (DE a ATE), monta a base com
