@@ -4,7 +4,7 @@ Cobre: as 4 estruturas; o sinal (trava e put, 3 cenários); a compra simples no 
 (Lucro maior · Equilibrada · Lucro frequente), com o theta; o movimento necessário × oscilação de 60 pregões em todo
 caso montado e a volatilidade de 60 pregões em 3 datas por ativo; a marcação diária ("Se encerrar hoje" com os preços
 do dia, com preços 7% mais altos e sem o preço de uma perna) e a regra de saída em duas sequências de dias; os custos separados (spread,
-taxas da B3, corretagem por ordem e total); tudo duas vezes, sem corretagem cadastrada e com corretagem de R$ 5 por ordem. Uso: python3 paridade.py   (esperado: "0 falha(s)")
+taxas da B3, corretagem por ordem e total); a trava com preço de fechamento impossível, em cadeias sintéticas; tudo duas vezes, sem corretagem cadastrada e com corretagem de R$ 5 por ordem. Uso: python3 paridade.py   (esperado: "0 falha(s)")
 """
 import json, math, subprocess, sys
 from datetime import date, timedelta
@@ -19,6 +19,14 @@ PRECOS = {n: ({o["s"]: [o["b"], o["a"]] for o in a["chain"]}, {o["s"]: [r2(o["b"
           for n, a in snap["ativos"].items()}
 FATORES = (0.1, -0.2, 0.3, None, -0.5, 0.6, -0.8, 0.9, -1.0, 1.2)
 add_dias = lambda iso, n: (date.fromisoformat(iso) + timedelta(days=n)).isoformat()
+# cadeias sintéticas (S = 10) com trava de preço impossível: crédito na entrada; débito zero; débito igual ou maior que a distância entre os
+# strikes; e o 1º vencimento impossível com o 2º bom (a montagem tem de seguir para o 2º). (t, k, compra, venda, volume, dias, símbolo)
+CRED = [("C", 10.0, 0.20, 0.22, 1000, 45, "SINTA100"), ("C", 10.5, 0.60, 0.66, 1000, 45, "SINTA105")]
+SINT = {"credito": CRED,
+        "zero": [("C", 10.0, 0.40, 0.44, 1000, 45, "SINTD100"), ("C", 10.5, 0.44, 0.48, 1000, 45, "SINTD105")],
+        "igual": [("C", 10.0, 0.90, 1.00, 1000, 45, "SINTE100"), ("C", 10.5, 0.50, 0.55, 1000, 45, "SINTE105")],
+        "largura": [("C", 10.0, 0.90, 1.00, 1000, 45, "SINTB100"), ("C", 10.5, 0.45, 0.50, 1000, 45, "SINTB105")],
+        "segue": CRED + [("C", 10.0, 0.40, 0.44, 1000, 50, "SINTC100"), ("C", 10.5, 0.20, 0.22, 1000, 50, "SINTC105")]}
 
 
 def marcas(perda, dias, pequenas):
@@ -69,12 +77,17 @@ def lado_python(cor):
                     res[f"{nome}/compra_{lado}_{pf or 'padrao'}_{nm}"] = resumo(montar_aposta(lado, a["S"], ch, a["iv"], val, perfil=pf), nome, a["S"], theta=True)
         for rot, ate in datas_vol(nome).items():
             res[f"{nome}/vol60_{rot}"] = {"vol": vol_real_60(snap["fechamentos"][nome], ate)}
+    curto = lambda m: m if isinstance(m, str) else [m.lotes, m.premio, m.perda_max, [[l, o.simbolo, o.dias] for l, o in m.pernas]]
+    for nm, ch in SINT.items():
+        ch = [Opcao(*o) for o in ch]
+        res[f"sint/{nm}/alta"] = curto(montar("alta", 10.0, ch, 0.3, perda_aceita=300, caixa=30000))
+        res[f"sint/{nm}/sinal"] = curto(montar_sinal(10.0, ch, 0.3, 300, 10.0, 10.5, 30, estrutura="trava", caixa=30000))
     set_corretagem(None)
     return res
 
 
 JS = """
-const M=require('./montador.js'),s=require('./snapshot.json'),cor=JSON.parse(process.argv[1]),out={};
+const M=require('./montador.js'),s=require('./snapshot.json'),cor=JSON.parse(process.argv[1]),SINT=JSON.parse(process.argv[2]),out={};
 const r2=(x)=>Math.round(x*100)/100;
 const PR={}; for(const [n,a] of Object.entries(s.ativos)) PR[n]=[Object.fromEntries(a.chain.map(o=>[o.s,[o.b,o.a]])),Object.fromEntries(a.chain.map(o=>[o.s,[r2(o.b*1.07),r2(o.a*1.07)]]))];
 const FA=[0.1,-0.2,0.3,null,-0.5,0.6,-0.8,0.9,-1.0,1.2];
@@ -96,17 +109,33 @@ for(const [n,a] of Object.entries(s.ativos)){
   const ds=Object.keys(s.fechamentos[n]).sort();
   for(const [rot,ate] of [['fim',s.data],['21',ds[20]],['20',ds[19]]]) out[n+'/vol60_'+rot]={vol:M.volReal60(s.fechamentos[n],ate)};
 }
+const curto=(m)=>typeof m==='string'?m:[m.lotes,m.premio,m.perdaMax,m.pernas.map(([l,o])=>[l,o.s,o.d])];
+for(const [nm,ch0] of Object.entries(SINT)){ const ch=ch0.map(([t,k,b,a,v,d,s])=>({t,k,b,a,v,d,s}));
+  out['sint/'+nm+'/alta']=curto(M.montar('alta',10,ch,0.3,300,{caixa:30000}));
+  out['sint/'+nm+'/sinal']=curto(M.montarSinal(10,ch,0.3,300,10,10.5,30,{estrutura:'trava',caixa:30000})); }
 console.log(JSON.stringify(out));
 """
 
 
 def lado_js(cor):
-    js = subprocess.run(["node", "-e", JS, json.dumps(cor)], capture_output=True, text=True)
+    js = subprocess.run(["node", "-e", JS, json.dumps(cor), json.dumps(SINT)], capture_output=True, text=True)
     if js.returncode:
         print(js.stderr); sys.exit(1)
     return json.loads(js.stdout)
 
 
+INC = "Preços de fechamento inconsistentes: "
+FIM = ". O app não monta esta operação com esses preços."
+ESPERADO = {"sint/credito/alta": lambda v: v == INC + "comprar SINTA100 e vender SINTA105 daria crédito de R$ 38" + FIM,
+            "sint/zero/alta": lambda v: v == INC + "comprar SINTD100 e vender SINTD105 não teria custo" + FIM,
+            "sint/igual/alta": lambda v: v == INC + "comprar SINTE100 e vender SINTE105 custaria R$ 50, e a trava paga no máximo R$ 50" + FIM,
+            "sint/igual/sinal": lambda v: v == INC + "comprar SINTE100 e vender SINTE105 custaria R$ 50, e a trava paga no máximo R$ 50" + FIM,
+            "sint/zero/sinal": lambda v: v == INC + "comprar SINTD100 e vender SINTD105 não teria custo" + FIM,
+            "sint/largura/alta": lambda v: v == INC + "comprar SINTB100 e vender SINTB105 custaria R$ 55, e a trava paga no máximo R$ 50. O app não monta esta operação com esses preços.",
+            "sint/segue/alta": lambda v: isinstance(v, list) and v[3] == [[1, "SINTC100", 50], [-1, "SINTC105", 50]] and v[0] == 12,
+            "sint/credito/sinal": lambda v: v == INC + "comprar SINTA100 e vender SINTA105 daria crédito de R$ 38" + FIM,
+            "sint/largura/sinal": lambda v: v == INC + "comprar SINTB100 e vender SINTB105 custaria R$ 55, e a trava paga no máximo R$ 50. O app não monta esta operação com esses preços.",
+            "sint/segue/sinal": lambda v: isinstance(v, list) and v[3] == [[1, "SINTC100", 50], [-1, "SINTC105", 50]]}
 perto = lambda a, b, tol=0.011: (a is None and b is None) or (a is not None and b is not None and abs(a - b) < tol)
 falhas = casos = montados = 0; regras = {}
 for cor in CORRETAGENS:
@@ -114,8 +143,14 @@ for cor in CORRETAGENS:
     rotulo = "sem corretagem" if cor is None else f"corretagem R$ {cor:.2f}"
     for k, v in py.items():
         j = js[k]; casos += 1
+        if k.startswith("sint/"):   # cadeias sintéticas: resultado esperado conferido abaixo; aqui, os dois lados iguais
+            ok = v == j if isinstance(v, str) else isinstance(j, list) and v[:1] == j[:1] and perto(v[1], j[1]) and perto(v[2], j[2]) and v[3] == j[3]
+            ok = ok and ESPERADO[k](v)
+            if not ok: print("ERRO", rotulo, k, "| py:", v, "| js:", j)
+            falhas += 0 if ok else 1; continue
         if isinstance(v, str) or isinstance(j, str):
-            ok = v == j or (isinstance(v, str) and isinstance(j, str) and v.split(":")[0] == j.split(":")[0])
+            # mensagens: mesmo início (até os dois-pontos); as de preço inconsistente, iguais por inteiro
+            ok = v == j or (isinstance(v, str) and isinstance(j, str) and not v.startswith("Preços de fechamento") and v.split(":")[0] == j.split(":")[0])
             if not ok: print("ERRO", rotulo, k, "| py:", v, "| js:", j)
             falhas += 0 if ok else 1; continue
         if "vol" in v:   # volatilidade de 60 pregões

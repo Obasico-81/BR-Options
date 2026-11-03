@@ -65,7 +65,7 @@ node testes/marcacao.js                      # marcação diária: contas e app 
 **Preços diários.** O atualizador grava `pwa/precos/AAAA-MM-DD.json` (melhor compra e venda no fechamento de cada série
 dos ativos do app, 5 a 100 dias), um arquivo novo por pregão, publicado com o app. O app usa esses arquivos para marcar
 cada operação simulada: "Se encerrar hoje" em *Sua operação* e, no *Desempenho*, a saída pela primeira regra atingida
-(alvo, limite ou prazo) no fechamento de cada dia, ou o vencimento. `--ano` grava os dias que faltam do ano inteiro.
+(alvo, limite ou prazo) no fechamento de cada dia, ou o vencimento. `--ano` grava os dias que faltam do ano inteiro e refaz as cadeias guardadas.
 
 `paridade.py` compara `montador.py` e `montador.js` em todos os ativos do snapshot: as 4 estruturas, o sinal (trava e
 put), a compra simples no caminho padrão e nos 3 perfis (Lucro maior · Equilibrada · Lucro frequente) com o theta, tudo
@@ -84,7 +84,7 @@ preço em pickle, em `/tmp/claude-0/`).
 
 `teste_atualizador.py` gera arquivos COTAHIST sintéticos e cobre: `--validar`, feriado, pregão perdido (recupera o
 fechamento), buraco maior que uma semana (avisa para rodar `--ano`), B3 respondendo 403 ou HTML (falha visível em vez
-de "nada a fazer"), dia incompleto e a sequência `--ano` + execução diária do workflow. Os arquivos sintéticos usam o
+de "nada a fazer"), dia incompleto, opção de outro papel-objeto com o mesmo prefixo, `--ano` refazendo uma cadeia guardada e a sequência `--ano` + execução diária do workflow. Os arquivos sintéticos usam o
 mesmo layout do leitor; **não substituem** o `--validar` com o arquivo real.
 
 ## Pesquisa (reteste fora da amostra)
@@ -98,6 +98,12 @@ pesquisa_perfis.py` dentro de `pesquisa/`, depois de montar a base.
 ## Limites conhecidos
 
 - Ativos: BOVA11, PETR4, VALE3, BBDC4, BBAS3, MGLU3, WEGE3, ITUB4, USIM5 e B3SA3 (`ATIVOS` em `atualizar_dados.py`; os 7 últimos entraram em 02/11/2026 por montarem em >= 60% dos pregões, ver `pesquisa/liquidez.py`). BOVA11, PETR4 e VALE3 são obrigatórios: se um deles vier incompleto, nada é gravado; um dos outros que vier com menos de 20 opções fica de fora só naquele dia.
+- Opções de cada ativo: prefixo do código (4 letras) **e** papel-objeto. O prefixo sozinho mistura papéis (BBDC serve a
+  BBDC3 e BBDC4; PETR a PETR3 e PETR4; ITUB a ITUB3 e ITUB4); o atualizador só aceita a opção cujo CODISI (ISIN do
+  papel-objeto) é o do papel à vista do app, e avisa quantas descartou. `--ano` refaz as cadeias dos pregões que o
+  snapshot já tem. Até 03/11/2026 a cadeia de BBDC4 e de PETR4 incluía opções de BBDC3 e PETR3 (as de `pesquisa/`
+  ainda leem só o prefixo). No montador, uma trava com preço de fechamento impossível (crédito na entrada, ou débito
+  igual ou maior que a distância entre os strikes) não é montada: tenta o próximo vencimento ou explica o motivo.
 - A cotação vem do fechamento do dia (melhor oferta de compra e venda no encerramento), não do preço ao vivo.
 - Os dados do usuário (cadastro, operações simuladas) ficam só no aparelho.
 - O app é uma calculadora: não indica o que operar e não promete resultado.

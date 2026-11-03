@@ -14,6 +14,8 @@ LAYOUT = [("TIPREG", 2), ("DATA", 8), ("CODBDI", 2), ("CODNEG", 12), ("TPMERC", 
 NUM = {"PREABE", "PREMAX", "PREMIN", "PREMED", "PREULT", "PREOFC", "PREOFV", "TOTNEG", "QUATOT", "VOLTOT", "PREEXE",
        "FATCOT", "PTOEXE", "DISMES"}
 PAPEL = {"BOVA11": "BOVA11", "PETR4": "PETR4", "VALE3": "VALE3"}
+isin = lambda nome: "BR" + nome[:4] + "ACNPR8"     # ISIN (CODISI) do papel à vista; a opção traz o ISIN do papel-objeto
+isin_irmao = lambda nome: "BR" + nome[:4] + "ACNOR1"   # outro papel com o mesmo prefixo (como BBDC3 para BBDC4)
 
 
 def registro(**v):
@@ -39,15 +41,19 @@ def linhas_do_dia(dia, ativos, so_n_opcoes=None):
     for nome, a in ativos.items():
         ls.append(registro(TIPREG="01", DATA=d, CODBDI="02", CODNEG=PAPEL[nome], TPMERC="010", NOMRES=nome[:4],
                            ESPECI="ON", MODREF="R$", PREULT=c(a["S"]), PREOFC=c(a["S"] - .01), PREOFV=c(a["S"] + .01),
-                           QUATOT=1000000, DATVEN="99991231", FATCOT=1))
+                           QUATOT=1000000, DATVEN="99991231", FATCOT=1, CODISI=isin(nome)))
         chain = a["chain"][:so_n_opcoes] if so_n_opcoes else a["chain"]
         for o in chain:
             venc = (d0 + timedelta(days=o["d"])).strftime("%Y%m%d")
             ls.append(registro(TIPREG="01", DATA=d, CODBDI="78" if o["t"] == "C" else "82", CODNEG=o["s"],
                                TPMERC="070" if o["t"] == "C" else "080", NOMRES=nome[:4], ESPECI="ON",
                                MODREF="R$", PREULT=c((o["b"] + o["a"]) / 2), PREOFC=c(o["b"]), PREOFV=c(o["a"]),
-                               QUATOT=o["v"], PREEXE=c(o["k"]), INDOPC=0, DATVEN=venc, FATCOT=1))
+                               QUATOT=o["v"], PREEXE=c(o["k"]), INDOPC=0, DATVEN=venc, FATCOT=1, CODISI=isin(nome)))
         # ruído que o leitor tem de ignorar: opção vencida há 2 dias e opção sem oferta de compra
+        # e opção líquida, com o mesmo prefixo, de outro papel-objeto (CODISI de outro ISIN)
+        ls.append(registro(TIPREG="01", DATA=d, CODBDI="78", CODNEG=nome[:4] + "K777", TPMERC="070", NOMRES=nome[:4], ESPECI="ON",
+                           MODREF="R$", PREOFC=c(1), PREOFV=c(1.05), QUATOT=100000, PREEXE=c(a["S"]),
+                           DATVEN=(d0 + timedelta(days=30)).strftime("%Y%m%d"), FATCOT=1, CODISI=isin_irmao(nome)))
         ls.append(registro(TIPREG="01", DATA=d, CODBDI="78", CODNEG=nome[:4] + "X999", TPMERC="070", PREOFC=0,
                            PREOFV=c(1), PREEXE=c(a["S"]), DATVEN=(d0 + timedelta(days=30)).strftime("%Y%m%d")))
     return ls

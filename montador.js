@@ -30,6 +30,14 @@
     if (tese === "alta_com_caixa") { const p = perto(P.filter((o) => o.k < S), S * 0.95); return p ? [[-1, p]] : null; }
     throw new Error("tese desconhecida: " + tese);
   };
+  // Trava com preços de fechamento impossíveis (ex.: opção de outro papel com o mesmo prefixo, ou preço parado): entrada
+  // com crédito, ou débito igual ou maior que a distância entre os strikes. Devolve a mensagem, ou null. Espelha _inconsistente.
+  const inconsistente = (pernas) => {
+    const a = pernas[0][1], b = pernas[1][1], deb = (a.a - b.b) * LOTE, larg = Math.abs(b.k - a.k) * LOTE, par = "comprar " + a.s + " e vender " + b.s;
+    if (deb <= 0) return "Preços de fechamento inconsistentes: " + par + (deb < 0 ? " daria crédito de " + brl0(-deb) : " não teria custo") + ". O app não monta esta operação com esses preços.";
+    if (deb >= larg) return "Preços de fechamento inconsistentes: " + par + " custaria " + brl0(deb) + ", e a trava paga no máximo " + brl0(larg) + ". O app não monta esta operação com esses preços.";
+    return null;
+  };
   const NOMES = { alta: "Trava de alta com calls", baixa: "Trava de baixa com puts", forte: "Strangle comprado", alta_com_caixa: "Put vendida coberta por caixa" };
   function payoff(tese, pernas, premio) {
     const deb = premio / LOTE, ks = pernas.map((p) => p[1].k);
@@ -49,9 +57,13 @@
     const prazoAlvo = o.prazoAlvo ?? 45, caixa = o.caixa ?? 0, spreadMax = o.spreadMax ?? SPREAD_MAX, volMin = o.volMin ?? 500, stopFrac = o.stopFrac ?? 0.70, alvoFrac = o.alvoFrac ?? 0.50;
     const jmin = Math.max(prazoAlvo - 15, 7), jmax = prazoAlvo + 15;
     const dias = [...new Set(chain.filter((x) => x.d >= jmin && x.d <= jmax).map((x) => x.d))].sort((a, b) => Math.abs(a - prazoAlvo) - Math.abs(b - prazoAlvo) || a - b);
-    let venc = null, pernas = null;
-    for (const d of dias) { const p = escolher(tese, S, chain.filter((x) => x.d === d), spreadMax, volMin); if (p) { venc = d; pernas = p; break; } }
-    if (venc === null) return "Sem opções líquidas no prazo pedido. Tente outro prazo ou outro ativo.";
+    let venc = null, pernas = null, incons = null;
+    for (const d of dias) {
+      const p = escolher(tese, S, chain.filter((x) => x.d === d), spreadMax, volMin); if (!p) continue;
+      const inc = tese === "alta" || tese === "baixa" ? inconsistente(p) : null; if (inc) { incons = incons ?? inc; continue; }   // tenta o próximo vencimento
+      venc = d; pernas = p; break;
+    }
+    if (venc === null) return incons ?? "Sem opções líquidas no prazo pedido. Tente outro prazo ou outro ativo.";
     const cred = pernas.reduce((s, [l, x]) => s + -l * preco(x, l), 0), premio = -cred * LOTE;
     const premioMid = -pernas.reduce((s, [l, x]) => s + -l * mid(x), 0) * LOTE;
     const [perda1, ganho1, eq] = payoff(tese, pernas, premio);
@@ -98,6 +110,7 @@
         const a = perto(C, S), b = perto(C.filter((x) => x.k >= alvo && x.k <= alvo * 1.05), alvo);
         if (!a || !b || b.k <= a.k) { motivo = "Sem call líquida no alvo do sinal (" + brl2(alvo) + ") ou até 5% acima."; continue; }
         pernas = [[1, a], [-1, b]]; est = "Trava de alta até o alvo do sinal"; tese = "sinal_alta";
+        const inc = inconsistente(pernas); if (inc) { motivo = inc; continue; }
       }
       const cred = pernas.reduce((s, [l, x]) => s + -l * preco(x, l), 0), premio = -cred * LOTE;
       const premioMid = -pernas.reduce((s, [l, x]) => s + -l * mid(x), 0) * LOTE;

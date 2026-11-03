@@ -195,6 +195,21 @@ confere("workflow: --ano e depois a execução diária", ok, out1 + "\n" + out2)
 confere("preços diários: --ano grava todos os pregões do arquivo", set(precos(t)) == {d.isoformat() for d in dias}
         and all(precos(t)[d.isoformat()]["op"] == esperado_precos({n: dict(a, chain=[dict(o) for o in a["chain"]]) for n, a in SNAP0["por_data"][BASE].items()}) for d in dias), out1)
 
+# K. --ano refaz as cadeias que o snapshot já tem: uma opção de outro papel-objeto guardada antes sai da cadeia
+b = io.BytesIO()
+with zipfile.ZipFile(b, "w", zipfile.ZIP_DEFLATED) as zf:
+    zf.writestr("COTAHIST_A2025.TXT", ("\r\n".join(G.linhas_do_dia(BASE, SNAP0["por_data"][BASE])) + "\r\n").encode("latin-1"))
+SRV.arquivos.clear(); SRV.arquivos["COTAHIST_A2025.ZIP"] = b.getvalue()
+t = projeto(); s0 = snap(t)
+for n, a in s0["por_data"][BASE].items():
+    a["chain"].append(dict(t="C", k=a["S"], b=1.0, a=1.05, v=100000, d=30, s=n[:4] + "K777"))
+json.dump(s0, open(os.path.join(t, "snapshot.json"), "w"))
+rc, out = rodar(t, "--ano", "2025"); s = snap(t)
+chave = lambda ch: {(o["s"], o["t"], o["k"], o["b"], o["a"], o["d"]) for o in ch}
+ok = rc == 0 and "cadeias refeitas: 1" in out and "descartadas" in out and all(
+    chave(s["por_data"][BASE][n]["chain"]) == chave(SNAP0["por_data"][BASE][n]["chain"]) for n in SNAP0["por_data"][BASE])
+confere("--ano refaz a cadeia guardada e tira a opção de outro papel-objeto", ok, out)
+
 shutil.rmtree(os.path.join(AQUI, "tmp"), ignore_errors=True)
 print("\n%s" % ("todos os cenários passaram" if not falhas else "%d cenário(s) falharam" % falhas))
 sys.exit(1 if falhas else 0)

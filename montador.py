@@ -107,16 +107,19 @@ def montar(tese: str, S: float, chain: list, vol_impl: float, perda_aceita: floa
            stop_frac: float = 0.70, alvo_frac: float = 0.50) -> Montagem | str:
     """Retorna Montagem ou uma string explicando por que não há operação possível."""
     j = (max(prazo_alvo - 15, 7), prazo_alvo + 15)
-    venc = None
-    # vencimento mais próximo do prazo alvo que tenha opções líquidas
+    venc = incons = None
+    # vencimento mais próximo do prazo alvo que tenha opções líquidas (e, na trava, preços consistentes)
     dias_disp = sorted({o.dias for o in chain if j[0] <= o.dias <= j[1]}, key=lambda d: abs(d - prazo_alvo))
     for d in dias_disp:
         ch = [o for o in chain if o.dias == d]
         pernas = _escolher(tese, S, ch, spread_max, vol_min)
         if pernas:
+            inc = _inconsistente(pernas) if tese in ("alta", "baixa") else None
+            if inc:
+                incons = incons or inc; continue   # tenta o próximo vencimento
             venc = d; break
     if venc is None:
-        return "Sem opções líquidas no prazo pedido. Tente outro prazo ou outro ativo."
+        return incons or "Sem opções líquidas no prazo pedido. Tente outro prazo ou outro ativo."
     cred = sum(-l * _preco(o, l) for l, o in pernas)   # >0 crédito por ação
     premio = -cred * LOTE                              # >0 débito
     mid = sum(-l * o.mid for l, o in pernas); premio_mid = -mid * LOTE
@@ -149,6 +152,18 @@ def montar(tese: str, S: float, chain: list, vol_impl: float, perda_aceita: floa
                     round(prob, 3), c.pop("custo_total"),
                     None if alvo is None else round(alvo * lotes, 2), round(stop * lotes, 2),
                     7, tuple(avisos), **c)
+
+
+def _inconsistente(pernas) -> Optional[str]:
+    """Trava com preços de fechamento impossíveis (ex.: opção de outro papel com o mesmo prefixo, ou preço parado): entrada
+    com crédito, ou débito igual ou maior que a distância entre os strikes. Devolve a mensagem, ou None. Espelha inconsistente."""
+    a, b = pernas[0][1], pernas[1][1]
+    deb, larg, par = (a.ask - b.bid) * LOTE, abs(b.strike - a.strike) * LOTE, f"comprar {a.simbolo} e vender {b.simbolo}"
+    if deb <= 0:
+        return f"Preços de fechamento inconsistentes: {par} {f'daria crédito de {brl(-deb)}' if deb < 0 else 'não teria custo'}. O app não monta esta operação com esses preços."
+    if deb >= larg:
+        return f"Preços de fechamento inconsistentes: {par} custaria {brl(deb)}, e a trava paga no máximo {brl(larg)}. O app não monta esta operação com esses preços."
+    return None
 
 
 def _escolher(tese, S, ch, spread_max, vol_min):
@@ -223,6 +238,9 @@ def montar_sinal(S: float, chain: list, vol_impl: float, perda_aceita: float, en
             if not a or not b or b.strike <= a.strike:
                 motivo = f"Sem call líquida no alvo do sinal ({brl2(alvo)}) ou até 5% acima."; continue
             pernas = [(+1, a), (-1, b)]; est = "Trava de alta até o alvo do sinal"; tese = "sinal_alta"
+            inc = _inconsistente(pernas)
+            if inc:
+                motivo = inc; continue
         cred = sum(-l * _preco(o, l) for l, o in pernas); premio = -cred * LOTE
         premio_mid = -sum(-l * o.mid for l, o in pernas) * LOTE
         base = "alta_com_caixa" if tese == "sinal_put" else "alta"
