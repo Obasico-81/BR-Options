@@ -2,10 +2,11 @@ name: Atualizar dados e publicar o app
 
 on:
   schedule:
-    # 01:00 UTC = 22:00 em Brasília, de terça a sábado UTC (= segunda a sexta no Brasil), depois do fechamento.
-    - cron: "0 1 * * 2-6"
-    # Segunda tentativa na manhã seguinte, caso o arquivo da B3 tenha saído tarde.
-    - cron: "0 12 * * 2-6"
+    # 01:17 UTC = 22:17 em Brasília, de terça a sábado UTC (= segunda a sexta no Brasil), depois do fechamento.
+    # Minuto 17, e não 0: na hora cheia a fila de agendamentos do GitHub atrasa e pode descartar execuções.
+    - cron: "17 1 * * 2-6"
+    # Segunda tentativa na manhã seguinte (09:17 em Brasília), caso o arquivo da B3 tenha saído tarde.
+    - cron: "17 12 * * 2-6"
   workflow_dispatch:
     inputs:
       ano:
