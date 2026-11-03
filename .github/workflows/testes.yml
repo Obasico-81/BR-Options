@@ -9,6 +9,7 @@ on:
     paths:
       - "montador.js"
       - "montador.py"
+      - "pwa/sw.js"
       - "paridade.py"
       - "template.html"
       - "atualizar_dados.py"
@@ -58,3 +59,6 @@ jobs:
           npm install --no-save --silent playwright@1.49.1
           npx playwright install --with-deps chromium
           node testes/smoke.js "$PWD/pwa/index.html"
+
+      - name: Marcação diária (contas e app servido por HTTP)
+        run: node testes/marcacao.js

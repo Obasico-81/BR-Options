@@ -59,7 +59,13 @@ python3 build.py && python3 build_pwa.py
 python3 paridade.py                          # montador.py × montador.js no snapshot atual (esperado: 0 falha(s))
 python3 -I testes/teste_atualizador.py .     # atualizador contra um servidor local que imita a B3
 node testes/smoke.js "$PWD/pwa/index.html"   # abre o app (Playwright) e percorre as telas
+node testes/marcacao.js                      # marcação diária: contas e app servido por HTTP com preços sintéticos
 ```
+
+**Preços diários.** O atualizador grava `pwa/precos/AAAA-MM-DD.json` (melhor compra e venda no fechamento de cada série
+dos ativos do app, 5 a 100 dias), um arquivo novo por pregão, publicado com o app. O app usa esses arquivos para marcar
+cada operação simulada: "Se encerrar hoje" em *Sua operação* e, no *Desempenho*, a saída pela primeira regra atingida
+(alvo, limite ou prazo) no fechamento de cada dia, ou o vencimento. `--ano` grava os dias que faltam do ano inteiro.
 
 `paridade.py` compara `montador.py` e `montador.js` em todos os ativos do snapshot: as 4 estruturas, o sinal (trava e
 put), a compra simples no caminho padrão e nos 3 perfis (Lucro maior · Equilibrada · Lucro frequente) com o theta, tudo

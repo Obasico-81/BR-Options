@@ -26,6 +26,9 @@ OBRIGATORIOS = ("BOVA11", "PETR4", "VALE3")
 URL_DIA = "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_D{ddmmaaaa}.ZIP"
 URL_ANO = "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_A{aaaa}.ZIP"
 SNAPSHOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "snapshot.json")
+# Preços diários das opções (melhor compra e venda no fechamento), um arquivo por pregão, publicado com o app:
+# o app marca as operações simuladas dia a dia (valor hoje e regras de saída). Arquivo novo por dia, nunca regravado.
+PRECOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pwa", "precos")
 DIAS_DE_CADEIA = 12          # quantos pregões completos (com cadeia de opções) ficam no snapshot
 R = 0.11                     # juro livre de risco usado na volatilidade implícita (igual ao backtest)
 
@@ -96,10 +99,34 @@ def ler(linhas, so_data=None, opc_desde=None):
             if p > 0:
                 fech[papeis[cod]][iso(d)] = p
         elif tp in ("070", "080") and cod[:4] in prefixos and (not opc_desde or iso(d) >= opc_desde):
+            b, a = preco(campo(ln, "preofc")), preco(campo(ln, "preofv"))
+            if not (b > 0 and a >= b):
+                continue
             opc.setdefault(iso(d), {}).setdefault(prefixos[cod[:4]], []).append(dict(
-                t="C" if tp == "070" else "P", k=preco(campo(ln, "preexe")), b=preco(campo(ln, "preofc")),
-                a=preco(campo(ln, "preofv")), v=int(campo(ln, "quatot") or 0), venc=iso(campo(ln, "datven")), s=cod))
+                t="C" if tp == "070" else "P", k=preco(campo(ln, "preexe")), b=b,
+                a=a, v=int(campo(ln, "quatot") or 0), venc=iso(campo(ln, "datven")), s=cod))
     return fech, opc
+
+
+def gravar_precos(opc, dias):
+    """Grava pwa/precos/AAAA-MM-DD.json de cada dia pedido: {"data", "op": {símbolo: [compra, venda]}} das séries dos
+    papéis do app com compra > 0, venda >= compra e 5 a 100 dias (as mesmas que podem entrar na cadeia). Não regrava
+    um dia que já existe. Devolve quantos arquivos foram criados."""
+    os.makedirs(PRECOS, exist_ok=True); novos = 0
+    for dia in sorted(dias):
+        arq = os.path.join(PRECOS, f"{dia}.json")
+        if os.path.exists(arq) or dia not in opc:
+            continue
+        d0 = date.fromisoformat(dia); op = {}
+        for linhas in opc[dia].values():
+            for o in linhas:
+                if o["b"] > 0 and o["a"] >= o["b"] and 5 <= (date.fromisoformat(o["venc"]) - d0).days <= 100:
+                    op[o["s"]] = [o["b"], o["a"]]
+        if op:
+            with open(arq + ".tmp", "w", encoding="utf-8") as f:
+                json.dump({"data": dia, "op": dict(sorted(op.items()))}, f, separators=(",", ":"))
+            os.replace(arq + ".tmp", arq); novos += 1
+    return novos
 
 
 def montar_dia(dia, S, linhas):
@@ -222,10 +249,12 @@ def main():
         dados = baixar(URL_ANO.format(aaaa=a.ano))
         if dados is None:
             raise SystemExit("Arquivo anual não encontrado.")
-        fech, opc = ler(linhas_do_zip(dados), opc_desde=(date.today() - timedelta(days=20)).isoformat())
+        fech, opc = ler(linhas_do_zip(dados))
         ultimo = max(max(s) for s in fech.values() if s)
-        resumo = incorporar(snap, fech, opc, ultimo if ultimo in opc else None)
-        gravar(snap); print(f"Fechamentos de {a.ano} incorporados. Último dia: {ultimo}", resumo); return
+        recente = ultimo in opc and ultimo >= (date.today() - timedelta(days=20)).isoformat()
+        resumo = incorporar(snap, fech, opc, ultimo if recente else None)
+        gravar(snap); novos = gravar_precos(opc, opc.keys())
+        print(f"Fechamentos de {a.ano} incorporados. Último dia: {ultimo}", resumo, f"| preços diários: {novos} dia(s) novo(s)"); return
 
     if a.arquivo:
         origem, dia = a.arquivo, None
@@ -249,9 +278,11 @@ def main():
             raise SystemExit(f"Nenhum arquivo da B3 nos 7 dias até {alvo} e o snapshot para em {max(ja)}. "
                              "Conferir a URL em URL_DIA ou se a B3 bloqueou o acesso. Nada foi gravado.")
         fech, opc = achados[0][1]
-        for _, (f, _o) in achados[1:]:
+        for _, (f, o2) in achados[1:]:
             for n in ATIVOS:
                 fech[n].update(f[n])
+            for d2, v in o2.items():          # opções dos pregões recuperados: só para os preços diários
+                opc.setdefault(d2, v)          # (a cadeia continua sendo a do pregão mais novo, max(opc))
         if len(achados) > 1:
             print(f"Fechamentos recuperados de {len(achados) - 1} pregão(s) que tinham ficado para trás.")
         if not coberto:
@@ -261,8 +292,8 @@ def main():
     if not dia:
         raise SystemExit("O arquivo não tem opções dos papéis do app.")
     resumo = incorporar(snap, fech, opc, dia)
-    gravar(snap)
-    print(f"Snapshot atualizado para {dia}:", resumo)
+    gravar(snap); novos = gravar_precos(opc, opc.keys())
+    print(f"Snapshot atualizado para {dia}:", resumo, f"| preços diários: {novos} dia(s) novo(s)")
 
 
 if __name__ == "__main__":

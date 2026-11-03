@@ -171,6 +171,29 @@
     const vr = volReal60(fech, ate);
     return { precisa: Math.abs(m.equilibrio[0] / S - 1), oscilacao: vr === null ? null : vr * Math.sqrt(m.dias / 365), volReal60: vr };
   }
-  const api = { setCorretagem, montar, montarSinal, montarAposta, probAcima, resultadoNoVencimento, volReal60, movimentoNecessario };
+  // --- Marcação diária: valor de hoje e regras de saída, com os preços de fechamento de cada pregão ---
+  const addDiasISO = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  // Resultado (R$, todos os lotes) se a operação fosse desfeita no fechamento de um dia: o lado comprado vende pela melhor
+  // compra e o vendido recompra pela melhor venda (o lado pior, como na montagem). precos: {símbolo: [compra, venda]}.
+  // null se faltar preço de alguma perna naquele dia.
+  function resultadoNoDia(m, precos) {
+    let v = 0;
+    for (const [l, x] of m.pernas) { const p = precos && precos[x.s]; if (!p || !(p[0] > 0) || !(p[1] >= p[0])) return null; v += l > 0 ? p[0] : -p[1]; }
+    return r2(v * LOTE * m.lotes - m.premio);
+  }
+  // Primeira regra de saída atingida nos fechamentos depois da entrada e antes do vencimento: alvo (resultado >= alvo),
+  // limite (resultado <= stop) ou prazo (a partir de `saidaDias` antes do vencimento). marcas: [{d, r}] em ordem de data,
+  // r = resultadoNoDia ou null (dia sem preço: pulado). Devolve {regra, d, r} ou null (nenhuma regra até o último dia).
+  function regraDeSaida(m, marcas, venc) {
+    const prazo = m.saidaDias > 0 ? addDiasISO(venc, -m.saidaDias) : null;
+    for (const { d, r } of marcas) {
+      if (r === null || d >= venc) continue;
+      if (m.alvo !== null && m.alvo !== undefined && r >= m.alvo) return { regra: "alvo", d, r };
+      if (m.stop !== null && m.stop !== undefined && r <= m.stop) return { regra: "limite", d, r };
+      if (prazo && d >= prazo) return { regra: "prazo", d, r };
+    }
+    return null;
+  }
+  const api = { setCorretagem, montar, montarSinal, montarAposta, probAcima, resultadoNoVencimento, volReal60, movimentoNecessario, resultadoNoDia, regraDeSaida };
   if (typeof module !== "undefined") module.exports = api; else root.Montador = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -80,6 +80,17 @@ def bruto(tmp):
 falhas = 0
 
 
+def precos(tmp):
+    pasta = os.path.join(tmp, "pwa", "precos")
+    return {f[:-5]: json.load(open(os.path.join(pasta, f))) for f in sorted(os.listdir(pasta))} if os.path.isdir(pasta) else {}
+
+
+def esperado_precos(ativos):
+    """Séries que devem estar no arquivo do dia: compra > 0, venda >= compra, 5 a 100 dias (a cadeia sintética já
+    tem compra > 0 e venda >= compra; as linhas de ruído sem compra ficam de fora)."""
+    return {o["s"]: [o["b"], o["a"]] for a in ativos.values() for o in a["chain"] if 5 <= o["d"] <= 100}
+
+
 def confere(nome, cond, saida):
     global falhas
     print(("OK    " if cond else "FALHA ") + nome)
@@ -112,8 +123,14 @@ ok = (rc == 0 and s["data"] == "2026-01-05" and all("2026-01-02" in s["fechament
       and abs(s["fechamentos"]["PETR4"]["2026-01-02"] - round(SNAP0["por_data"][BASE]["PETR4"]["S"] * 1.01, 2)) < 1e-9)
 confere("dia perdido: recupera o fechamento de 02/01, cadeia de 05/01, mantém 12 dias de cadeia", ok, out)
 print("      " + out.replace("\n", "\n      "))
+pr = precos(t); e2, e5 = (esperado_precos(G.ativos_deslocados(SNAP0, BASE, d)) for d in ("2026-01-02", "2026-01-05"))
+confere("preços diários: grava 02/01 (recuperado) e 05/01, com compra e venda de cada série",
+        set(pr) == {"2026-01-02", "2026-01-05"} and pr["2026-01-02"]["op"] == e2 and pr["2026-01-05"]["op"] == e5 and len(e5) > 100, out)
+antes = {f: os.path.getmtime(os.path.join(t, "pwa", "precos", f + ".json")) for f in pr}
 rc, out = rodar(t, "--data", "2026-01-05")
 confere("segunda execução no mesmo dia: nada a fazer", rc == 0 and "Nada a fazer" in out, out)
+confere("preços diários: segunda execução não regrava nada",
+        {f: os.path.getmtime(os.path.join(t, "pwa", "precos", f + ".json")) for f in precos(t)} == antes, out)
 
 # F. buraco maior que a janela: avisa e grava o que achou
 SRV.arquivos.clear()
@@ -136,7 +153,14 @@ SRV.modo = "normal"
 # E. dia incompleto (10 opções por papel)
 SRV.arquivos.clear(); SRV.dia("2026-01-02", G.ativos_deslocados(SNAP0, BASE, "2026-01-02"), so_n_opcoes=10)
 t = projeto(); rc, out = rodar(t, "--data", "2026-01-02")
-confere("dia incompleto: recusa, nada gravado", rc != 0 and "Dados incompletos" in out and bruto(t) == orig, out)
+confere("dia incompleto: recusa, nada gravado (nem preços diários)", rc != 0 and "Dados incompletos" in out and bruto(t) == orig and not precos(t), out)
+
+# preço diário que já existe não é sobrescrito
+SRV.arquivos.clear(); SRV.dia("2026-01-02", G.ativos_deslocados(SNAP0, BASE, "2026-01-02"))
+t = projeto(); os.makedirs(os.path.join(t, "pwa", "precos")); falso = {"data": "2026-01-02", "op": {"X": [1, 2]}}
+json.dump(falso, open(os.path.join(t, "pwa", "precos", "2026-01-02.json"), "w"))
+rc, out = rodar(t, "--data", "2026-01-02")
+confere("preços diários: arquivo já existente não é sobrescrito", rc == 0 and precos(t)["2026-01-02"] == falso, out)
 
 # I/J. papel novo (não obrigatório): fraco fica de fora só naquele dia; completo entra
 G.PAPEL["ITUB4"] = "ITUB4"
@@ -168,6 +192,8 @@ SRV.arquivos.clear(); SRV.arquivos["COTAHIST_A%d.ZIP" % hoje.year] = b.getvalue(
 t = projeto(); rc1, out1 = rodar(t, "--ano", str(hoje.year)); rc2, out2 = rodar(t); s = snap(t)
 ok = rc1 == 0 and rc2 == 0 and s["data"] == max(dias).isoformat() and all(d.isoformat() in s["fechamentos"]["VALE3"] for d in dias) and "Nada a fazer" in out2
 confere("workflow: --ano e depois a execução diária", ok, out1 + "\n" + out2)
+confere("preços diários: --ano grava todos os pregões do arquivo", set(precos(t)) == {d.isoformat() for d in dias}
+        and all(precos(t)[d.isoformat()]["op"] == esperado_precos({n: dict(a, chain=[dict(o) for o in a["chain"]]) for n, a in SNAP0["por_data"][BASE].items()}) for d in dias), out1)
 
 shutil.rmtree(os.path.join(AQUI, "tmp"), ignore_errors=True)
 print("\n%s" % ("todos os cenários passaram" if not falhas else "%d cenário(s) falharam" % falhas))

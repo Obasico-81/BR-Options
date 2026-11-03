@@ -107,7 +107,31 @@ if (!TESTE || !SNAP.por_data[S.data]) S.data = SNAP.data;
 const DIAS_VELHOS = Math.floor((Date.now() - new Date(SNAP.data + "T12:00:00Z")) / 86400000), DEFASADO = DIAS_VELHOS > 5 && !TESTE;
 let tela = "obj", tese = null, ciente = false, slider = null, per = "90", pDe = "", pAte = "", selId = null, perfilAberto = false, ativoAberto = false;
 const opSel = () => load("historico", []).find(o => o.id === selId) || null;
-const abertas = () => { const hoje = S.data; return load("historico", []).filter(o => { const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); return !(rep && rep.venc <= hoje); }); };
+const abertas = () => { const hoje = S.data; return load("historico", []).filter(o => { const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); return !(rep && rep.venc <= hoje) && !STATUS.get(o.id)?.saida; }); };
+
+// --- Marcação diária: preços de fechamento das opções (pwa/precos/AAAA-MM-DD.json, publicados pelo atualizador) ---
+// Cada operação simulada é marcada dia a dia: "Se encerrar hoje" e a primeira regra de saída atingida (alvo, limite,
+// prazo). Calculado em segundo plano; sem os arquivos (offline, abrir do disco) tudo segue pelo vencimento.
+const PRECOS = new Map(), STATUS = new Map(); let statusDia = null, marcando = false;
+const precosDia = (d) => { if (!PRECOS.has(d)) PRECOS.set(d, location.protocol === "file:" ? Promise.resolve(null) : fetch(`precos/${d}.json`).then(r => r.ok ? r.json() : null).then(j => (j && j.op) || null).catch(() => null)); return PRECOS.get(d); };
+async function marcarOp(o){
+  const venc = addDias(o.data, o.m.dias), ate = venc < S.data ? venc : S.data;
+  const dias = Object.keys(SNAP.fechamentos[o.ativo] || {}).filter(d => d >= o.data && d <= ate).sort();
+  const ps = await Promise.all(dias.map(precosDia));
+  const marcas = dias.map((d, i) => ({d, r: ps[i] ? M.resultadoNoDia(o.m, ps[i]) : null}));
+  return {saida: M.regraDeSaida(o.m, marcas.filter(x => x.d > o.data), venc), hoje: marcas.filter(x => x.r !== null && x.d < venc).pop() || null};
+}
+async function atualizarStatus(){
+  if (marcando) return; marcando = true;
+  try {
+    if (statusDia !== S.data) { STATUS.clear(); statusDia = S.data; }
+    const hs = load("historico", []).filter(o => !STATUS.has(o.id));
+    const res = await Promise.all(hs.map(o => marcarOp(o).catch(() => ({saida: null, hoje: null}))));
+    hs.forEach((o, i) => STATUS.set(o.id, res[i]));
+    if (hs.length && (tela === "acomp" || tela === "desemp")) render();
+  } finally { marcando = false; }
+}
+const COMO = {alvo: "saiu no alvo", limite: "saiu no limite", prazo: "saiu no prazo", vencimento: "venceu"};
 
 function load(k, d){ try{ const v = localStorage.getItem(k); if (!v) return d; const j = JSON.parse(v); return (d && typeof d === "object") ? Object.assign(d, j) : j; }catch(e){ return d; } }
 function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
@@ -313,26 +337,28 @@ function vDesemp(){
   let de, ate = hoje;
   if (per==="30") de = addDias(hoje,-30); else if (per==="90") de = addDias(hoje,-90); else if (per==="365") de = addDias(hoje,-365);
   else if (per==="pers"){ de = pDe || "0000-00-00"; ate = pAte || hoje; } else de = "0000-00-00";
-  const linhas = hs.map(o => { const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); const real = rep && rep.venc <= hoje;
-    return {o, venc: addDias(o.data, o.m.dias), res: real ? M.resultadoNoVencimento(o.m, rep.preco) : null, real}; });
-  const fim = linhas.filter(l => l.real && l.venc >= de && l.venc <= ate).sort((a,b)=>b.venc.localeCompare(a.venc));
+  const linhas = hs.map(o => { const venc = addDias(o.data, o.m.dias), st = STATUS.get(o.id);
+    if (st && st.saida) return {o, venc, fecha: st.saida.d, res: st.saida.r, como: st.saida.regra, real: true};
+    const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); const real = rep && rep.venc <= hoje;
+    return {o, venc, fecha: venc, res: real ? M.resultadoNoVencimento(o.m, rep.preco) : null, como: "vencimento", real}; });
+  const fim = linhas.filter(l => l.real && l.fecha >= de && l.fecha <= ate).sort((a,b)=>b.fecha.localeCompare(a.fecha));
   const abertas = linhas.filter(l => !l.real);
   const tot = fim.reduce((a,l)=>a+l.res,0), gan = fim.filter(l=>l.res>0), per_ = fim.filter(l=>l.res<0);
   const chip = (k, t) => `<button class="chip${per===k?" on":""}" data-per="${k}" style="padding:8px 12px;border-radius:999px;border:1.5px solid var(--line);background:${per===k?"var(--ink,#0F1B2D)":"transparent"};color:${per===k?"#fff":"inherit"};font:inherit;font-size:14px;font-weight:600;cursor:pointer">${t}</button>`;
-  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Meu desempenho</h1><p class="muted">Resultado das suas operações simuladas que já venceram, antes de imposto.</p>`;
+  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Meu desempenho</h1><p class="muted">Resultado das suas operações simuladas já encerradas, antes de imposto.</p>`;
   h += `<section class="card"><div style="display:flex;gap:8px;flex-wrap:wrap">${chip("30","30 dias")}${chip("90","90 dias")}${chip("365","12 meses")}${chip("tudo","Tudo")}${chip("pers","Período")}</div>`;
   if (per==="pers") h += `<div class="row3" style="margin-top:10px"><label class="f">De<input id="pde" type="date" value="${pDe}"></label><label class="f">Até<input id="pate" type="date" value="${pAte}"></label></div>`;
   h += `</section>`;
   h += `<section class="card"><div class="small muted">Resultado no período</div><div style="font-size:32px;font-weight:700;color:${tot>0?"var(--good)":tot<0?"var(--bad)":"inherit"}">${tot===0?"R$ 0":sgn(tot)}</div>
    <div class="row3" style="border-top:1px solid var(--line);padding-top:10px;margin-top:8px"><div><div class="small muted">Operações</div><div style="font-weight:700">${fim.length}</div></div><div><div class="small muted">Com ganho</div><div style="font-weight:700;color:var(--good)">${gan.length}</div></div><div><div class="small muted">Com resultado negativo</div><div style="font-weight:700;color:var(--bad)">${per_.length}</div></div></div></section>`;
   if (!fim.length) { const prox = abertas.map(l => l.venc).sort()[0], venceu = linhas.some(l => l.real);
-    const dica = venceu ? `Escolha outro período para ver as operações que já venceram.${prox ? ` A próxima em aberto vence em ${dBR(prox)}.` : ""}`
-      : prox ? `O resultado aparece aqui quando suas operações vencerem. A próxima vence em ${dBR(prox)}.`
+    const dica = venceu ? `Escolha outro período para ver as operações já encerradas.${prox ? ` A próxima em aberto vence em ${dBR(prox)}.` : ""}`
+      : prox ? `O resultado aparece aqui quando suas operações forem encerradas, por uma regra de saída ou no vencimento. A próxima vence em ${dBR(prox)}.`
       : `Monte uma operação e confirme a simulação; o resultado aparece aqui no vencimento.`;
-    h += `<div class="card empty"><p>Nenhuma operação vencida neste período.</p><p class="small" style="margin-top:6px">${dica}</p></div>`; }
-  else h += `<section class="card"><h2 style="font-size:16px">Operações do período</h2>` + fim.map(l => `<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)"><div><div style="font-weight:600">${esc(l.o.m.estrutura)} · ${l.o.ativo}</div><div class="small muted">${dBR(l.o.data)} a ${dBR(l.venc)}</div></div><div style="font-weight:700;white-space:nowrap;color:${l.res>0?"var(--good)":l.res<0?"var(--bad)":"inherit"}">${l.res===0?"R$ 0":sgn(l.res)}</div></div>`).join("") + `</section>`;
-  if (abertas.length && fim.length) h += `<p class="foot">${abertas.length} ${abertas.length>1?"operações ainda não venceram e ficam":"operação ainda não venceu e fica"} fora do resultado.</p>`;
-  h += `<p class="foot">Calculado no vencimento, sem as saídas antecipadas (alvo, limite e prazo).</p><button class="btn sec2" id="limpar-hist">Apagar histórico</button>`;
+    h += `<div class="card empty"><p>Nenhuma operação encerrada neste período.</p><p class="small" style="margin-top:6px">${dica}</p></div>`; }
+  else h += `<section class="card"><h2 style="font-size:16px">Operações do período</h2>` + fim.map(l => `<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)"><div><div style="font-weight:600">${esc(l.o.m.estrutura)} · ${l.o.ativo}</div><div class="small muted">Entrada ${dBR(l.o.data)} · ${COMO[l.como]} em ${dBR(l.fecha)}</div></div><div style="font-weight:700;white-space:nowrap;color:${l.res>0?"var(--good)":l.res<0?"var(--bad)":"inherit"}">${l.res===0?"R$ 0":sgn(l.res)}</div></div>`).join("") + `</section>`;
+  if (abertas.length && fim.length) h += `<p class="foot">${abertas.length} ${abertas.length>1?"operações ainda estão em aberto e ficam":"operação ainda está em aberto e fica"} fora do resultado.</p>`;
+  h += `<p class="foot">Cada operação sai na primeira regra atingida (alvo, limite ou prazo), conferida no fechamento de cada dia, ou no vencimento. Dia sem preço da opção fica de fora da conferência.</p><button class="btn sec2" id="limpar-hist">Apagar histórico</button>`;
   return h;
 }
 
@@ -369,6 +395,9 @@ function vAcomp(){
   const pior = -m.perdaMax, melhor = m.ganhoMax===null ? m.perdaMax*2 : m.ganhoMax, span = melhor - pior, pos = Math.min(100,Math.max(0,(r-pior)/span*100)), zero = (0-pior)/span*100;
   const rep = fechamentoNoVenc(P.ativo, P.data, m.dias);
   h += `<div class="small muted">${esc(m.estrutura)} · ${P.ativo} · entrada em ${dBR(P.data)}</div>`;
+  { const st = STATUS.get(P.id), REGRA = {alvo: "A regra “Sair no alvo” foi atingida", limite: "A regra “Sair no limite” foi atingida", prazo: "Chegou o prazo de saída"};
+    if (st && st.hoje) h += `<section class="card"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><div><div class="small muted">Se encerrar hoje</div><div style="font-size:26px;font-weight:700;color:${st.hoje.r>0?"var(--good)":st.hoje.r<0?"var(--bad)":"inherit"}">${st.hoje.r===0?"R$ 0":sgn(st.hoje.r)}</div></div><div class="small muted" style="text-align:right">Fechamento de<br>${dBR(st.hoje.d)}</div></div>
+      <p class="small muted" style="margin-top:6px">Pelos preços de fechamento das opções, no lado menos favorável de cada perna.</p>${st.saida?`<p class="small" style="margin-top:6px"><strong>${REGRA[st.saida.regra]}</strong> no fechamento de ${dBR(st.saida.d)} (${sgn(st.saida.r)}).</p>`:""}</section>`; }
   h += `<section class="card"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><div><div class="small muted">Resultado no vencimento, se a ação estiver em</div><div id="rv" style="font-size:30px;font-weight:700;color:${r>0?"var(--good)":r<0?"var(--bad)":"inherit"}">${r===0?"R$ 0":sgn(r)}</div></div><div style="text-align:right"><div class="small muted">Ação</div><div id="px" style="font-size:20px;font-weight:700;white-space:nowrap">${brl(slider,2)}</div></div></div>
    <input id="sl" type="range" min="${lo}" max="${hi}" step="0.01" value="${slider}" aria-label="Preço da ação no vencimento">
    <div><div class="small muted" style="display:flex;justify-content:space-between"><span>Risco máx. ${sgn(pior)}</span><span>${m.ganhoMax===null?"Sem teto":"Ganho máx. "+sgn(m.ganhoMax)}</span></div><div class="bar" role="img" aria-label="Posição do resultado entre o risco máximo e o ganho máximo"><i style="left:${zero}%"></i><b id="bb" style="background:${r>=0?"var(--good)":"var(--bad)"};left:${Math.min(pos,zero)}%;width:${Math.abs(pos-zero)}%"></b></div></div>
@@ -395,7 +424,7 @@ function bind(){
   sg("sentrada","entrada",v=>+v>0?+v:null); sg("salvo","alvo",v=>+v>0?+v:null); sg("sprazo","prazo",v=>Math.max(5,+v||20)); sg("sest","est",v=>v);
   const p = q("#prazo"); if (p) p.onchange = () => { S.venc = p.value; S.prazo = vencSel().d; save("estado", S); render(); };
   const c = q("#ciente"); if (c) c.onchange = () => { ciente = c.checked; q("#confirmar").disabled = !ciente; };
-  const cf = q("#confirmar"); if (cf) cf.onclick = () => { const m = montagem(tese); if (typeof m==="string") return; { const hs = load("historico", []); selId = Date.now(); hs.push({m, ativo:S.ativo, data:S.data, id:selId}); save("historico", hs); } slider = null; tela = "acomp"; render(); };
+  const cf = q("#confirmar"); if (cf) cf.onclick = () => { const m = montagem(tese); if (typeof m==="string") return; { const hs = load("historico", []); selId = Date.now(); hs.push({m, ativo:S.ativo, data:S.data, id:selId}); save("historico", hs); } slider = null; tela = "acomp"; render(); atualizarStatus(); };
   const sl = q("#sl"); if (sl) sl.oninput = () => {
     slider = +sl.value; const P = opSel(), m = P.m, r = M.resultadoNoVencimento(m, slider);
     const pior = -m.perdaMax, melhor = m.ganhoMax===null ? m.perdaMax*2 : m.ganhoMax, span = melhor - pior, pos = Math.min(100,Math.max(0,(r-pior)/span*100)), zero = (0-pior)/span*100;
@@ -421,4 +450,5 @@ function bind(){
   const en = q("#encerrar"); if (en) en.onclick = () => { save("historico", load("historico", []).filter(o => o.id !== selId)); selId = null; tela = "acomp"; render(); };
 }
 render();
+atualizarStatus();
 </script>
