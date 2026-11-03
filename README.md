@@ -74,8 +74,8 @@ marcação diária: "Se encerrar hoje" e as regras de saída (`resultadoNoDia` /
 (`custoSpread`, `custoTaxas`, `custoFixo`, `custoTotal`).
 
 Custos: taxas da B3 de 0,134% do prêmio por lado (entrada e saída, por lote); corretagem por ordem (cada perna, na
-entrada e na saída), que não cresce com os lotes: a cadastrada pelo usuário ou, sem ela, uma margem fixa de R$ 4 por ordem
-(trava ou strangle: R$ 16; compra simples ou put vendida: R$ 8). O spread em relação ao preço médio já está no prêmio.
+entrada e na saída), que não cresce com os lotes: só a cadastrada pelo usuário; sem cadastro, o app não soma corretagem
+(não há margem estimada). O spread em relação ao preço médio já está no prêmio. Custo de exercício não entra.
 O app mostra os custos só no bloco recolhido "Detalhes da operação"; os resultados não descontam taxas e corretagem.
 O workflow *Testes* roda tudo isso a cada mudança de código; a atualização noturna roda a paridade com o dado do dia
 sem bloquear a publicação.

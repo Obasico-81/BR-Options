@@ -1,12 +1,12 @@
 // Port de montador.py (mesmas regras). Funciona no navegador (window.Montador) e no Node (module.exports).
 (function (root) {
-  const TAXA_B3 = 0.00134, CUSTO_FIXO = 4.0, LOTE = 100; // CUSTO_FIXO: R$ por ordem sem corretagem cadastrada (era R$ 2 por estrutura até 03/11/2026)
+  const TAXA_B3 = 0.00134, LOTE = 100;
   const SPREAD_MAX = 0.20; // spread máximo (venda − compra) / médio, no fechamento; era 10% (15% no Lucro frequente) até 02/11/2026
-  // Corretagem do usuário (R$ por ordem). null = não informada: vale a margem fixa de R$ 4 por ordem.
+  // Corretagem do usuário (R$ por ordem). null = não informada: o custo não soma corretagem (até 03/11/2026 havia uma margem fixa).
   let CORRETAGEM = null;
   const setCorretagem = (v) => { CORRETAGEM = (v === null || v === undefined || isNaN(+v) || +v < 0) ? null : +v; };
-  // corretagem (ou margem fixa) por ordem: cada perna, na entrada e na saída; não cresce com os lotes
-  const fixo = (n) => (CORRETAGEM === null ? CUSTO_FIXO : CORRETAGEM) * n * 2;
+  // corretagem por ordem: cada perna, na entrada e na saída; não cresce com os lotes
+  const fixo = (n) => CORRETAGEM === null ? 0 : CORRETAGEM * n * 2;
   const mid = (o) => (o.b + o.a) / 2;
   const spread = (o) => (mid(o) > 0 ? (o.a - o.b) / mid(o) : 9.9);
   const erf = (x) => { // Abramowitz-Stegun 7.1.26 não basta p/ paridade; usa série de alta precisão
@@ -40,7 +40,7 @@
   }
   const r2 = (x) => Math.round(x * 100) / 100;
   // custos da operação (R$): spread em relação ao preço médio (já está no prêmio) e taxas da B3 de entrada e saída, por lote;
-  // corretagem ou margem fixa, por ordem. custoTotal = soma dos três.
+  // corretagem cadastrada, por ordem (0 sem cadastro). custoTotal = soma dos três.
   const custos = (spread1, taxas1, n, lotes) => {
     const s = spread1 * lotes, t = taxas1 * lotes, f = fixo(n);
     return { custoSpread: r2(s), custoTaxas: r2(t), custoFixo: r2(f), custoTotal: r2(s + t + f) };

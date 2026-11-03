@@ -9,9 +9,8 @@ from datetime import date, timedelta
 from typing import Optional
 
 TAXA_B3 = 0.00134          # 0,134% do prêmio por lado (swing, PF) — conferir vigência
-CUSTO_FIXO = 4.0           # R$ por ordem sem corretagem cadastrada (era R$ 2 por estrutura até 03/11/2026)
 LOTE = 100
-_CORRETAGEM: Optional[float] = None   # R$ por ordem; None = não informada (vale a margem fixa)
+_CORRETAGEM: Optional[float] = None   # R$ por ordem; None = não informada (o custo não soma corretagem)
 
 
 @dataclass(frozen=True)
@@ -49,7 +48,7 @@ class Montagem:
     theta_dia: Optional[float] = None   # R$/dia que a operação desvaloriza se nada mudar (só compra simples)
     custo_spread: float = 0.0  # spread em relação ao preço médio (já está no prêmio), por todos os lotes
     custo_taxas: float = 0.0   # taxas da B3 de entrada e saída, por todos os lotes
-    custo_fixo: float = 0.0    # corretagem (ou margem fixa) por ordem: pernas × 2, não cresce com os lotes
+    custo_fixo: float = 0.0    # corretagem cadastrada por ordem: pernas × 2, não cresce com os lotes (0 sem cadastro)
 
 
 SPREAD_MAX = 0.20  # spread máximo (venda − compra) / médio, no fechamento; era 10% até 02/11/2026
@@ -66,7 +65,7 @@ def _n(x: float) -> float: return 0.5 * (1 + erf(x / sqrt(2)))
 
 
 def set_corretagem(v) -> None:
-    """Corretagem do usuário em R$ por ordem; None (ou inválida/negativa) volta para a margem fixa. Espelha setCorretagem."""
+    """Corretagem do usuário em R$ por ordem; None (ou inválida/negativa) = não informada. Espelha setCorretagem."""
     global _CORRETAGEM
     try:
         _CORRETAGEM = None if v is None or float(v) < 0 else float(v)
@@ -75,8 +74,8 @@ def set_corretagem(v) -> None:
 
 
 def _fixo(n_pernas: int) -> float:
-    """Corretagem por ordem (cada perna, na entrada e na saída): a do usuário ou a margem fixa de R$ 4. Não cresce com os lotes."""
-    return (CUSTO_FIXO if _CORRETAGEM is None else _CORRETAGEM) * n_pernas * 2
+    """Corretagem do usuário por ordem (cada perna, na entrada e na saída); 0 sem cadastro. Não cresce com os lotes."""
+    return 0.0 if _CORRETAGEM is None else _CORRETAGEM * n_pernas * 2
 
 
 def _custos(spread1: float, taxas1: float, n_pernas: int, lotes: int) -> dict:

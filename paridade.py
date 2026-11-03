@@ -4,7 +4,7 @@ Cobre: as 4 estruturas; o sinal (trava e put, 3 cenários); a compra simples no 
 (Lucro maior · Equilibrada · Lucro frequente), com o theta; o movimento necessário × oscilação de 60 pregões em todo
 caso montado e a volatilidade de 60 pregões em 3 datas por ativo; a marcação diária ("Se encerrar hoje" com os preços
 do dia, com preços 7% mais altos e sem o preço de uma perna) e a regra de saída em duas sequências de dias; os custos separados (spread,
-taxas da B3, corretagem por ordem e total); tudo duas vezes, sem corretagem cadastrada (margem fixa) e com corretagem de R$ 5 por ordem. Uso: python3 paridade.py   (esperado: "0 falha(s)")
+taxas da B3, corretagem por ordem e total); tudo duas vezes, sem corretagem cadastrada e com corretagem de R$ 5 por ordem. Uso: python3 paridade.py   (esperado: "0 falha(s)")
 """
 import json, math, subprocess, sys
 from datetime import date, timedelta

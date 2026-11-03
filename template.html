@@ -265,17 +265,16 @@ function copiar(txt, btn){
   try{ navigator.clipboard.writeText(txt).then(ok, fb); }catch(e){ fb(); }
 }
 // Custos, recolhidos em "Detalhes da operação": os números em destaque não mudam (decisão de 03/11/2026).
-// cor = corretagem por ordem usada na montagem (null = margem fixa do app). Operações antigas, sem os campos, não mostram.
+// cor = corretagem por ordem usada na montagem (null = não cadastrada: só spread e taxas da B3). Operações antigas, sem os campos, não mostram.
 function custosHtml(m, cor){
   if (m.custoFixo === undefined) return "";
-  const n = m.pernas.length * 2, extra = m.custoTaxas + m.custoFixo, linha = (l, v, c="") => `<div class="kv${c}"><span>${l}</span><span>${brl(v,2)}</span></div>`;
+  const n = m.pernas.length * 2, extra = m.custoTaxas + m.custoFixo, rot = cor===null ? "taxas da B3" : "taxas e corretagem", linha = (l, v, c="") => `<div class="kv${c}"><span>${l}</span><span>${brl(v,2)}</span></div>`;
   return `<details class="card det"><summary>Detalhes da operação</summary><div class="detc">
    ${linha("Spread na entrada", m.custoSpread)}<p class="small muted" style="margin-top:-6px">Diferença para o preço médio das opções. Já está no valor pago ou recebido e no risco máximo.</p>
    ${linha("Taxas da B3 (entrada e saída, estimadas)", m.custoTaxas, " tot")}
-   ${linha(`${cor===null?"Margem fixa":"Corretagem"} (${n} ordens × ${brl(m.custoFixo/n,2).replace(" ","&nbsp;")})`, m.custoFixo)}
-   ${linha("Taxas e corretagem", extra)}
-   ${linha("Risco máximo com taxas e corretagem", m.perdaMax + extra, " tot")}${m.ganhoMax===null?"":linha("Ganho máximo com taxas e corretagem", m.ganhoMax - extra)}
-   <p class="small muted">${cor===null?"Sem a corretagem cadastrada, o app usa R$&nbsp;4 por ordem (cada perna, na entrada e na saída). Cadastre o valor da sua corretora em Cadastro.":"Corretagem do seu cadastro, por ordem, na entrada e na saída de cada perna."} Os resultados dos cenários, de “Se encerrar hoje” e do Desempenho não descontam taxas e corretagem.</p>
+   ${cor===null?`<div class="kv"><span>Corretagem</span><span>não cadastrada</span></div>`:linha(`Corretagem (${n} ordens × ${brl(m.custoFixo/n,2).replace(" ","&nbsp;")})`, m.custoFixo)+linha("Taxas e corretagem", extra)}
+   ${linha(`Risco máximo com ${rot}`, m.perdaMax + extra, " tot")}${m.ganhoMax===null?"":linha(`Ganho máximo com ${rot}`, m.ganhoMax - extra)}
+   <p class="small muted">${cor===null?"Sem a corretagem cadastrada, o app não a soma. Cadastre o valor por ordem da sua corretora em Cadastro.":"Corretagem do seu cadastro, por ordem, na entrada e na saída de cada perna."} Os resultados dos cenários, de “Se encerrar hoje” e do Desempenho não descontam taxas e corretagem.</p>
   </div></details>`;
 }
 function pernasHtml(m){
@@ -399,7 +398,7 @@ function vCad(){
   let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Meu cadastro</h1><p class="muted">Estes dados ficam guardados só neste aparelho.</p>`;
   h += `<section class="card"><label class="f">Corretora<select id="ccorr"><option value="">Escolha…</option>${CORRETORAS.map(n=>`<option ${n===c.corretora?"selected":""}>${n}</option>`).join("")}</select></label>
    <label class="f">Corretagem por ordem de opções (R$)<input id="ccorrtg" type="text" inputmode="decimal" autocomplete="off" placeholder="Não sei" value="${fmtBR(c.corretagem,2)}"></label>
-   <p class="small muted">${c.corretagem===null?"Sem este valor, o app usa uma margem fixa de R$&nbsp;4 por ordem (cada perna, na entrada e na saída). O custo aparece em Detalhes da operação.":`O custo das operações usa ${brl(c.corretagem,2).replace(" ","&nbsp;")} por ordem, na entrada e na saída de cada perna. Aparece em Detalhes da operação.`} Consulte a tabela da sua corretora; o app não confere esse valor.</p></section>`;
+   <p class="small muted">${c.corretagem===null?"Sem este valor, o custo das operações não inclui corretagem. Os custos aparecem em Detalhes da operação.":`O custo das operações usa ${brl(c.corretagem,2).replace(" ","&nbsp;")} por ordem, na entrada e na saída de cada perna. Aparece em Detalhes da operação.`} Consulte a tabela da sua corretora; o app não confere esse valor.</p></section>`;
   h += `<section class="card"><h2 style="font-size:16px">Seus dados neste aparelho</h2><p class="small muted">Apaga o cadastro, o perfil, as operações simuladas e o histórico.</p><button class="btn danger" id="apagar-tudo">Apagar meus dados</button></section>`;
   return h;
 }

@@ -34,8 +34,8 @@ const arq = 'file://' + process.argv[2];
   await passo('Operações: lista', async () => { await p.click('#nav [data-nav="acomp"]'); await p.waitForTimeout(150); });
   await passo('Operações: abrir a operação antiga', async () => { await p.click('[data-op="1"]', { timeout: 3000 }); await p.waitForTimeout(200); if (!(await p.locator('text=Sua operação').count())) throw new Error('tela "Sua operação" não abriu'); });
   await passo('Desempenho com a operação', async () => { await p.click('#nav [data-nav="desemp"]'); await p.waitForTimeout(150); });
-  // custos em "Detalhes da operação": fechado por padrão; margem de R$ 4 por ordem sem corretagem, corretagem cadastrada
-  // com ela; por ordem (não cresce com os lotes); operação antiga sem os campos novos não mostra o bloco nem quebra
+  // custos em "Detalhes da operação": fechado por padrão; sem corretagem cadastrada, nada de corretagem; com ela, por ordem
+  // (não cresce com os lotes); operação antiga sem os campos novos não mostra o bloco nem quebra
   await passo('Detalhes da operação (custos)', async () => {
     const r = await p.evaluate(() => {
       const ver = () => { const d = document.querySelector('details.det'); return d && { aberto: d.open, txt: d.textContent }; };
@@ -52,8 +52,8 @@ const arq = 'file://' + process.argv[2];
       return out;
     });
     if (typeof r === 'string') throw new Error(r);
-    const f = []; if (!r.soma) f.push('total ≠ soma das partes'); if (r.fixo !== 16 || r.fixo5 !== 20) f.push(`fixo da trava ${r.fixo} / ${r.fixo5} (esperado 16 / 20, com ${r.lotes} lotes)`);
-    if (!r.sem || r.sem.aberto || !/Margem fixa \(4 ordens × R\$\s4,00\)/.test(r.sem.txt)) f.push('sem corretagem: ' + JSON.stringify(r.sem));
+    const f = []; if (!r.soma) f.push('total ≠ soma das partes'); if (r.fixo !== 0 || r.fixo5 !== 20) f.push(`corretagem da trava ${r.fixo} / ${r.fixo5} (esperado 0 / 20, com ${r.lotes} lotes)`);
+    if (!r.sem || r.sem.aberto || !/Corretagemnão cadastrada/.test(r.sem.txt) || !/Risco máximo com taxas da B3/.test(r.sem.txt)) f.push('sem corretagem: ' + JSON.stringify(r.sem));
     if (!r.com || !/Corretagem \(4 ordens × R\$\s5,00\)/.test(r.com.txt) || !/R\$ 20,00/.test(r.com.txt)) f.push('com corretagem: ' + JSON.stringify(r.com));
     if (r.velho) f.push('operação antiga mostrou o bloco');
     if (f.length) throw new Error(f.join(' | '));
