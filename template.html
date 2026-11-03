@@ -273,32 +273,37 @@ function obsOperacao(t,m){
   if (t==="sinal_alta") return `A ferramenta não avalia o sinal.`;
   return "";
 }
+// Cenários no vencimento: ±5% e ±15% do preço, mais o(s) ponto(s) de equilíbrio (resultado R$ 0) e, quando há
+// compra obrigatória da ação (put vendida), a ação a R$ 0, para a tabela não esconder o risco máximo.
 function cenarios(m){
-  const a = dia(), pts = [0.85,0.95,1,1.05,1.15].map(f => Math.round(a.S*f*100)/100);
-  return pts.map(p => ({p, r:M.resultadoNoVencimento(m,p)}));
+  const a = dia(), pts = [0.85,0.95,1,1.05,1.15].map(f => ({p: Math.round(a.S*f*100)/100}));
+  m.equilibrio.forEach(e => pts.push({p: Math.round(e*100)/100, eq: true}));
+  if (m.tese === "alta_com_caixa" || m.tese === "sinal_put") pts.push({p: 0, zero: true});
+  const un = new Map(); for (const x of pts) { const k = x.p.toFixed(2); if (!un.has(k) || x.eq || x.zero) un.set(k, x); }
+  return [...un.values()].sort((x,y) => x.p - y.p).map(x => ({...x, r: x.eq ? 0 : M.resultadoNoVencimento(m, x.p)}));
 }
 function vCen(){
   const m = montagem(tese);
   if (typeof m === "string") { tela="obj"; return vObj(); }
   const rows = cenarios(m), rep = fechamentoNoVenc(S.ativo, S.data, m.dias);
-  let h = topo("cartao","Cartão",3) + `<div><h1>O que pode acontecer</h1><p class="muted" style="margin-top:6px">Resultado no vencimento, por preço da ação.</p></div>`;
-  h += `<section class="card scroll"><table>${rows.map(x=>`<tr><td>Ação em ${brl(x.p,2)}</td><td style="color:${x.r>0?"var(--good)":x.r<0?"var(--bad)":"inherit"}">${x.r===0?"R$ 0":sgn(x.r)}</td></tr>`).join("")}</table></section>`;
+  let h = topo("cartao","Voltar",3) + `<div><h1>O que pode acontecer</h1><p class="muted" style="margin-top:6px">Resultado no vencimento, por preço da ação.</p></div>`;
+  h += `<section class="card scroll"><table>${rows.map(x=>`<tr><td>${x.zero?"Ação a R$ 0":`Ação em ${brl(x.p,2)}`}${x.eq?' <span class="small muted">· equilíbrio</span>':""}</td><td style="color:${x.r>0?"var(--good)":x.r<0?"var(--bad)":"inherit"}">${x.r===0?"R$ 0":sgn(x.r)}</td></tr>`).join("")}</table></section>`;
   if (rep){ const r = M.resultadoNoVencimento(m, rep.preco);
     h += `<section class="card"><h2>Se você tivesse entrado neste dia</h2><p class="small">No vencimento (${dBR(rep.venc)}), ${S.ativo} fechou em ${brl(rep.preco,2)}. O resultado teria sido <strong style="color:${r>0?"var(--good)":r<0?"var(--bad)":"inherit"}">${r===0?"R$ 0":sgn(r)}</strong>, antes de imposto. Um único caso não mostra se a estratégia funciona.</p></section>`; }
   h += `<section class="card"><h2 style="font-size:16px">Risco desta operação</h2><p class="small">${erro(tese,m)}</p></section>`;
-  h += `<label class="chk"><input id="ciente" type="checkbox" ${ciente?"checked":""}><span>Entendi que o risco máximo desta operação é ${brl(m.perdaMax)} nesta operação.</span></label>`;
+  h += `<label class="chk"><input id="ciente" type="checkbox" ${ciente?"checked":""}><span>Entendi que o risco máximo desta operação é ${brl(m.perdaMax)}.</span></label>`;
   h += `<button class="btn" id="confirmar" ${ciente?"":"disabled"}>Simular esta operação</button><button class="btn sec2" data-go="cartao">Voltar</button>`;
   return h;
 }
 function erro(t,m){
-  if (t==="aposta_alta") return `Se a ação ficar abaixo de ${brl(m.equilibrio[0],2)} no vencimento, o risco é o valor pago (${brl(m.perdaMax)}). O tempo joga contra você, e a maioria das operações deste tipo terminou assim nos testes.`;
-  if (t==="aposta_baixa") return `Se a ação ficar acima de ${brl(m.equilibrio[0],2)} no vencimento, o risco é o valor pago (${brl(m.perdaMax)}). O tempo joga contra você, e a maioria das operações deste tipo terminou assim nos testes.`;
-  if (t==="sinal_alta") return `Se a ação não subir até o vencimento, o risco é de ${brl(m.perdaMax)}. Se o alvo for atingido só depois do vencimento, o ganho se perde. O tempo joga contra você.`;
-  if (t==="sinal_put") return `Se a ação cair muito abaixo da entrada, você compra a ${brl(m.pernas[0][1].k,2)} e fica com prejuízo, que pode chegar a ${brl(m.perdaMax)} se ela for a zero. Se ela subir sem passar pela entrada, você não compra e perde a oportunidade.`;
-  if (t==="alta") return `Se a ação ficar parada ou cair, o risco é de ${brl(m.perdaMax)}. O tempo joga contra você: a cada dia a operação perde valor se a ação não sobe.`;
+  if (t==="aposta_alta") return `Se a ação ficar abaixo de ${brl(m.equilibrio[0],2)} no vencimento, o risco é o valor pago (${brl(m.perdaMax)}). O tempo joga contra você.`;
+  if (t==="aposta_baixa") return `Se a ação ficar acima de ${brl(m.equilibrio[0],2)} no vencimento, o risco é o valor pago (${brl(m.perdaMax)}). O tempo joga contra você.`;
+  if (t==="sinal_alta") return `Se a ação não subir até o vencimento, o risco é de ${brl(m.perdaMax)}. Se o alvo só for atingido depois do vencimento, não há ganho. O tempo joga contra você.`;
+  if (t==="sinal_put") return `Se a ação cair muito abaixo da entrada, você compra a ${brl(m.pernas[0][1].k,2)}, e o risco pode chegar a ${brl(m.perdaMax)} se ela for a zero. Se ela subir sem passar pela entrada, você não compra a ação.`;
+  if (t==="alta") return `Se a ação ficar parada ou cair, o risco é de ${brl(m.perdaMax)}. O tempo joga contra você: a cada dia a operação desvaloriza se a ação não sobe.`;
   if (t==="baixa") return `Se a ação ficar parada ou subir, o risco é de ${brl(m.perdaMax)}. O tempo joga contra você.`;
   if (t==="forte") return `Se a ação terminar entre ${brl(m.equilibrio[0],2)} e ${brl(m.equilibrio[1],2)}, o risco é parte ou todo o valor pago. O tempo joga contra você.`;
-  return `Uma queda forte gera risco alto: até ${brl(m.perdaMax)} se a ação for a zero. Nos testes de 2015–25 no BOVA11, um único mês (fevereiro de 2020) apagou o ganho de vários anos.`;
+  return `Uma queda forte gera risco alto: até ${brl(m.perdaMax)} se a ação for a zero.`;
 }
 
 
