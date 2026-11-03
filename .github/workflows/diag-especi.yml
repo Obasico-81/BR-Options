@@ -1,0 +1,47 @@
+name: Diagnóstico temporário (papel-objeto das opções)
+
+# Temporário: roda só no push deste branch; o branch é apagado depois. Lê o COTAHIST de 30/10/2026 e mostra,
+# para cada prefixo de 4 letras dos ativos do app, em que papel-objeto (ESPECI/NOMRES/CODISI) as opções estão.
+on:
+  push:
+    branches: [diag-especi]
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Baixar e ler
+        shell: bash
+        run: |
+          curl -fsSL --retry 3 -A "Mozilla/5.0" -o "$RUNNER_TEMP/d.zip" "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_D30102026.ZIP"
+          cat > "$RUNNER_TEMP/diag.py" <<'PY'
+          import sys, zipfile, collections
+          z = zipfile.ZipFile(sys.argv[1]); linhas = z.read(z.namelist()[0]).decode("latin-1").splitlines()
+          f = lambda ln, a, b: ln[a - 1:b]
+          PREF = ["BOVA", "PETR", "VALE", "BBDC", "BBAS", "MGLU", "WEGE", "ITUB", "USIM", "B3SA"]
+          VISTA = ["BOVA11", "PETR3", "PETR4", "VALE3", "BBDC3", "BBDC4", "BBAS3", "MGLU3", "WEGE3", "ITUB3", "ITUB4", "USIM3", "USIM5", "B3SA3"]
+          print("== à vista: codneg | nomres | especi | preult | codisi")
+          for ln in linhas:
+              if f(ln, 1, 2) == "01" and f(ln, 25, 27) == "010" and f(ln, 13, 24).strip() in VISTA:
+                  print(f(ln, 13, 24).strip(), "|", f(ln, 28, 39), "|", repr(f(ln, 40, 49)), "|", int(f(ln, 109, 121)) / 100, "|", f(ln, 231, 242))
+          print("\n== opções por prefixo: (prefixo, especi, nomres, codisi[2:6]+codisi[6:8]) -> séries, volume (quatot)")
+          c = collections.Counter(); v = collections.Counter()
+          for ln in linhas:
+              if f(ln, 1, 2) == "01" and f(ln, 25, 27) in ("070", "080") and f(ln, 13, 16) in PREF:
+                  k = (f(ln, 13, 16), repr(f(ln, 40, 49)), f(ln, 28, 39).strip(), f(ln, 231, 242)[2:8])
+                  c[k] += 1; v[k] += int(f(ln, 153, 170) or 0)
+          for k in sorted(c): print(k, c[k], v[k])
+          print("\n== séries citadas: codneg | tpmerc | nomres | especi | preexe | preofc | preofv | datven | codisi | quatot")
+          for ln in linhas:
+              if f(ln, 1, 2) == "01" and f(ln, 13, 24).strip() in ("BBDCL147", "BBDCL148", "BBDCL170", "BBDCL158"):
+                  print(f(ln, 13, 24).strip(), "|", f(ln, 25, 27), "|", f(ln, 28, 39), "|", repr(f(ln, 40, 49)), "|", int(f(ln, 189, 201)) / 100, "|",
+                        int(f(ln, 122, 134)) / 100, "|", int(f(ln, 135, 147)) / 100, "|", f(ln, 203, 210), "|", f(ln, 231, 242), "|", int(f(ln, 153, 170)))
+          PY
+          python -I "$RUNNER_TEMP/diag.py" "$RUNNER_TEMP/d.zip"
