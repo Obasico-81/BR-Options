@@ -70,7 +70,7 @@ jobs:
           git config user.name "atualizador-de-dados"
           git config user.email "atualizador@users.noreply.github.com"
           git add snapshot.json pwa/precos
-          git diff --cached --quiet || git commit -m "Dados do pregão $(date -u +%F)"
+          git diff --cached --quiet || git commit -m "Dados do pregão $(python -c 'import json; print(json.load(open("snapshot.json"))["data"])')"
           git push
 
       - uses: actions/configure-pages@v5
