@@ -100,28 +100,39 @@ jobs:
             -destination "generic/platform=iOS Simulator" -derivedDataPath "$RUNNER_TEMP/dd" \
             CODE_SIGNING_ALLOWED=NO build | tail -40
 
-      - name: Abrir no simulador e fotografar a tela
+      - name: Guardar o app compilado
         shell: bash
         run: |
           APP=$(find "$RUNNER_TEMP/dd/Build/Products/Debug-iphonesimulator" -maxdepth 1 -name "*.app" | head -1)
-          test -n "$APP"
+          test -n "$APP"; echo "APP=$APP" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/iphone"
+          (cd "$(dirname "$APP")" && zip -qr "$RUNNER_TEMP/iphone/app-simulador.zip" "$(basename "$APP")")
+
+      # Cada comando com limite de tempo e hora no log: a primeira versão travou aqui sem dizer onde.
+      - name: Abrir no simulador e fotografar a tela
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          passo() { echo "[$(date -u +%H:%M:%S)] $*"; }
+          limite() { local t=$1; shift; "$@" & local p=$!; for _ in $(seq 1 "$t"); do kill -0 $p 2>/dev/null || { wait $p; return $?; }; sleep 1; done; kill $p 2>/dev/null; passo "passou de ${t}s: $*"; return 124; }
+          passo "runtimes"; xcrun simctl list runtimes | grep -i ios
           UDID=$(xcrun simctl list devices available -j | python3 -c '
           import json, sys
           d = json.load(sys.stdin)["devices"]
           ios = sorted((k for k in d if "iOS" in k), reverse=True)
           print(next(x["udid"] for k in ios for x in d[k] if x["name"].startswith("iPhone")))')
-          xcrun simctl boot "$UDID"
-          xcrun simctl bootstatus "$UDID" -b
-          xcrun simctl install "$UDID" "$APP"
+          passo "simulador $UDID"; xcrun simctl list devices | grep "$UDID"
+          limite 300 xcrun simctl boot "$UDID"
+          for i in $(seq 1 60); do xcrun simctl list devices | grep "$UDID" | grep -q Booted && break; sleep 5; done
+          passo "estado: $(xcrun simctl list devices | grep "$UDID")"
+          limite 180 xcrun simctl install "$UDID" "$APP"; passo "instalado"
           ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$APP/Info.plist")
-          xcrun simctl launch "$UDID" "$ID"
+          limite 120 xcrun simctl launch "$UDID" "$ID"; passo "aberto ($ID)"
           sleep 30
-          mkdir -p "$RUNNER_TEMP/iphone"
-          xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/iphone/tela.png"
-          xcrun simctl list devices | grep "$UDID"
-          (cd "$(dirname "$APP")" && zip -qr "$RUNNER_TEMP/iphone/app-simulador.zip" "$(basename "$APP")")
+          limite 60 xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/iphone/tela.png"; passo "foto tirada"
 
       - uses: actions/upload-artifact@v6
+        if: always()
         with:
           name: iphone-simulador
           path: ${{ runner.temp }}/iphone
