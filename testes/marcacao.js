@@ -51,7 +51,7 @@ confere("regraDeSaida: compra simples não tem regra (só vencimento)", typeof c
     confere("Desempenho: a operação 2 (em aberto) fica fora do resultado", /1 operação ainda está em aberto/.test(desemp));
     await p.click('#nav [data-nav="acomp"]'); await p.waitForTimeout(200);
     const lista = await p.innerText("#app");
-    confere("Minhas operações: só a operação 2 continua aberta", /1 operação\b/.test(lista) && (lista.match(/Trava de alta/g) || []).length === 1, lista.slice(0, 300));
+    confere("Minhas operações: só a operação 2 continua aberta", /\b1 simulada\b/.test(lista) && (lista.match(/Trava de alta/g) || []).length === 1, lista.slice(0, 300));
     await p.click('[data-op="2"]'); await p.waitForTimeout(300);
     const sua = await p.innerText("#app");
     confere("Sua operação: \"Se encerrar hoje\" com +R$ 120 no fechamento do último dia", sua.includes("Se encerrar hoje") && sua.includes("+R$ 120") && sua.includes(dBR(dFim)), sua.slice(0, 400));

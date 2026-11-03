@@ -30,6 +30,7 @@ p{margin:0}
 .pill.ok{background:var(--good-soft);color:var(--good)}
 .pill.no{background:var(--track);color:var(--muted)}
 .pill.sim{background:var(--warn-soft);color:var(--warn-text);font-size:13px;padding:4px 12px}
+.pill.real{background:var(--accent-soft);color:var(--accent-text);font-size:13px;padding:4px 12px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;min-width:0}
@@ -41,7 +42,7 @@ p{margin:0}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
 label.f>input,label.f>select{margin-top:auto}   /* caixas alinhadas pela base, mesmo com rótulo de 2 linhas ao lado */
 .row3>div{display:flex;flex-direction:column}.row3>div>div:last-child{margin-top:auto}   /* idem para os valores (rótulo em cima, valor na base) */
-input[type=number],input[type=text],select{font:inherit;font-size:16px;font-weight:600;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:44px;width:100%;min-width:0}
+input[type=number],input[type=text],input[type=date],select{font:inherit;font-size:16px;font-weight:600;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:44px;width:100%;min-width:0}
 .row3{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
 .sec{padding-top:6px;display:flex;flex-direction:column;gap:10px}
 .sec p{font-size:14px;color:var(--muted)}
@@ -58,6 +59,7 @@ input[type=number],input[type=text],select{font:inherit;font-size:16px;font-weig
 .step p{font-size:15px;color:var(--ink);overflow-wrap:anywhere}
 .btn{display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:14px;border:0;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:17px;font-weight:700;cursor:pointer;width:100%}
 .btn[disabled]{background:var(--track);color:var(--muted);cursor:not-allowed}
+.btn.sec{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
 .btn.sec2{background:transparent;color:var(--muted);font-size:15px;font-weight:600;min-height:44px}
 .btn.danger{background:var(--surface);color:var(--bad);border:1.5px solid var(--bad);min-height:48px;font-size:16px}
 table{width:100%;border-collapse:collapse;font-size:15px}
@@ -120,21 +122,24 @@ const fmtBR = (n, dec) => n === null || n === undefined || n === "" ? "" : Numbe
 const TESTE = /[?&]teste=1/.test(location.search);   // modo teste: deixa escolher o dia dos preços
 if (!TESTE || !SNAP.por_data[S.data]) S.data = SNAP.data;
 const DIAS_VELHOS = Math.floor((Date.now() - new Date(SNAP.data + "T12:00:00Z")) / 86400000), DEFASADO = DIAS_VELHOS > 5 && !TESTE;
-let tela = "obj", tese = null, ciente = false, slider = null, per = "90", pDe = "", pAte = "", selId = null, perfilAberto = false, ativoAberto = false;
+let tela = "obj", tese = null, ciente = false, slider = null, per = "90", pDe = "", pAte = "", selId = null, perfilAberto = false, ativoAberto = false, realF = null, saidaF = null, desTipo = null;
 const opSel = () => load("historico", []).find(o => o.id === selId) || null;
-const abertas = () => { const hoje = S.data; return load("historico", []).filter(o => { const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); return !(rep && rep.venc <= hoje) && !STATUS.get(o.id)?.saida; }); };
+// Em aberto: a simulada sai na primeira regra atingida; a real só quando o usuário registra o encerramento (ou vence).
+const abertas = () => { const hoje = S.data; return load("historico", []).filter(o => { const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); return !(rep && rep.venc <= hoje) && (o.real ? !o.real.saida : !STATUS.get(o.id)?.saida); }); };
+const hojeISO = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 
 // --- Marcação diária: preços de fechamento das opções (pwa/precos/AAAA-MM-DD.json, publicados pelo atualizador) ---
 // Cada operação simulada é marcada dia a dia: "Se encerrar hoje" e a primeira regra de saída atingida (alvo, limite,
 // prazo). Calculado em segundo plano; sem os arquivos (offline, abrir do disco) tudo segue pelo vencimento.
-const PRECOS = new Map(), STATUS = new Map(); let statusDia = null, marcando = false;
-const precosDia = (d) => { if (!PRECOS.has(d)) PRECOS.set(d, location.protocol === "file:" ? Promise.resolve(null) : fetch(`${BASE_DADOS}precos/${d}.json`).then(r => r.ok ? r.json() : null).then(j => (j && j.op) || null).catch(() => null)); return PRECOS.get(d); };
+const PRECOS = new Map(), PRECOS_OK = new Map(), STATUS = new Map(); let statusDia = null, marcando = false;
+const precosDia = (d) => { if (!PRECOS.has(d)) PRECOS.set(d, location.protocol === "file:" ? Promise.resolve(null) : fetch(`${BASE_DADOS}precos/${d}.json`).then(r => r.ok ? r.json() : null).then(j => (j && j.op) || null).then(op => { if (op) PRECOS_OK.set(d, op); return op; }).catch(() => null)); return PRECOS.get(d); };
 async function marcarOp(o){
   const venc = addDias(o.data, o.m.dias), ate = venc < S.data ? venc : S.data;
   const dias = Object.keys(SNAP.fechamentos[o.ativo] || {}).filter(d => d >= o.data && d <= ate).sort();
   const ps = await Promise.all(dias.map(precosDia));
   const marcas = dias.map((d, i) => ({d, r: ps[i] ? M.resultadoNoDia(o.m, ps[i]) : null}));
-  return {saida: M.regraDeSaida(o.m, marcas.filter(x => x.d > o.data), venc), hoje: marcas.filter(x => x.r !== null && x.d < venc).pop() || null};
+  const depois = (d) => o.real ? d >= o.real.data : d > o.data;
+  return {saida: M.regraDeSaida(o.m, marcas.filter(x => depois(x.d)), venc), hoje: marcas.filter(x => x.r !== null && x.d < venc && (!o.real || x.d >= o.real.data)).pop() || null};
 }
 async function atualizarStatus(){
   if (marcando) return; marcando = true;
@@ -146,12 +151,13 @@ async function atualizarStatus(){
     if (hs.length && (tela === "acomp" || tela === "desemp")) render();
   } finally { marcando = false; }
 }
-const COMO = {alvo: "saiu no alvo", limite: "saiu no limite", prazo: "saiu no prazo", vencimento: "venceu"};
+const COMO = {alvo: "saiu no alvo", limite: "saiu no limite", prazo: "saiu no prazo", vencimento: "venceu", encerrada: "encerrada"};
 
 function load(k, d){ try{ const v = localStorage.getItem(k); if (!v) return d; const j = JSON.parse(v); return (d && typeof d === "object") ? Object.assign(d, j) : j; }catch(e){ return d; } }
 function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 const brl = (v, d=0) => (v<0?"−":"") + "R$ " + Math.abs(v).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d});
 const sgn = (v) => (v>0?"+":"") + brl(v);
+const sgn2 = (v) => v === 0 ? "R$ 0,00" : (v>0?"+":"") + brl(v, 2);   // resultado de operação real: com centavos
 const pct = (v) => Math.round(v*100) + "%";
 const dBR = (iso) => iso.split("-").reverse().join("/");
 const addDias = (iso, n) => { const d = new Date(iso+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); };
@@ -191,7 +197,7 @@ function fechamentoNoVenc(ativo, iso, dias){
 }
 
 function navBar(){
-  const at = tela==="acomp" ? "acomp" : tela==="desemp" ? "desemp" : tela==="cad" ? "cad" : "obj";
+  const at = tela==="acomp" || tela==="sair" ? "acomp" : tela==="desemp" ? "desemp" : tela==="cad" ? "cad" : "obj";
   const it = (k, rot, ic) => `<button data-nav="${k}" ${at===k?'aria-current="page"':""}>${svg(ic,22)}${rot}</button>`;
   document.getElementById("nav").innerHTML = `<div class="in">${it("obj","Início",'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>')}${it("acomp","Operações",'<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l4-5 3 3 4-6"/>')}${it("desemp","Desempenho",'<path d="M5 20V11"/><path d="M12 20V4"/><path d="M19 20v-6"/>')}${it("cad","Ajustes",'<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>')}</div>`;
   document.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { selId = null; slider = null; tela = b.dataset.nav; render(); });
@@ -200,7 +206,7 @@ function render(){
   // o ativo salvo pode não existir no dia carregado (papel novo que ficou de fora num pregão, ou dia antigo no ?teste=1)
   { const doDia = SNAP.por_data[S.data]; if (!doDia[S.ativo]) S.ativo = doDia.PETR4 ? "PETR4" : Object.keys(doDia)[0]; }
   const el = document.getElementById("app");
-  el.innerHTML = tela==="obj" ? vObj() : tela==="cartao" ? vCartao() : tela==="cen" ? vCen() : tela==="desemp" ? vDesemp() : tela==="cad" ? vCad() : tela==="sinal" ? vSinal() : vAcomp();
+  el.innerHTML = tela==="obj" ? vObj() : tela==="cartao" ? vCartao() : tela==="cen" ? vCen() : tela==="desemp" ? vDesemp() : tela==="cad" ? vCad() : tela==="sinal" ? vSinal() : tela==="real" ? vReal() : tela==="sair" ? vSair() : vAcomp();
   window.scrollTo(0,0);
   navBar();
   bind();
@@ -346,7 +352,7 @@ function vCen(){
     h += `<section class="card"><h2>Se você tivesse entrado neste dia</h2><p class="small">No vencimento (${dBR(rep.venc)}), ${S.ativo} fechou em ${brl(rep.preco,2)}. O resultado teria sido <strong style="color:${r>0?"var(--good)":r<0?"var(--bad)":"inherit"}">${r===0?"R$ 0":sgn(r)}</strong>, antes de imposto. Um único caso não mostra se a estratégia funciona.</p></section>`; }
   h += `<section class="card"><h2 style="font-size:16px">Risco desta operação</h2><p class="small">${erro(tese,m)}</p></section>`;
   h += `<label class="chk"><input id="ciente" type="checkbox" ${ciente?"checked":""}><span>Entendi que o risco máximo desta operação é ${brl(m.perdaMax)}.</span></label>`;
-  h += `<button class="btn" id="confirmar" ${ciente?"":"disabled"}>Simular esta operação</button><button class="btn sec2" data-go="cartao">Voltar</button>`;
+  h += `<button class="btn" id="confirmar" ${ciente?"":"disabled"}>Simular esta operação</button><button class="btn sec" data-go="real">Já executei na corretora</button><button class="btn sec2" data-go="cartao">Voltar</button>`;
   return h;
 }
 function erro(t,m){
@@ -362,11 +368,17 @@ function erro(t,m){
 
 
 function vDesemp(){
-  const hoje = S.data, hs = load("historico", []);
-  let de, ate = hoje;
-  if (per==="30") de = addDias(hoje,-30); else if (per==="90") de = addDias(hoje,-90); else if (per==="365") de = addDias(hoje,-365);
-  else if (per==="pers"){ de = pDe || "0000-00-00"; ate = pAte || hoje; } else de = "0000-00-00";
+  const hoje = S.data, todas = load("historico", []), temReal = todas.some(o => o.real);
+  const tipo = desTipo || (temReal ? "real" : "sim"), hs = todas.filter(o => tipo === "real" ? o.real : !o.real);
+  const ref = tipo === "real" && hojeISO() > hoje ? hojeISO() : hoje;   // reais: encerramento registrado pode ser depois do último pregão
+  let de, ate = ref;
+  if (per==="30") de = addDias(ref,-30); else if (per==="90") de = addDias(ref,-90); else if (per==="365") de = addDias(ref,-365);
+  else if (per==="pers"){ de = pDe || "0000-00-00"; ate = pAte || ref; } else de = "0000-00-00";
+  const fv = (v) => tipo === "real" ? sgn2(v) : v === 0 ? "R$ 0" : sgn(v);
   const linhas = hs.map(o => { const venc = addDias(o.data, o.m.dias), st = STATUS.get(o.id);
+    if (o.real) { if (o.real.saida) return {o, venc, fecha: o.real.saida.data, res: o.real.saida.res, como: "encerrada", real: true};
+      const rp = fechamentoNoVenc(o.ativo, o.data, o.m.dias), v = rp && rp.venc <= hoje;
+      return {o, venc, fecha: venc, res: v ? Math.round((M.resultadoNoVencimento(o.m, rp.preco) - (o.real.custos || 0)) * 100) / 100 : null, como: "vencimento", real: v}; }
     if (st && st.saida) return {o, venc, fecha: st.saida.d, res: st.saida.r, como: st.saida.regra, real: true};
     const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); const real = rep && rep.venc <= hoje;
     return {o, venc, fecha: venc, res: real ? M.resultadoNoVencimento(o.m, rep.preco) : null, como: "vencimento", real}; });
@@ -374,30 +386,38 @@ function vDesemp(){
   const abertas = linhas.filter(l => !l.real);
   const tot = fim.reduce((a,l)=>a+l.res,0), gan = fim.filter(l=>l.res>0), per_ = fim.filter(l=>l.res<0);
   const chip = (k, t) => `<button class="chip${per===k?" on":""}" data-per="${k}" style="padding:8px 12px;border-radius:999px;border:1.5px solid var(--line);background:${per===k?"var(--ink)":"transparent"};color:${per===k?"var(--bg)":"inherit"};font:inherit;font-size:14px;font-weight:600;cursor:pointer">${t}</button>`;
-  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Meu desempenho</h1><p class="muted">Resultado das suas operações simuladas já encerradas, antes de imposto.</p>`;
+  const seg = (k, t) => { const on = tipo === k; return `<button class="seg" data-tipo="${k}" aria-pressed="${on}" style="min-height:44px;padding:8px 10px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:15px;font-weight:600;cursor:pointer">${t}</button>`; };
+  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button>${tipo === "real" ? '<span class="pill real">Operações reais</span>' : '<span class="pill sim">Modo simulado</span>'}</div><h1>Meu desempenho</h1>`;
+  h += `<div role="group" aria-label="Tipo de operação" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${seg("real","Reais")}${seg("sim","Simuladas")}</div>`;
+  h += `<p class="muted">${tipo === "real" ? "Resultado das suas operações reais encerradas, com os custos que você informou, antes de imposto." : "Resultado das suas operações simuladas já encerradas, antes de imposto."}</p>`;
   h += `<section class="card"><div style="display:flex;gap:8px;flex-wrap:wrap">${chip("30","30 dias")}${chip("90","90 dias")}${chip("365","12 meses")}${chip("tudo","Tudo")}${chip("pers","Período")}</div>`;
   if (per==="pers") h += `<div class="row3" style="margin-top:10px"><label class="f">De<input id="pde" type="date" value="${pDe}"></label><label class="f">Até<input id="pate" type="date" value="${pAte}"></label></div>`;
   h += `</section>`;
-  h += `<section class="card"><div class="small muted">Resultado no período</div><div style="font-size:32px;font-weight:700;color:${tot>0?"var(--good)":tot<0?"var(--bad)":"inherit"}">${tot===0?"R$ 0":sgn(tot)}</div>
+  h += `<section class="card"><div class="small muted">Resultado no período</div><div style="font-size:32px;font-weight:700;color:${tot>0?"var(--good)":tot<0?"var(--bad)":"inherit"}">${fv(tot)}</div>
    <div class="row3" style="border-top:1px solid var(--line);padding-top:10px;margin-top:8px"><div><div class="small muted">Operações</div><div style="font-weight:700">${fim.length}</div></div><div><div class="small muted">Com ganho</div><div style="font-weight:700;color:var(--good)">${gan.length}</div></div><div><div class="small muted">Com resultado negativo</div><div style="font-weight:700;color:var(--bad)">${per_.length}</div></div></div></section>`;
   if (!fim.length) { const prox = abertas.map(l => l.venc).sort()[0], venceu = linhas.some(l => l.real);
     const dica = venceu ? `Escolha outro período para ver as operações já encerradas.${prox ? ` A próxima em aberto vence em ${dBR(prox)}.` : ""}`
       : prox ? `O resultado aparece aqui quando suas operações forem encerradas, por uma regra de saída ou no vencimento. A próxima vence em ${dBR(prox)}.`
-      : `Monte uma operação e confirme a simulação; o resultado aparece aqui no vencimento.`;
+      : tipo === "real" ? `Registre uma operação que você executou na corretora (passo 3 da montagem); o resultado aparece aqui quando você registrar o encerramento ou no vencimento.` : `Monte uma operação e confirme a simulação; o resultado aparece aqui no vencimento.`;
     h += `<div class="card empty"><p>Nenhuma operação encerrada neste período.</p><p class="small" style="margin-top:6px">${dica}</p></div>`; }
-  else h += `<section class="card"><h2 style="font-size:16px">Operações do período</h2>` + fim.map(l => `<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)"><div><div style="font-weight:600">${esc(l.o.m.estrutura)} · ${l.o.ativo}</div><div class="small muted">Entrada ${dBR(l.o.data)} · ${COMO[l.como]} em ${dBR(l.fecha)}</div></div><div style="font-weight:700;white-space:nowrap;color:${l.res>0?"var(--good)":l.res<0?"var(--bad)":"inherit"}">${l.res===0?"R$ 0":sgn(l.res)}</div></div>`).join("") + `</section>`;
+  else h += `<section class="card"><h2 style="font-size:16px">Operações do período</h2>` + fim.map(l => `<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)"><div><div style="font-weight:600">${esc(l.o.m.estrutura)} · ${l.o.ativo}</div><div class="small muted">${l.o.real ? `Executada ${dBR(l.o.real.data)}` : `Entrada ${dBR(l.o.data)}`} · ${COMO[l.como]} em ${dBR(l.fecha)}</div></div><div style="font-weight:700;white-space:nowrap;color:${l.res>0?"var(--good)":l.res<0?"var(--bad)":"inherit"}">${fv(l.res)}</div></div>`).join("") + `</section>`;
   if (abertas.length && fim.length) h += `<p class="foot">${abertas.length} ${abertas.length>1?"operações ainda estão em aberto e ficam":"operação ainda está em aberto e fica"} fora do resultado.</p>`;
-  h += `<p class="foot">Cada operação sai na primeira regra atingida (alvo, limite ou prazo), conferida no fechamento de cada dia, ou no vencimento. Dia sem preço da opção fica de fora da conferência.</p><button class="btn sec2" id="limpar-hist">Apagar histórico</button>`;
+  h += tipo === "real" ? `<p class="foot">Cada operação real termina quando você registra o encerramento, com os preços da sua nota, ou no vencimento (sem os custos de exercício).</p><button class="btn sec2" id="limpar-hist" data-tipo-limpar="real">Apagar operações reais</button>`
+    : `<p class="foot">Cada operação sai na primeira regra atingida (alvo, limite ou prazo), conferida no fechamento de cada dia, ou no vencimento. Dia sem preço da opção fica de fora da conferência.</p><button class="btn sec2" id="limpar-hist" data-tipo-limpar="sim">Apagar histórico simulado</button>`;
   return h;
 }
 
 function vLista(){
-  const L = abertas(), tot = L.reduce((a,o)=>a+o.m.perdaMax,0);
-  const caixa = L.filter(o => o.m.tese === "alta_com_caixa" || o.m.tese === "sinal_put").reduce((a,o)=>a+o.m.pernas[0][1].k*100*o.m.lotes,0);   // compra obrigatória: caixa preso até o vencimento
-  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Minhas operações</h1>`;
-  if (!L.length) return h + `<div class="card empty"><p>Nenhuma operação em aberto.</p><p class="small" style="margin-top:6px">Monte uma operação e confirme a simulação para acompanhá-la aqui.</p></div><button class="btn" data-go="obj">Montar operação</button>`;
-  h += `<section class="card"><div class="small muted">Em aberto</div><div style="font-size:24px;font-weight:700">${L.length} operaç${L.length>1?"ões":"ão"}</div><div class="row3" style="border-top:1px solid var(--line);padding-top:10px;margin-top:8px"><div><div class="small muted">Risco máximo somado</div><div style="font-weight:700">${brl(tot)}</div></div><div><div class="small muted">Do seu capital</div><div style="font-weight:700">${(tot/S.capital*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}%</div></div>${caixa>0?`<div><div class="small muted">Caixa reservado</div><div style="font-weight:700">${brl(caixa)}</div></div>`:""}</div></section>`;
-  h += L.slice().sort((a,b)=>addDias(a.data,a.m.dias).localeCompare(addDias(b.data,b.m.dias))).map(o => `<button class="opt" data-op="${o.id}"><span class="tx"><span class="t">${esc(o.m.estrutura)} · ${o.ativo}</span><span class="st"><span style="flex-basis:100%">Vence ${dBR(addDias(o.data,o.m.dias))} · <span style="white-space:nowrap">risco máx. ${brl(o.m.perdaMax)}</span></span><span class="small" style="flex-basis:100%;margin-top:-4px">Entrada em ${dBR(o.data)}</span></span></span></button>`).join("");
+  const L = abertas(), LR = L.filter(o => o.real), base = LR.length ? LR : L, tot = base.reduce((a,o)=>a+o.m.perdaMax,0);
+  const caixa = base.filter(o => o.m.tese === "alta_com_caixa" || o.m.tese === "sinal_put").reduce((a,o)=>a+o.m.pernas[0][1].k*100*o.m.lotes,0);   // compra obrigatória: caixa preso até o vencimento
+  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button></div><h1>Minhas operações</h1>`;
+  if (!L.length) return h + `<div class="card empty"><p>Nenhuma operação em aberto.</p><p class="small" style="margin-top:6px">Monte uma operação e simule, ou registre a que você executou na corretora, para acompanhá-la aqui.</p></div><button class="btn" data-go="obj">Montar operação</button>`;
+  const nR = LR.length, nS = L.length - nR;
+  h += `<section class="card"><div class="small muted">Em aberto</div><div style="font-size:24px;font-weight:700">${[nR ? `${nR} ${nR > 1 ? "reais" : "real"}` : "", nS ? `${nS} ${nS > 1 ? "simuladas" : "simulada"}` : ""].filter(Boolean).join(" · ")}</div>${nR && nS ? `<div class="small muted" style="margin-top:-6px">Os valores abaixo somam só as reais.</div>` : ""}<div class="row3" style="border-top:1px solid var(--line);padding-top:10px;margin-top:8px"><div><div class="small muted">Risco máximo somado</div><div style="font-weight:700">${brl(tot)}</div></div><div><div class="small muted">Do seu capital</div><div style="font-weight:700">${(tot/S.capital*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}%</div></div>${caixa>0?`<div><div class="small muted">Caixa reservado</div><div style="font-weight:700">${brl(caixa)}</div></div>`:""}</div></section>`;
+  const item = (o) => `<button class="opt" data-op="${o.id}"><span class="tx"><span class="t">${esc(o.m.estrutura)} · ${o.ativo}</span><span class="st"><span style="flex-basis:100%">Vence ${dBR(addDias(o.data,o.m.dias))} · <span style="white-space:nowrap">risco máx. ${brl(o.m.perdaMax)}</span></span><span class="small" style="flex-basis:100%;margin-top:-4px">${o.real ? `Executada em ${dBR(o.real.data)}` : `Entrada em ${dBR(o.data)}`}${STATUS.get(o.id)?.saida && o.real ? ` · <strong style="color:var(--accent-text)">regra atingida</strong>` : ""}</span></span></span></button>`;
+  const ordem = (A) => A.slice().sort((a,b)=>addDias(a.data,a.m.dias).localeCompare(addDias(b.data,b.m.dias)));
+  if (nR) h += `<h2 style="font-size:16px;margin-top:6px">Reais <span class="pill real" style="margin-left:6px;vertical-align:middle">na corretora</span></h2>` + ordem(LR).map(item).join("");
+  if (nS) h += `<h2 style="font-size:16px;margin-top:6px">Simuladas <span class="pill sim" style="margin-left:6px;vertical-align:middle">Modo simulado</span></h2>` + ordem(L.filter(o => !o.real)).map(item).join("");
   return h + `<button class="btn" data-go="obj">Montar operação</button>`;
 }
 function vCad(){
@@ -411,10 +431,55 @@ function vCad(){
   return h;
 }
 
+// --- Operação real (nível 1): o usuário registra o que executou na corretora e o app acompanha com esses preços ---
+const nomeOp = (x) => `${x.t==="C"?"call":"put"}, strike ${brl(x.k,2)}`;
+const custoBR = (v) => v === null || v === undefined ? null : Math.round(v * 100) / 100;
+function realMontada(f, m0){ return (f.qtd > 0 && f.qtd % 100 === 0 && f.precos.every(p => p > 0)) ? M.execucao(m0, {lotes: f.qtd / 100, precos: f.precos}) : null; }
+function realProblema(f, m){
+  if (!(f.qtd > 0) || f.qtd % 100 !== 0) return "A quantidade precisa ser múltipla de 100.";
+  if (!f.precos.every(p => p > 0)) return "Preencha o preço executado de cada perna.";
+  if (!f.data || f.data < S.data) return `A data da execução não pode ser anterior a ${dBR(S.data)}, o dia dos preços da montagem.`;
+  if (f.data > hojeISO()) return "A data da execução não pode estar no futuro.";
+  const credito = m.tese === "alta_com_caixa" || m.tese === "sinal_put";
+  if (credito ? !(m.premio < 0) : !(m.premio > 0 && m.perdaMax > 0 && (m.ganhoMax === null || m.ganhoMax > 0)))
+    return "Confira os preços: com eles, o risco máximo ou o ganho máximo ficam zerados ou negativos.";
+  return "";
+}
+function vReal(){
+  const m0 = montagem(tese);
+  if (typeof m0 === "string") { tela = "obj"; return vObj(); }
+  if (!realF || realF.tese !== tese || realF.ativo !== S.ativo) realF = {tese, ativo: S.ativo, data: hojeISO() < S.data ? S.data : hojeISO(), qtd: m0.lotes * 100, precos: m0.pernas.map(([l,x]) => l > 0 ? x.a : x.b), custos: null};
+  const m = realMontada(realF, m0), prob = realProblema(realF, m || m0);
+  let h = `<div class="top"><button class="back" data-go="cen">‹ Voltar</button><span class="pill real">Operação real</span></div><div><h1>Registrar operação real</h1><p class="muted" style="margin-top:6px">${esc(m0.estrutura)} · ${S.ativo}. Use os dados da sua nota de corretagem: o app acompanha a operação com eles.</p></div>`;
+  h += `<section class="card"><div class="row3"><label class="f">Data da execução<input id="rdata" type="date" value="${realF.data}" min="${S.data}"></label><label class="f">Opções por perna<input id="rqtd" type="text" inputmode="numeric" autocomplete="off" value="${realF.qtd || ""}"></label></div><p class="small muted">Montada com ${m0.lotes * 100} opções por perna, com os preços de ${dBR(S.data)}.</p></section>`;
+  h += m0.pernas.map(([l,x], i) => `<section class="card"><div><div style="font-weight:700">${l > 0 ? "Comprou" : "Vendeu"} ${esc(x.s)}</div><div class="small muted">${nomeOp(x)} · vence ${dBR(addDias(S.data, m0.dias))}</div></div><label class="f">Preço executado (R$ por opção)<input id="rpreco${i}" type="text" inputmode="decimal" autocomplete="off" value="${fmtBR(realF.precos[i], 2)}"></label><p class="small muted">Na montagem: ${l > 0 ? "pagar até" : "receber pelo menos"} ${brl(l > 0 ? x.a : x.b, 2)}.</p></section>`).join("");
+  h += `<section class="card"><label class="f">Custos da nota (opcional)<input id="rcustos" type="text" inputmode="decimal" autocomplete="off" placeholder="Taxas e corretagem, em R$" value="${fmtBR(realF.custos, 2)}"></label><p class="small muted">Sem este valor, o resultado fica sem custos.</p></section>`;
+  if (m) h += `<section class="card"><h2 style="font-size:16px">Com os preços executados</h2><div class="kv"><span>${m.premio < 0 ? "Você recebeu" : "Você pagou"}</span><span>${brl(Math.abs(m.premio), 2)}</span></div><div class="kv"><span>Risco máximo</span><span>${brl(m.perdaMax, 2)}</span></div><div class="kv"><span>Ganho máximo</span><span>${m.ganhoMax === null ? "Sem limite" : brl(m.ganhoMax, 2)}</span></div><div class="kv"><span>${m.equilibrio.length > 1 ? "Equilíbrios" : "Equilíbrio"}</span><span>${m.equilibrio.map(e => brl(e, 2)).join(" e ")}</span></div>
+   <p class="small muted">Na montagem: ${m0.premio < 0 ? "receberia" : "pagaria"} ${brl(Math.abs(m0.premio))}, com risco máximo de ${brl(m0.perdaMax)}.${m.perdaMax > S.perda ? ` O risco máximo executado passa do seu limite por operação (${brl(S.perda)}).` : ""}</p></section>`;
+  if (prob) h += `<div class="note"><p>${prob}</p></div>`;
+  return h + `<button class="btn" id="registrar" ${prob ? "disabled" : ""}>Registrar operação real</button><button class="btn sec2" data-go="cen">Voltar</button>`;
+}
+// resultado do encerramento registrado: preço de saída de cada perna, menos os custos informados (entrada e saída)
+const resultadoSaida = (P, f) => { const pm = Object.fromEntries(P.m.pernas.map(([l,x], i) => [x.s, [f.precos[i], f.precos[i]]])); return Math.round((M.resultadoNoDia(P.m, pm) - (P.real.custos || 0) - (f.custos || 0)) * 100) / 100; };
+function vSair(){
+  const P = opSel(); if (!P || !P.real) { tela = "acomp"; return vAcomp(); }
+  const m = P.m, st = STATUS.get(P.id), dRef = st && st.hoje ? st.hoje.d : null, ref = dRef ? PRECOS_OK.get(dRef) : null;
+  if (!saidaF || saidaF.id !== P.id) saidaF = {id: P.id, data: hojeISO(), precos: m.pernas.map(([l,x]) => { const p = ref && ref[x.s]; return p ? (l > 0 ? p[0] : p[1]) : null; }), custos: null};
+  const prob = !saidaF.precos.every(p => p > 0) ? "Preencha o preço de saída de cada perna." : !saidaF.data || saidaF.data < P.real.data ? `A data do encerramento não pode ser anterior à da execução (${dBR(P.real.data)}).` : saidaF.data > hojeISO() ? "A data do encerramento não pode estar no futuro." : "";
+  let h = `<div class="top"><button class="back" data-go="acomp">‹ Sua operação</button><span class="pill real">Operação real</span></div><div><h1>Registrar encerramento</h1><p class="muted" style="margin-top:6px">${esc(m.estrutura)} · ${P.ativo} · executada em ${dBR(P.real.data)}. Use os dados da nota de saída.</p></div>`;
+  h += `<section class="card"><label class="f">Data do encerramento<input id="sdata" type="date" value="${saidaF.data}" min="${P.real.data}"></label></section>`;
+  h += m.pernas.map(([l,x], i) => { const p = ref && ref[x.s]; return `<section class="card"><div><div style="font-weight:700">${l > 0 ? "Vendeu" : "Comprou de volta"} ${esc(x.s)}</div><div class="small muted">Você ${l > 0 ? "comprou" : "vendeu"} ${m.lotes * 100} a ${brl(l > 0 ? x.a : x.b, 2)} em ${dBR(P.real.data)}</div></div><label class="f">Preço de saída (R$ por opção)<input id="spreco${i}" type="text" inputmode="decimal" autocomplete="off" value="${fmtBR(saidaF.precos[i], 2)}"></label>${p ? `<p class="small muted">Fechamento de ${dBR(dRef)}: compra ${brl(p[0], 2)} · venda ${brl(p[1], 2)}.</p>` : ""}</section>`; }).join("");
+  h += `<section class="card"><label class="f">Custos da nota de saída (opcional)<input id="scustos" type="text" inputmode="decimal" autocomplete="off" placeholder="Taxas e corretagem, em R$" value="${fmtBR(saidaF.custos, 2)}"></label></section>`;
+  if (!prob) { const r = resultadoSaida(P, saidaF), cs = P.real.custos != null || saidaF.custos != null;
+    h += `<section class="card"><div class="small muted">Resultado da operação${cs ? ", com os custos informados" : ", sem custos"}</div><div style="font-size:30px;font-weight:700;color:${r > 0 ? "var(--good)" : r < 0 ? "var(--bad)" : "inherit"}">${sgn2(r)}</div><p class="small muted">Antes de imposto.</p></section>`; }
+  else h += `<div class="note"><p>${prob}</p></div>`;
+  return h + `<button class="btn" id="registrar-saida" ${prob ? "disabled" : ""}>Registrar encerramento</button><button class="btn sec2" data-go="acomp">Voltar</button>`;
+}
+
 function vAcomp(){
   if (selId===null || !opSel()) return vLista();
   const P = opSel();
-  let h = `<div class="top"><button class="back" data-op="">‹ Operações</button><span class="pill sim">Modo simulado</span></div><h1>Sua operação</h1>`;
+  let h = `<div class="top"><button class="back" data-op="">‹ Operações</button>${P && P.real ? '<span class="pill real">Operação real</span>' : '<span class="pill sim">Modo simulado</span>'}</div><h1>Sua operação</h1>`;
   if (!P || !P.m){ return h + `<div class="card empty"><p>Nenhuma operação simulada ainda.</p><p class="small" style="margin-top:6px">Monte uma operação e confirme a simulação para acompanhá-la aqui.</p></div><button class="btn" data-go="obj">Montar operação</button>`; }
   // A cadeia do dia da entrada sai do snapshot depois de 12 pregões; o preço da ação daquele dia continua em fechamentos.
   const m = P.m, a = {S: SNAP.por_data[P.data]?.[P.ativo]?.S ?? SNAP.fechamentos[P.ativo]?.[P.data] ?? SNAP.ativos[P.ativo].S};
@@ -423,22 +488,28 @@ function vAcomp(){
   const r = M.resultadoNoVencimento(m, slider);
   const pior = -m.perdaMax, melhor = m.ganhoMax===null ? m.perdaMax*2 : m.ganhoMax, span = melhor - pior, pos = Math.min(100,Math.max(0,(r-pior)/span*100)), zero = (0-pior)/span*100;
   const rep = fechamentoNoVenc(P.ativo, P.data, m.dias);
-  h += `<div class="small muted">${esc(m.estrutura)} · ${P.ativo} · entrada em ${dBR(P.data)}</div>`;
+  const R = P.real, fechada = R && R.saida;
+  h += `<div class="small muted">${esc(m.estrutura)} · ${P.ativo} · ${R ? `executada em ${dBR(R.data)} · ${m.lotes * 100} opções por perna` : `entrada em ${dBR(P.data)}`}</div>`;
+  if (fechada) h += `<section class="card"><div class="small muted">Encerrada em ${dBR(R.saida.data)}${R.custos != null || R.saida.custos != null ? ", com os custos informados" : ", sem custos"}</div><div style="font-size:30px;font-weight:700;color:${R.saida.res > 0 ? "var(--good)" : R.saida.res < 0 ? "var(--bad)" : "inherit"}">${sgn2(R.saida.res)}</div><p class="small muted">Antes de imposto.</p></section>`;
   { const st = STATUS.get(P.id), REGRA = {alvo: "A regra “Sair no alvo” foi atingida", limite: "A regra “Sair no limite” foi atingida", prazo: "Chegou o prazo de saída"};
-    if (st && st.hoje) h += `<section class="card"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><div><div class="small muted">Se encerrar hoje</div><div style="font-size:26px;font-weight:700;color:${st.hoje.r>0?"var(--good)":st.hoje.r<0?"var(--bad)":"inherit"}">${st.hoje.r===0?"R$ 0":sgn(st.hoje.r)}</div></div><div class="small muted" style="text-align:right">Fechamento de<br>${dBR(st.hoje.d)}</div></div>
-      <p class="small muted" style="margin-top:6px">Pelos preços de fechamento das opções, no lado menos favorável de cada perna.</p>${st.saida?`<p class="small" style="margin-top:6px"><strong>${REGRA[st.saida.regra]}</strong> no fechamento de ${dBR(st.saida.d)} (${sgn(st.saida.r)}).</p>`:""}</section>`; }
+    if (st && st.hoje && !fechada) h += `<section class="card"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><div><div class="small muted">Se encerrar hoje</div><div style="font-size:26px;font-weight:700;color:${st.hoje.r>0?"var(--good)":st.hoje.r<0?"var(--bad)":"inherit"}">${st.hoje.r===0?"R$ 0":sgn(st.hoje.r)}</div></div><div class="small muted" style="text-align:right">Fechamento de<br>${dBR(st.hoje.d)}</div></div>
+      <p class="small muted" style="margin-top:6px">Pelos preços de fechamento das opções, no lado menos favorável de cada perna.</p>${st.saida?`<p class="small" style="margin-top:6px"><strong>${REGRA[st.saida.regra]}</strong> no fechamento de ${dBR(st.saida.d)} (${sgn(st.saida.r)}).${R ? " Se você encerrou na corretora, registre o encerramento." : ""}</p>`:""}</section>`; }
+  if (!fechada) {
   h += `<section class="card"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><div><div class="small muted">Resultado no vencimento, se a ação estiver em</div><div id="rv" style="font-size:30px;font-weight:700;color:${r>0?"var(--good)":r<0?"var(--bad)":"inherit"}">${r===0?"R$ 0":sgn(r)}</div></div><div style="text-align:right"><div class="small muted">Ação</div><div id="px" style="font-size:20px;font-weight:700;white-space:nowrap">${brl(slider,2)}</div></div></div>
    <input id="sl" type="range" min="${lo}" max="${hi}" step="0.01" value="${slider}" aria-label="Preço da ação no vencimento">
    <div><div class="small muted" style="display:flex;justify-content:space-between"><span>Risco máx. ${sgn(pior)}</span><span>${m.ganhoMax===null?"Sem teto":"Ganho máx. "+sgn(m.ganhoMax)}</span></div><div class="bar" role="img" aria-label="Posição do resultado entre o risco máximo e o ganho máximo"><i style="left:${zero}%"></i><b id="bb" style="background:${r>=0?"var(--good)":"var(--bad)"};left:${Math.min(pos,zero)}%;width:${Math.abs(pos-zero)}%"></b></div></div>
    <div class="row3" style="border-top:1px solid var(--line);padding-top:10px">${m.premio >= 0 && Math.abs(m.premio - m.perdaMax) < 1 ? `<div><div class="small muted">Você pagou · é o risco máximo</div><div style="font-weight:700">${brl(m.perdaMax)}</div></div>`
      : `<div><div class="small muted">${m.premio < 0 ? "Você recebeu" : "Você pagou"}</div><div style="font-weight:700">${brl(Math.abs(m.premio))}</div></div><div><div class="small muted">Risco máx.</div><div style="font-weight:700">${brl(m.perdaMax)}</div></div>`}<div><div class="small muted">Vence em</div><div style="font-weight:700">${dBR(addDias(P.data,m.dias))}</div></div></div></section>`;
   h += `<section class="card"><h2 style="font-size:16px">Quando sair</h2><p class="small muted">Regras definidas na entrada. Elas não mudam com o humor do mercado.</p>
-   ${m.alvo!==null?`<div class="step"><span class="n" style="background:var(--good-soft);color:var(--good)">✓</span><p><strong>Sair no alvo: ${sgn(m.alvo)}</strong><br><span class="muted small">Metade do ganho máximo.</span></p></div>`:""}
-   ${m.stop!==null?`<div class="step"><span class="n" style="background:var(--bad-soft);color:var(--bad)">!</span><p><strong>Sair no limite: ${sgn(m.stop)}</strong><br><span class="muted small">Antes de chegar ao risco máximo. Valor padrão do app.</span></p></div>`:`<div class="step"><span class="n" style="background:var(--bad-soft);color:var(--bad)">!</span><p><strong>Sem regra de saída automática</strong><br><span class="muted small">O risco é tudo o que pagou (${brl(m.perdaMax)}).</span></p></div>`}
+   ${m.alvo!==null?`<div class="step"><span class="n" style="background:var(--good-soft);color:var(--good)">✓</span><p><strong>Sair no alvo: ${sgn(m.alvo)}</strong><br><span class="muted small">${R ? "Definido na montagem, na proporção da quantidade executada." : "Metade do ganho máximo."}</span></p></div>`:""}
+   ${m.stop!==null?`<div class="step"><span class="n" style="background:var(--bad-soft);color:var(--bad)">!</span><p><strong>Sair no limite: ${sgn(m.stop)}</strong><br><span class="muted small">${R ? "Definido na montagem, na proporção da quantidade executada." : "Antes de chegar ao risco máximo. Valor padrão do app."}</span></p></div>`:`<div class="step"><span class="n" style="background:var(--bad-soft);color:var(--bad)">!</span><p><strong>Sem regra de saída automática</strong><br><span class="muted small">O risco é tudo o que pagou (${brl(m.perdaMax)}).</span></p></div>`}
    ${m.saidaDias>0?`<div class="step"><span class="n" style="background:var(--warn-soft);color:var(--warn-text)">7</span><p><strong>Prazo: sair até ${m.saidaDias} dias antes do vencimento</strong><br><span class="muted small">Em ${dBR(addDias(P.data,m.dias-m.saidaDias))}.</span></p></div>`:`<div class="step"><span class="n" style="background:var(--warn-soft);color:var(--warn-text)">7</span><p><strong>Vencimento em ${dBR(addDias(P.data,m.dias))}</strong><br><span class="muted small">Se o preço não passar do ponto de equilíbrio, a opção vale zero.</span></p></div>`}</section>`;
-  h += custosHtml(m, P.cor ?? null);
-  if (rep){ const rr = M.resultadoNoVencimento(m, rep.preco); h += `<section class="card"><h2 style="font-size:16px">Como terminou de verdade</h2><p class="small">Em ${dBR(rep.venc)}, ${P.ativo} fechou em ${brl(rep.preco,2)}. Resultado: <strong style="color:${rr>0?"var(--good)":rr<0?"var(--bad)":"inherit"}">${rr===0?"R$ 0":sgn(rr)}</strong>, antes de imposto.</p></section>`; }
-  h += `<p class="foot">Valores calculados com preços de fechamento reais, em modo simulado.</p><button class="btn sec2" id="copiar">Copiar parâmetros</button><textarea id="cpbox" class="small" hidden readonly rows="6" style="width:100%;margin-top:8px"></textarea><button class="btn danger" id="encerrar">Encerrar operação simulada</button>`;
+  }
+  if (!R) h += custosHtml(m, P.cor ?? null);
+  else h += `<section class="card"><h2 style="font-size:16px">Custos da nota</h2><p class="small">Entrada: ${R.custos != null ? brl(R.custos, 2) : "não informados"}${fechada ? ` · Saída: ${R.saida.custos != null ? brl(R.saida.custos, 2) : "não informados"}` : ""}.</p></section>`;
+  if (rep && !fechada){ const rr = Math.round((M.resultadoNoVencimento(m, rep.preco) - (R && R.custos || 0)) * 100) / 100; h += `<section class="card"><h2 style="font-size:16px">Como terminou de verdade</h2><p class="small">Em ${dBR(rep.venc)}, ${P.ativo} fechou em ${brl(rep.preco,2)}. Resultado: <strong style="color:${rr>0?"var(--good)":rr<0?"var(--bad)":"inherit"}">${rr===0?"R$ 0":sgn(rr)}</strong>, antes de imposto${R ? (R.custos != null ? ", com os custos de entrada e sem os de exercício" : ", sem custos") : ""}.</p></section>`; }
+  if (R) h += `<p class="foot">Acompanhada pelos preços de fechamento de cada dia, que a B3 publica no fim do pregão.</p>${!fechada && !rep ? `<button class="btn" id="ir-sair">Registrar encerramento</button>` : ""}<button class="btn danger" id="encerrar">Apagar registro</button>`;
+  else h += `<p class="foot">Valores calculados com preços de fechamento reais, em modo simulado.</p><button class="btn sec2" id="copiar">Copiar parâmetros</button><textarea id="cpbox" class="small" hidden readonly rows="6" style="width:100%;margin-top:8px"></textarea><button class="btn danger" id="encerrar">Encerrar operação simulada</button>`;
   return h;
 }
 
@@ -464,7 +535,22 @@ function bind(){
   const cp = q("#copiar"); if (cp) cp.onclick = () => { if (DEFASADO) { cp.textContent = "Bloqueado: preços desatualizados"; return; } if (tela==="acomp"){ const P = opSel(); if (P && P.m) copiar(textoParametros(P.m, P.ativo, P.data), cp); } else { const m = montagem(tese); if (typeof m!=="string") copiar(textoParametros(m, S.ativo, S.data), cp); } };
   document.querySelectorAll("[data-per]").forEach(b => b.onclick = () => { per = b.dataset.per; render(); });
   const pd = q("#pde"); if (pd) pd.onchange = () => { pDe = pd.value; render(); }; const pa = q("#pate"); if (pa) pa.onchange = () => { pAte = pa.value; render(); };
-  const lh = q("#limpar-hist"); if (lh) lh.onclick = () => { if (confirm("Apagar todo o histórico de operações simuladas?")){ try{ localStorage.removeItem("historico"); }catch(e){} render(); } };
+  const lh = q("#limpar-hist"); if (lh) lh.onclick = () => { const real = lh.dataset.tipoLimpar === "real"; if (confirm(real ? "Apagar todas as operações reais registradas?" : "Apagar todo o histórico de operações simuladas?")){ save("historico", load("historico", []).filter(o => real ? !o.real : !!o.real)); render(); } };
+  document.querySelectorAll("[data-tipo]").forEach(b => b.onclick = () => { desTipo = b.dataset.tipo; render(); });
+  // registrar operação real
+  const rf = (id, f) => { const e = q("#"+id); if (e) e.onchange = () => { f(e.value); render(); }; };
+  rf("rdata", v => { realF.data = v; }); rf("rqtd", v => { const n = numBR(v); realF.qtd = n > 0 ? Math.round(n) : null; });
+  rf("rcustos", v => { const n = numBR(v); realF.custos = n === null || !(n >= 0) ? null : custoBR(n); });
+  document.querySelectorAll("[id^=rpreco]").forEach(e => e.onchange = () => { const n = numBR(e.value); realF.precos[+e.id.slice(6)] = n > 0 ? n : null; render(); });
+  const rg = q("#registrar"); if (rg) rg.onclick = () => { const m0 = montagem(tese); if (typeof m0 === "string") return; const m = realMontada(realF, m0); if (!m || realProblema(realF, m)) return;
+    const hs = load("historico", []); selId = Date.now(); hs.push({m, ativo: S.ativo, data: S.data, id: selId, cor: S.cad.corretagem, real: {data: realF.data, custos: realF.custos, montada: {premio: m0.premio, perdaMax: m0.perdaMax, lotes: m0.lotes}}});
+    save("historico", hs); realF = null; slider = null; tela = "acomp"; render(); atualizarStatus(); };
+  // registrar encerramento
+  const is = q("#ir-sair"); if (is) is.onclick = () => { saidaF = null; tela = "sair"; render(); };
+  rf("sdata", v => { saidaF.data = v; }); rf("scustos", v => { const n = numBR(v); saidaF.custos = n === null || !(n >= 0) ? null : custoBR(n); });
+  document.querySelectorAll("[id^=spreco]").forEach(e => e.onchange = () => { const n = numBR(e.value); saidaF.precos[+e.id.slice(6)] = n > 0 ? n : null; render(); });
+  const rs = q("#registrar-saida"); if (rs) rs.onclick = () => { const hs = load("historico", []), o = hs.find(x => x.id === selId); if (!o || !o.real) return;
+    o.real.saida = {data: saidaF.data, precos: saidaF.precos.slice(), custos: saidaF.custos, res: resultadoSaida(o, saidaF)}; save("historico", hs); saidaF = null; tela = "acomp"; render(); };
   const pickAtv = (b) => b.onclick = () => { S.ativo = b.dataset.ativo; S.sinal = Object.assign(S.sinal||{}, {entrada:null, alvo:null}); ativoAberto = false; save("estado", S); render(); };
   document.querySelectorAll("[data-ativo]").forEach(pickAtv);
   const ab = q("#atvBtn"); if (ab) ab.onclick = () => { ativoAberto = !ativoAberto; render(); const i = q("#atvQ"); if (i) i.focus(); };
@@ -477,7 +563,7 @@ function bind(){
   const ct = q("#ccorrtg"); if (ct) ct.onchange = () => { const n = numBR(ct.value); S.cad.corretagem = n === null || !(n >= 0) ? null : Math.round(n*100)/100; sv(); render(); };
   document.querySelectorAll("[data-tema]").forEach(b => b.onclick = () => { S.tema = b.dataset.tema; save("estado", S); aplicarTema(); render(); });
   const ap = q("#apagar-tudo"); if (ap) ap.onclick = () => { if (confirm("Apagar todos os seus dados neste aparelho?")){ try{ ["estado","historico","posicao"].forEach(k=>localStorage.removeItem(k)); }catch(e){} location.reload(); } };
-  const en = q("#encerrar"); if (en) en.onclick = () => { save("historico", load("historico", []).filter(o => o.id !== selId)); selId = null; tela = "acomp"; render(); };
+  const en = q("#encerrar"); if (en) en.onclick = () => { const P = opSel(); if (P && P.real && !confirm("Apagar o registro desta operação real? Isso não mexe na sua corretora.")) return; save("historico", load("historico", []).filter(o => o.id !== selId)); selId = null; tela = "acomp"; render(); };
 }
 render();
 atualizarStatus();

@@ -170,6 +170,22 @@
     return { tese, estrutura: est, pernas: [[1, esc]], lotes, dias: esc.d, premio: r2(perda), perdaMax: r2(perda), ganhoMax: ganho === null ? null : r2(ganho), equilibrio: eq.map(r2),
       probImplicita: Math.round(prob * 1000) / 1000, ...custos((esc.a - mid(esc)) * LOTE, TAXA_B3 * mid(esc) * LOTE * 2, 1, lotes), alvo: null, stop: null, saidaDias: 0, thetaDia: (() => { const t = thetaDia(S, esc); return t === null ? null : r2(t * LOTE * lotes); })() };
   }
+  // Operação real: a montagem refeita com o preço executado de cada perna (R$ por opção, na ordem de m.pernas) e a
+  // quantidade de lotes da nota. Prêmio, risco, ganho e equilíbrio vêm dos preços executados; alvo e limite são os da
+  // montagem, na proporção dos lotes. Espelha execucao do montador.py.
+  function execucao(m, ex) {
+    const lotes = ex.lotes, pr = ex.precos;
+    const pernas = m.pernas.map(([l, x], i) => [l, l > 0 ? { ...x, a: pr[i] } : { ...x, b: pr[i] }]);
+    const premio1 = pernas.reduce((s, [l], i) => s + l * pr[i], 0) * LOTE;
+    let perda1, ganho1, eq;
+    if (m.tese === "aposta_alta" || m.tese === "aposta_baixa") {
+      const x = pernas[0][1], p = pr[0]; perda1 = p * LOTE;
+      if (x.t === "C") { ganho1 = null; eq = [x.k + p]; } else { ganho1 = (x.k - p) * LOTE; eq = [x.k - p]; }
+    } else [perda1, ganho1, eq] = payoff(m.tese === "sinal_put" ? "alta_com_caixa" : m.tese === "sinal_alta" ? "alta" : m.tese, pernas, premio1);
+    const prop = lotes / m.lotes;
+    return { ...m, pernas, lotes, premio: r2(premio1 * lotes), perdaMax: r2(perda1 * lotes), ganhoMax: ganho1 === null ? null : r2(ganho1 * lotes),
+      equilibrio: eq.map(r2), alvo: m.alvo === null ? null : r2(m.alvo * prop), stop: m.stop === null ? null : r2(m.stop * prop), real: true };
+  }
   // resultado no vencimento para um preço final da ação (por todos os lotes)
   function resultadoNoVencimento(m, ST) {
     let pay = 0;
@@ -213,6 +229,6 @@
     }
     return null;
   }
-  const api = { setCorretagem, montar, montarSinal, montarAposta, probAcima, resultadoNoVencimento, volReal60, movimentoNecessario, resultadoNoDia, regraDeSaida };
+  const api = { setCorretagem, montar, montarSinal, montarAposta, execucao, probAcima, resultadoNoVencimento, volReal60, movimentoNecessario, resultadoNoDia, regraDeSaida };
   if (typeof module !== "undefined") module.exports = api; else root.Montador = api;
 })(typeof window !== "undefined" ? window : globalThis);
