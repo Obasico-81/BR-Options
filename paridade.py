@@ -4,11 +4,11 @@ Cobre: as 4 estruturas; o sinal (trava e put, 3 cenários); a compra simples no 
 (Lucro maior · Equilibrada · Lucro frequente), com o theta; o movimento necessário × oscilação de 60 pregões em todo
 caso montado e a volatilidade de 60 pregões em 3 datas por ativo; a marcação diária ("Se encerrar hoje" com os preços
 do dia, com preços 7% mais altos e sem o preço de uma perna) e a regra de saída em duas sequências de dias; os custos separados (spread,
-taxas da B3, corretagem por ordem e total); a trava com preço de fechamento impossível, em cadeias sintéticas; tudo duas vezes, sem corretagem cadastrada e com corretagem de R$ 5 por ordem. Uso: python3 paridade.py   (esperado: "0 falha(s)")
+taxas da B3, corretagem por ordem e total); a operação real (execucao: outra quantidade e preços executados); a trava com preço de fechamento impossível, em cadeias sintéticas; tudo duas vezes, sem corretagem cadastrada e com corretagem de R$ 5 por ordem. Uso: python3 paridade.py   (esperado: "0 falha(s)")
 """
 import json, math, subprocess, sys
 from datetime import date, timedelta
-from montador import Opcao, montar, montar_sinal, montar_aposta, set_corretagem, vol_real_60, movimento_necessario, resultado_no_dia, regra_de_saida
+from montador import Opcao, montar, montar_sinal, montar_aposta, set_corretagem, vol_real_60, movimento_necessario, resultado_no_dia, regra_de_saida, execucao
 
 r2 = lambda x: math.floor(x * 100 + 0.5) / 100   # mesmo arredondamento do Math.round do JS (o round do Python arredonda 5,885 para 5,88)
 CORRETAGENS = (None, 5.0)
@@ -57,6 +57,10 @@ def resumo(m, nome, S, theta=False):
     p0, p1 = PRECOS[nome]; dias = m.pernas[0][1].dias; venc = add_dias(snap["data"], dias)
     sem = {k: v for k, v in p0.items() if k != m.pernas[0][1].simbolo}
     d["marc"] = [resultado_no_dia(m, p0), resultado_no_dia(m, p1), resultado_no_dia(m, sem)]
+    # operação real: 1 lote a mais e preços 5% piores que os da montagem (compra mais cara, venda mais barata)
+    x = execucao(m, m.lotes + 1, [r2(o.ask * 1.05) if l > 0 else r2(o.bid * 0.95) for l, o in m.pernas])
+    d["ex"] = [x.premio, x.perda_max, x.ganho_max, list(x.pontos_equilibrio), x.alvo, x.stop, resultado_no_dia(x, p0),
+               [o.ask if l > 0 else o.bid for l, o in x.pernas]]
     d["regras"] = [regra_de_saida(m, marcas(m.perda_max, dias, peq), venc) for peq in (False, True)] \
         + [regra_de_saida(m, [{"d": venc, "r": 10 * m.perda_max}], venc)]   # no dia do vencimento: ignorado (vale o vencimento)
     return d
@@ -98,6 +102,8 @@ const res=(m,theta,n,S)=>{ if(typeof m==='string') return m;
   if(theta) d.theta=m.thetaDia; const mv=M.movimentoNecessario(m,S,s.fechamentos[n],s.data); d.mov=[mv.precisa,mv.oscilacao];
   const [p0,p1]=PR[n], venc=addD(s.data,m.dias), sem={...p0}; delete sem[m.pernas[0][1].s];
   d.marc=[M.resultadoNoDia(m,p0),M.resultadoNoDia(m,p1),M.resultadoNoDia(m,sem)];
+  const x=M.execucao(m,{lotes:m.lotes+1,precos:m.pernas.map(([l,o])=>l>0?r2(o.a*1.05):r2(o.b*0.95))});
+  d.ex=[x.premio,x.perdaMax,x.ganhoMax,x.equilibrio,x.alvo,x.stop,M.resultadoNoDia(x,p0),x.pernas.map(([l,o])=>l>0?o.a:o.b)];
   d.regras=[false,true].map(peq=>M.regraDeSaida(m,marcas(m.perdaMax,m.dias,peq),venc)).concat([M.regraDeSaida(m,[{d:venc,r:10*m.perdaMax}],venc)]); return d; };
 M.setCorretagem(cor);
 for(const [n,a] of Object.entries(s.ativos)){
@@ -136,6 +142,7 @@ ESPERADO = {"sint/credito/alta": lambda v: v == INC + "comprar SINTA100 e vender
             "sint/credito/sinal": lambda v: v == INC + "comprar SINTA100 e vender SINTA105 daria crédito de R$ 38" + FIM,
             "sint/largura/sinal": lambda v: v == INC + "comprar SINTB100 e vender SINTB105 custaria R$ 55, e a trava paga no máximo R$ 50. O app não monta esta operação com esses preços.",
             "sint/segue/sinal": lambda v: isinstance(v, list) and v[3] == [[1, "SINTC100", 50], [-1, "SINTC105", 50]]}
+igual_ex = lambda a, b: all(all(perto(c, e) for c, e in zip(x, y)) and len(x) == len(y) if isinstance(x, list) else perto(x, y) for x, y in zip(a, b))
 perto = lambda a, b, tol=0.011: (a is None and b is None) or (a is not None and b is not None and abs(a - b) < tol)
 falhas = casos = montados = 0; regras = {}
 for cor in CORRETAGENS:
@@ -162,7 +169,7 @@ for cor in CORRETAGENS:
         ok = all(perto(v[f], j[f]) for f in ("lotes", "premio", "perda", "custo", "c_spread", "c_taxas", "c_fixo", "stop", "alvo")) and (v["ganho"] is None) == (j["ganho"] is None) \
             and all(perto(a, b) for a, b in zip(v["eq"], j["eq"])) and abs(v["prob"] - j["prob"]) < 0.002 and [list(x) for x in v["ks"]] == j["ks"] \
             and ("theta" not in v or perto(v["theta"], j["theta"])) and all(perto(a, b, 1e-12) for a, b in zip(v["mov"], j["mov"])) \
-            and all(perto(a, b) for a, b in zip(v["marc"], j["marc"])) and v["marc"][2] is None and j["marc"][2] is None \
+            and all(perto(a, b) for a, b in zip(v["marc"], j["marc"])) and v["marc"][2] is None and j["marc"][2] is None and igual_ex(v["ex"], j["ex"]) \
             and all((x is None and y is None) or (x is not None and y is not None and x["regra"] == y["regra"] and x["d"] == y["d"] and perto(x["r"], y["r"]))
                     for x, y in zip(v["regras"], j["regras"]))
         if not ok: print("ERRO", rotulo, k, "| py:", v, "| js:", j)

@@ -87,6 +87,17 @@ fechamento), buraco maior que uma semana (avisa para rodar `--ano`), B3 responde
 de "nada a fazer"), dia incompleto, opção de outro papel-objeto com o mesmo prefixo, `--ano` refazendo uma cadeia guardada e a sequência `--ano` + execução diária do workflow. Os arquivos sintéticos usam o
 mesmo layout do leitor; **não substituem** o `--validar` com o arquivo real.
 
+## Operações reais (nível 1)
+
+No passo 3, "Já executei na corretora" registra a operação feita na corretora: data da execução, opções por perna
+(múltiplo de 100), preço executado de cada perna e custos da nota (opcional). `execucao` (montador.js e montador.py)
+refaz a montagem com esses preços e lotes: prêmio, risco, ganho e equilíbrio reais; alvo e limite da montagem, na
+proporção dos lotes. O app acompanha pelos fechamentos a partir do dia da execução; quando uma regra é atingida, avisa
+e pede o encerramento, mas a operação real só termina quando o usuário registra a saída (preços da nota de saída e
+custos) ou no vencimento. Desempenho separa Reais e Simuladas. Tudo fica só no aparelho (localStorage, chave
+`historico`, com o campo `real`). `paridade.py` compara `execucao` nos dois lados em todo caso montado;
+`testes/real.js` percorre o fluxo no navegador.
+
 ## App nativo (Android e iPhone)
 
 `nativo/` é o projeto Capacitor 8.6.0 (versões fixas em `nativo/package.json`) que embrulha o mesmo código do site

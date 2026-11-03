@@ -3,7 +3,7 @@ Não gera sinal de entrada nem promete vantagem estatística (ver Base técnica,
 Teses: alta | baixa | forte (movimento forte, direção incerta) | alta_com_caixa (put vendida coberta por caixa).
 Estruturas de risco ilimitado não são oferecidas."""
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from math import log, sqrt, erf, exp, pi, floor
 from datetime import date, timedelta
 from typing import Optional
@@ -390,6 +390,25 @@ def resultado_no_dia(m: Montagem, precos: dict) -> Optional[float]:
             return None
         v += p[0] if l > 0 else -p[1]
     return _r2(v * LOTE * m.lotes - m.premio)
+
+
+def execucao(m: Montagem, lotes: int, precos) -> Montagem:
+    """Operação real: a montagem refeita com o preço executado de cada perna (R$ por opção, na ordem de m.pernas) e a
+    quantidade de lotes da nota. Prêmio, risco, ganho e equilíbrio vêm dos preços executados; alvo e limite são os da
+    montagem, na proporção dos lotes. Espelha execucao do montador.js."""
+    pernas = tuple((l, replace(o, ask=p) if l > 0 else replace(o, bid=p)) for (l, o), p in zip(m.pernas, precos))
+    premio1 = sum(l * p for (l, _), p in zip(m.pernas, precos)) * LOTE
+    if m.tese in ("aposta_alta", "aposta_baixa"):
+        o, p = pernas[0][1], precos[0]
+        perda1 = p * LOTE
+        ganho1, eq = (None, (o.strike + p,)) if o.tipo == "C" else ((o.strike - p) * LOTE, (o.strike - p,))
+    else:
+        t = "alta_com_caixa" if m.tese == "sinal_put" else "alta" if m.tese == "sinal_alta" else m.tese
+        perda1, ganho1, eq = _payoff(t, pernas, premio1, None)
+    prop = lotes / m.lotes
+    return replace(m, pernas=pernas, lotes=lotes, premio=_r2(premio1 * lotes), perda_max=_r2(perda1 * lotes),
+                   ganho_max=None if ganho1 is None else _r2(ganho1 * lotes), pontos_equilibrio=tuple(_r2(x) for x in eq),
+                   alvo=None if m.alvo is None else _r2(m.alvo * prop), stop=None if m.stop is None else _r2(m.stop * prop))
 
 
 def regra_de_saida(m: Montagem, marcas: list, venc: str) -> Optional[dict]:

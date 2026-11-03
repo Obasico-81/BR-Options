@@ -69,3 +69,6 @@ jobs:
 
       - name: App nativo — dados do site, cópia no aparelho e snapshot embutido
         run: node testes/nativo.js
+
+      - name: Operação real — registrar, acompanhar, encerrar e Desempenho
+        run: node testes/real.js
