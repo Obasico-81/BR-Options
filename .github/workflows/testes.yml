@@ -62,3 +62,6 @@ jobs:
 
       - name: Marcação diária (contas e app servido por HTTP)
         run: node testes/marcacao.js
+
+      - name: Números no formato brasileiro (vírgula, ponto de milhar)
+        run: node testes/numeros.js
