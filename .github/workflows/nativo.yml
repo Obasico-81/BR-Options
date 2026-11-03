@@ -69,6 +69,8 @@ jobs:
   iphone:
     runs-on: macos-latest
     timeout-minutes: 45
+    permissions:
+      contents: write   # só para publicar a foto da tela no branch capturas
     steps:
       - uses: actions/checkout@v6
 
@@ -130,6 +132,20 @@ jobs:
           limite 120 xcrun simctl launch "$UDID" "$ID"; passo "aberto ($ID)"
           sleep 30
           limite 60 xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/iphone/tela.png"; passo "foto tirada"
+
+      # A foto também vai para o branch capturas (sobrescrito a cada execução): dá para ver no GitHub sem baixar
+      # o artefato. A primeira inicialização do simulador leva ~9 min nestas máquinas.
+      - name: Publicar a foto no branch capturas
+        shell: bash
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/cap" && cd "$RUNNER_TEMP/cap"
+          git init -q -b capturas
+          cp "$RUNNER_TEMP/iphone/tela.png" iphone.png
+          git add iphone.png
+          git -c user.name="app-nativo" -c user.email="app-nativo@users.noreply.github.com" commit -q -m "Tela do app no simulador de iPhone (${GITHUB_SHA::7})"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" capturas
 
       - uses: actions/upload-artifact@v6
         if: always()
