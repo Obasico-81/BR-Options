@@ -4,7 +4,8 @@ Teses: alta | baixa | forte (movimento forte, direção incerta) | alta_com_caix
 Estruturas de risco ilimitado não são oferecidas."""
 from __future__ import annotations
 from dataclasses import dataclass, field
-from math import log, sqrt, erf, exp, pi
+from math import log, sqrt, erf, exp, pi, floor
+from datetime import date, timedelta
 from typing import Optional
 
 TAXA_B3 = 0.00134          # 0,134% do prêmio por lado (swing, PF) — conferir vigência
@@ -21,6 +22,7 @@ class Opcao:
     ask: float
     volume: int
     dias: int
+    simbolo: str = ""      # código de negociação (ex.: PETRL524): liga a perna ao preço diário (resultado_no_dia)
 
     @property
     def mid(self) -> float: return (self.bid + self.ask) / 2
@@ -345,3 +347,39 @@ def montar_aposta(lado: str, S: float, chain: list, vol_impl: float, valor: floa
     return Montagem(tese, est, ((+1, o),), lotes, round(perda, 2), round(perda, 2), None if ganho is None else round(ganho, 2),
                     tuple(round(x, 2) for x in eq), round(prob, 3), round(custo * lotes, 2), None, None, 0, avisos,
                     None if (th := _theta_dia(S, o)) is None else round(th * LOTE * lotes, 2))
+
+
+# --- Marcação diária: valor de hoje e regras de saída (espelha resultadoNoDia e regraDeSaida do montador.js) ---
+def _r2(x: float) -> float:
+    """Arredonda como o Math.round do JS (o round do Python arredonda 2,675 para 2,67)."""
+    return floor(x * 100 + 0.5) / 100
+
+
+def resultado_no_dia(m: Montagem, precos: dict) -> Optional[float]:
+    """Resultado (R$, todos os lotes) se a operação fosse desfeita no fechamento de um dia: o lado comprado vende pela
+    melhor compra e o vendido recompra pela melhor venda. precos: {símbolo: [compra, venda]}. None se faltar preço."""
+    v = 0.0
+    for l, o in m.pernas:
+        p = (precos or {}).get(o.simbolo)
+        if not p or not p[0] > 0 or not p[1] >= p[0]:
+            return None
+        v += p[0] if l > 0 else -p[1]
+    return _r2(v * LOTE * m.lotes - m.premio)
+
+
+def regra_de_saida(m: Montagem, marcas: list, venc: str) -> Optional[dict]:
+    """Primeira regra de saída atingida nos fechamentos depois da entrada e antes do vencimento: alvo, limite (stop) ou
+    prazo (a partir de data_max_dias antes do vencimento). marcas: [{"d": "AAAA-MM-DD", "r": resultado ou None}] em ordem
+    de data. Devolve {"regra", "d", "r"} ou None."""
+    prazo = (date.fromisoformat(venc) - timedelta(days=m.data_max_dias)).isoformat() if m.data_max_dias > 0 else None
+    for mk in marcas:
+        d, r = mk["d"], mk["r"]
+        if r is None or d >= venc:
+            continue
+        if m.alvo is not None and r >= m.alvo:
+            return {"regra": "alvo", "d": d, "r": r}
+        if m.stop is not None and r <= m.stop:
+            return {"regra": "limite", "d": d, "r": r}
+        if prazo and d >= prazo:
+            return {"regra": "prazo", "d": d, "r": r}
+    return None

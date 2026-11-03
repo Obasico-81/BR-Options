@@ -2,16 +2,35 @@
 
 Cobre: as 4 estruturas; o sinal (trava e put, 3 cenários); a compra simples no caminho padrão e nos 3 perfis
 (Lucro maior · Equilibrada · Lucro frequente), com o theta; o movimento necessário × oscilação de 60 pregões em todo
-caso montado e a volatilidade de 60 pregões em 3 datas por ativo; tudo duas vezes, sem corretagem cadastrada (margem
+caso montado e a volatilidade de 60 pregões em 3 datas por ativo; a marcação diária ("Se encerrar hoje" com os preços
+do dia, com preços 7% mais altos e sem o preço de uma perna) e a regra de saída em duas sequências de dias; tudo duas vezes, sem corretagem cadastrada (margem
 fixa) e com corretagem de R$ 5 por ordem. Uso: python3 paridade.py   (esperado: "0 falha(s)")
 """
 import json, math, subprocess, sys
-from montador import Opcao, montar, montar_sinal, montar_aposta, set_corretagem, vol_real_60, movimento_necessario
+from datetime import date, timedelta
+from montador import Opcao, montar, montar_sinal, montar_aposta, set_corretagem, vol_real_60, movimento_necessario, resultado_no_dia, regra_de_saida
 
 r2 = lambda x: math.floor(x * 100 + 0.5) / 100   # mesmo arredondamento do Math.round do JS (o round do Python arredonda 5,885 para 5,88)
 CORRETAGENS = (None, 5.0)
 PERFIS = (None, "maior", "eq", "freq")
 snap = json.load(open("snapshot.json"))
+# preços do dia de cada ativo: os da própria cadeia e os mesmos 7% mais altos (montados igual no JS)
+PRECOS = {n: ({o["s"]: [o["b"], o["a"]] for o in a["chain"]}, {o["s"]: [r2(o["b"] * 1.07), r2(o["a"] * 1.07)] for o in a["chain"]})
+          for n, a in snap["ativos"].items()}
+FATORES = (0.1, -0.2, 0.3, None, -0.5, 0.6, -0.8, 0.9, -1.0, 1.2)
+add_dias = lambda iso, n: (date.fromisoformat(iso) + timedelta(days=n)).isoformat()
+
+
+def marcas(perda, dias, pequenas):
+    """Fechamentos até depois do vencimento; resultado = fator × risco máximo. Sem `pequenas`: a cada 5 dias, fatores que
+    batem alvo ou limite. Com `pequenas`: todo dia, ±1% do risco (não batem alvo nem limite), e a regra que dispara é o
+    prazo, no primeiro dia a partir de vencimento − dias de saída (um dia a mais ou a menos muda o resultado)."""
+    passo = 1 if pequenas else 5
+    out, i = [], 1
+    while passo * i <= dias + 5:
+        f = 0.01 * (-1) ** i if pequenas else FATORES[(i - 1) % len(FATORES)]
+        out.append({"d": add_dias(snap["data"], passo * i), "r": None if f is None else f * perda}); i += 1
+    return out
 
 
 def datas_vol(nome):
@@ -27,13 +46,18 @@ def resumo(m, nome, S, theta=False):
     if theta:
         d["theta"] = m.theta_dia
     mv = movimento_necessario(m, S, snap["fechamentos"][nome], snap["data"]); d["mov"] = [mv["precisa"], mv["oscilacao"]]
+    p0, p1 = PRECOS[nome]; dias = m.pernas[0][1].dias; venc = add_dias(snap["data"], dias)
+    sem = {k: v for k, v in p0.items() if k != m.pernas[0][1].simbolo}
+    d["marc"] = [resultado_no_dia(m, p0), resultado_no_dia(m, p1), resultado_no_dia(m, sem)]
+    d["regras"] = [regra_de_saida(m, marcas(m.perda_max, dias, peq), venc) for peq in (False, True)] \
+        + [regra_de_saida(m, [{"d": venc, "r": 10 * m.perda_max}], venc)]   # no dia do vencimento: ignorado (vale o vencimento)
     return d
 
 
 def lado_python(cor):
     set_corretagem(cor); res = {}
     for nome, a in snap["ativos"].items():
-        ch = [Opcao(o["t"], o["k"], o["b"], o["a"], o["v"], o["d"]) for o in a["chain"]]
+        ch = [Opcao(o["t"], o["k"], o["b"], o["a"], o["v"], o["d"], o["s"]) for o in a["chain"]]
         for tese in ("alta", "baixa", "forte", "alta_com_caixa"):
             res[f"{nome}/{tese}"] = resumo(montar(tese, a["S"], ch, a["iv"], perda_aceita=300, caixa=30000), nome, a["S"])
         for est in ("trava", "put"):
@@ -52,9 +76,16 @@ def lado_python(cor):
 JS = """
 const M=require('./montador.js'),s=require('./snapshot.json'),cor=JSON.parse(process.argv[1]),out={};
 const r2=(x)=>Math.round(x*100)/100;
+const PR={}; for(const [n,a] of Object.entries(s.ativos)) PR[n]=[Object.fromEntries(a.chain.map(o=>[o.s,[o.b,o.a]])),Object.fromEntries(a.chain.map(o=>[o.s,[r2(o.b*1.07),r2(o.a*1.07)]]))];
+const FA=[0.1,-0.2,0.3,null,-0.5,0.6,-0.8,0.9,-1.0,1.2];
+const addD=(iso,n)=>{const d=new Date(iso+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10);};
+const marcas=(perda,dias,peq)=>{const o=[], passo=peq?1:5; for(let i=1;passo*i<=dias+5;i++){const f=peq?0.01*((-1)**i):FA[(i-1)%FA.length]; o.push({d:addD(s.data,passo*i),r:f===null?null:f*perda});} return o;};
 const res=(m,theta,n,S)=>{ if(typeof m==='string') return m;
   const d={lotes:m.lotes,premio:m.premio,perda:m.perdaMax,ganho:m.ganhoMax,eq:m.equilibrio,prob:m.probImplicita,custo:m.custoTotal,alvo:m.alvo||0,stop:m.stop||0,ks:m.pernas.map(([l,o])=>[l,o.t,o.k,o.d])};
-  if(theta) d.theta=m.thetaDia; const mv=M.movimentoNecessario(m,S,s.fechamentos[n],s.data); d.mov=[mv.precisa,mv.oscilacao]; return d; };
+  if(theta) d.theta=m.thetaDia; const mv=M.movimentoNecessario(m,S,s.fechamentos[n],s.data); d.mov=[mv.precisa,mv.oscilacao];
+  const [p0,p1]=PR[n], venc=addD(s.data,m.dias), sem={...p0}; delete sem[m.pernas[0][1].s];
+  d.marc=[M.resultadoNoDia(m,p0),M.resultadoNoDia(m,p1),M.resultadoNoDia(m,sem)];
+  d.regras=[false,true].map(peq=>M.regraDeSaida(m,marcas(m.perdaMax,m.dias,peq),venc)).concat([M.regraDeSaida(m,[{d:venc,r:10*m.perdaMax}],venc)]); return d; };
 M.setCorretagem(cor);
 for(const [n,a] of Object.entries(s.ativos)){
   for(const t of ['alta','baixa','forte','alta_com_caixa']) out[n+'/'+t]=res(M.montar(t,a.S,a.chain,a.iv,300,{caixa:30000}),false,n,a.S);
@@ -77,7 +108,7 @@ def lado_js(cor):
 
 
 perto = lambda a, b, tol=0.011: (a is None and b is None) or (a is not None and b is not None and abs(a - b) < tol)
-falhas = casos = montados = 0
+falhas = casos = montados = 0; regras = {}
 for cor in CORRETAGENS:
     py, js = lado_python(cor), lado_js(cor)
     rotulo = "sem corretagem" if cor is None else f"corretagem R$ {cor:.2f}"
@@ -92,10 +123,15 @@ for cor in CORRETAGENS:
             if not ok: print("ERRO", rotulo, k, "| py:", v, "| js:", j)
             falhas += 0 if ok else 1; continue
         montados += 1
+        for x in v["regras"]: regras[x["regra"] if x else "nenhuma"] = regras.get(x["regra"] if x else "nenhuma", 0) + 1
         ok = all(perto(v[f], j[f]) for f in ("lotes", "premio", "perda", "custo", "stop", "alvo")) and (v["ganho"] is None) == (j["ganho"] is None) \
             and all(perto(a, b) for a, b in zip(v["eq"], j["eq"])) and abs(v["prob"] - j["prob"]) < 0.002 and [list(x) for x in v["ks"]] == j["ks"] \
-            and ("theta" not in v or perto(v["theta"], j["theta"])) and all(perto(a, b, 1e-12) for a, b in zip(v["mov"], j["mov"]))
+            and ("theta" not in v or perto(v["theta"], j["theta"])) and all(perto(a, b, 1e-12) for a, b in zip(v["mov"], j["mov"])) \
+            and all(perto(a, b) for a, b in zip(v["marc"], j["marc"])) and v["marc"][2] is None and j["marc"][2] is None \
+            and all((x is None and y is None) or (x is not None and y is not None and x["regra"] == y["regra"] and x["d"] == y["d"] and perto(x["r"], y["r"]))
+                    for x, y in zip(v["regras"], j["regras"]))
         if not ok: print("ERRO", rotulo, k, "| py:", v, "| js:", j)
         falhas += 0 if ok else 1
+print("regras de saída disparadas:", ", ".join(f"{k} {v}" for k, v in sorted(regras.items())))
 print(f"{casos} casos ({montados} montados) em {len(snap['ativos'])} ativos, sem e com corretagem: {falhas} falha(s)")
 sys.exit(1 if falhas else 0)
