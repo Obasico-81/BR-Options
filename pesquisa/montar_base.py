@@ -42,6 +42,16 @@ def main():
     zips = sorted(glob.glob(os.path.join(a.zips, "COTAHIST_A*.ZIP")))
     if not zips:
         raise SystemExit(f"Nenhum COTAHIST_A*.ZIP em {a.zips}")
+    # 1ª passada: ISIN de cada papel à vista. A opção só entra se o papel-objeto (CODISI) for o papel da pesquisa:
+    # o prefixo de 4 letras também traz opções de outro papel (PETR: PETR3; BBDC: BBDC3; ITUB: ITUB3). Até 03/11/2026
+    # a base misturava essas opções (o atualizador do app já filtra desde então).
+    isin = {at: set() for at in PAPEIS}
+    for z in zips:
+        for ln in linhas_do_zip(z):
+            if len(ln) >= 242 and ln[0:2] == "01" and ln[24:27] == "010" and campo(ln, "codneg") in papel:
+                isin[papel[campo(ln, "codneg")]].add(campo(ln, "codisi"))
+    print("ISIN dos papéis:", {at: sorted(v) for at, v in isin.items()}, flush=True)
+    fora = {at: 0 for at in PAPEIS}
     for z in zips:
         n0 = sum(n_opc.values())
         for ln in linhas_do_zip(z):
@@ -60,6 +70,9 @@ def main():
             at = prefixo.get(ln[12:16])
             if not at:
                 continue
+            if campo(ln, "codisi") not in isin[at]:
+                fora[at] += 1
+                continue
             b, k = preco(campo(ln, "preofc")), preco(campo(ln, "preofv"))
             q = int(campo(ln, "quatot") or 0)
             if not (b > 0 and k >= b and q >= 100):
@@ -73,6 +86,7 @@ def main():
         print(f"{os.path.basename(z)}: {sum(n_opc.values()) - n0} opções", flush=True)
     for f in arq.values():
         f.close()
+    print("Opções de outro papel-objeto descartadas (linhas):", fora, flush=True)
     for at, serie in fech.items():
         s = pd.Series(serie, dtype=float); s.index = pd.to_datetime(s.index); s = s.sort_index()
         pd.DataFrame({"S": s}).to_pickle(os.path.join(a.saida, f"ser_{at}{a.suf}.pkl"))
