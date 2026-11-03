@@ -31,12 +31,12 @@ jobs:
       ATE: ${{ inputs.ate }}
       SUF: "1526"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Pasta dos dados
         run: echo "DADOS=$RUNNER_TEMP/dados" >> "$GITHUB_ENV"
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -66,7 +66,7 @@ jobs:
         shell: bash
         run: python pesquisa_gregas.py | tee "$DADOS/resultado_gregas.txt"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: pesquisa-${{ inputs.de }}-${{ inputs.ate }}
           path: |
