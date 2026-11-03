@@ -334,11 +334,12 @@ function vDesemp(){
 
 function vLista(){
   const L = abertas(), tot = L.reduce((a,o)=>a+o.m.perdaMax,0);
+  const caixa = L.filter(o => o.m.tese === "alta_com_caixa" || o.m.tese === "sinal_put").reduce((a,o)=>a+o.m.pernas[0][1].k*100*o.m.lotes,0);   // compra obrigatória: caixa preso até o vencimento
   let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Minhas operações</h1>`;
-  if (!L.length) return h + `<div class="card empty"><p>Nenhuma operação em aberto.</p><p class="small" style="margin-top:6px">Escolha um objetivo, veja os cenários e confirme para acompanhar aqui.</p></div><button class="btn" data-go="obj">Escolher objetivo</button>`;
-  h += `<section class="card"><div class="small muted">Em aberto</div><div style="font-size:24px;font-weight:700">${L.length} operaç${L.length>1?"ões":"ão"}</div><div class="row3" style="border-top:1px solid var(--line);padding-top:10px;margin-top:8px"><div><div class="small muted">Risco máximo somado</div><div style="font-weight:700">${brl(tot)}</div></div><div><div class="small muted">Do seu capital</div><div style="font-weight:700">${(tot/S.capital*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}%</div></div></div></section>`;
-  h += L.slice().sort((a,b)=>addDias(a.data,a.m.dias).localeCompare(addDias(b.data,b.m.dias))).map(o => `<button class="opt" data-op="${o.id}"><span class="tx"><span class="t">${esc(o.m.estrutura)} · ${o.ativo}</span><span class="st"><span>Entrada ${dBR(o.data)} · vence ${dBR(addDias(o.data,o.m.dias))} · risco máx. ${brl(o.m.perdaMax)}</span></span></span></button>`).join("");
-  return h + `<button class="btn" data-go="obj">Nova operação</button>`;
+  if (!L.length) return h + `<div class="card empty"><p>Nenhuma operação em aberto.</p><p class="small" style="margin-top:6px">Monte uma operação e confirme a simulação para acompanhá-la aqui.</p></div><button class="btn" data-go="obj">Montar operação</button>`;
+  h += `<section class="card"><div class="small muted">Em aberto</div><div style="font-size:24px;font-weight:700">${L.length} operaç${L.length>1?"ões":"ão"}</div><div class="row3" style="border-top:1px solid var(--line);padding-top:10px;margin-top:8px"><div><div class="small muted">Risco máximo somado</div><div style="font-weight:700">${brl(tot)}</div></div><div><div class="small muted">Do seu capital</div><div style="font-weight:700">${(tot/S.capital*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}%</div></div>${caixa>0?`<div><div class="small muted">Caixa reservado</div><div style="font-weight:700">${brl(caixa)}</div></div>`:""}</div></section>`;
+  h += L.slice().sort((a,b)=>addDias(a.data,a.m.dias).localeCompare(addDias(b.data,b.m.dias))).map(o => `<button class="opt" data-op="${o.id}"><span class="tx"><span class="t">${esc(o.m.estrutura)} · ${o.ativo}</span><span class="st"><span style="flex-basis:100%">Vence ${dBR(addDias(o.data,o.m.dias))} · <span style="white-space:nowrap">risco máx. ${brl(o.m.perdaMax)}</span></span><span class="small" style="flex-basis:100%;margin-top:-4px">Entrada em ${dBR(o.data)}</span></span></span></button>`).join("");
+  return h + `<button class="btn" data-go="obj">Montar operação</button>`;
 }
 function vCad(){
   const c = S.cad;
@@ -355,7 +356,7 @@ function vAcomp(){
   if (selId===null || !opSel()) return vLista();
   const P = opSel();
   let h = `<div class="top"><button class="back" data-op="">‹ Operações</button><span class="pill sim">Modo simulado</span></div><h1>Sua operação</h1>`;
-  if (!P || !P.m){ return h + `<div class="card empty"><p>Nenhuma operação simulada ainda.</p><p class="small" style="margin-top:6px">Escolha um objetivo, veja os cenários e confirme para acompanhar aqui.</p></div><button class="btn" data-go="obj">Escolher objetivo</button>`; }
+  if (!P || !P.m){ return h + `<div class="card empty"><p>Nenhuma operação simulada ainda.</p><p class="small" style="margin-top:6px">Monte uma operação e confirme a simulação para acompanhá-la aqui.</p></div><button class="btn" data-go="obj">Montar operação</button>`; }
   // A cadeia do dia da entrada sai do snapshot depois de 12 pregões; o preço da ação daquele dia continua em fechamentos.
   const m = P.m, a = {S: SNAP.por_data[P.data]?.[P.ativo]?.S ?? SNAP.fechamentos[P.ativo]?.[P.data] ?? SNAP.ativos[P.ativo].S};
   const ateZero = m.tese === "alta_com_caixa" || m.tese === "sinal_put";   // compra obrigatória: a zona de risco vai até a ação a R$ 0
