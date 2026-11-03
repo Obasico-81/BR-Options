@@ -19,7 +19,9 @@ from statistics import median
 ATIVOS = {"BOVA11": ("BOVA", "BOVA11"), "PETR4": ("PETR", "PETR4"), "VALE3": ("VALE", "VALE3"),
           # incluídos em 02/11/2026: montam em >= 60% dos pregões com o corte do app (pesquisa/liquidez.py)
           "BBDC4": ("BBDC", "BBDC4"), "BBAS3": ("BBAS", "BBAS3"), "MGLU3": ("MGLU", "MGLU3"), "WEGE3": ("WEGE", "WEGE3"),
-          "ITUB4": ("ITUB", "ITUB4"), "USIM5": ("USIM", "USIM5"), "B3SA3": ("B3SA", "B3SA3")}
+          "ITUB4": ("ITUB", "ITUB4"), "USIM5": ("USIM", "USIM5"), "B3SA3": ("B3SA", "B3SA3"),
+          # incluído em 03/11/2026: monta em 73% dos pregões com risco de até R$ 500 (liquidez refeita pelo papel-objeto)
+          "PRIO3": ("PRIO", "PRIO3")}
 # Se um destes vier sem preço ou com menos de 20 opções, o arquivo do dia está com problema: nada é gravado.
 # Os demais ficam de fora só naquele dia (o app não os lista), com aviso.
 OBRIGATORIOS = ("BOVA11", "PETR4", "VALE3")
