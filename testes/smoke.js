@@ -69,13 +69,13 @@ const arq = 'file://' + process.argv[2];
     await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('#nav');
     const v = await p.evaluate(() => [S.ativo, S.perda]); if (v[0] !== 'PETR4' || v[1] !== 500) throw new Error('padrão: ' + v);
   });
-  // tema: escuro por padrão (mesmo com o aparelho no claro); "Claro" em Meus dados vale, fica guardado; apagar os dados volta ao escuro
-  await passo('tema escuro por padrão e opção Claro em Meus dados', async () => {
+  // tema: escuro por padrão (mesmo com o aparelho no claro); "Claro" em Ajustes vale, fica guardado; apagar os dados volta ao escuro
+  await passo('tema escuro por padrão e opção Claro em Ajustes', async () => {
     const fundo = () => p.evaluate(() => [document.documentElement.dataset.theme || '', getComputedStyle(document.body).backgroundColor]);
     await p.emulateMedia({ colorScheme: 'light' });
     await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('#nav');
     const f = []; let v = await fundo(); if (v[0] !== '' || v[1] !== 'rgb(30, 30, 32)') f.push('padrão: ' + v);
-    await p.click('#nav [data-nav="cad"]'); if (!(await p.locator('h1', { hasText: 'Meus dados' }).count())) f.push('título "Meus dados" não apareceu');
+    await p.click('#nav [data-nav="cad"]'); if (!(await p.locator('h1', { hasText: 'Ajustes' }).count())) f.push('título "Ajustes" não apareceu');
     await p.click('[data-tema="claro"]'); v = await fundo(); if (v[0] !== 'light' || v[1] !== 'rgb(227, 227, 224)') f.push('claro: ' + v);
     await p.reload(); await p.waitForSelector('#nav'); v = await fundo(); if (v[0] !== 'light') f.push('claro depois do reload: ' + v);
     p.once('dialog', d => d.accept()); await p.click('#nav [data-nav="cad"]'); await p.click('#apagar-tudo'); await p.waitForLoadState('load'); await p.waitForSelector('#nav');
