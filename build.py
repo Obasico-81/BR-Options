@@ -30,10 +30,16 @@ def fonte_css():
     return FONTE % base64.b64encode(open("fontes/figtree-latin-wght-normal.woff2", "rb").read()).decode()
 
 
+PREG_MAXMIN = 160   # máximas e mínimas publicadas por papel: a tendência do minigráfico usa os últimos 150 pregões
+
+
 def snapshot_publicado(caminho="snapshot.json"):
     s = json.load(open(caminho, encoding="utf-8"))
-    return {"data": s["data"], "atualizado_em": s.get("atualizado_em"), "fechamentos": s["fechamentos"],
-            "por_data": {s["data"]: s["por_data"][s["data"]]}}
+    p = {"data": s["data"], "atualizado_em": s.get("atualizado_em"), "fechamentos": s["fechamentos"],
+         "por_data": {s["data"]: s["por_data"][s["data"]]}}
+    if s.get("maxmin"):
+        p["maxmin"] = {n: {d: v[d] for d in sorted(d for d in v if d <= s["data"])[-PREG_MAXMIN:]} for n, v in s["maxmin"].items()}
+    return p
 
 
 if __name__ == "__main__":

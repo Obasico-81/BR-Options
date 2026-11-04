@@ -219,18 +219,21 @@ function render(){
 }
 const topo = (back, label, passo) => `<div class="top">${back?`<button class="back" data-go="${back}">‹ ${label}</button>`:`<span class="small muted" style="font-weight:600">Passo ${passo} de 4</span>`}<span>${back?`<span class="small muted" style="font-weight:600;margin-right:8px">Passo ${passo} de 4</span>`:""}<span class="pill sim">Modo simulado</span></span></div>`;
 
-// --- Minigráfico: só o histórico. Fechamentos dos últimos PREG_MINI pregões até o dia dos preços; a cor descreve a
-// variação no período (verde acima de +FAIXA_MINI, vermelho abaixo de −FAIXA_MINI, amarelo entre as duas) e o número
-// vai sempre ao lado. Não diz nada sobre o que vai acontecer.
-const PREG_MINI = 60, FAIXA_MINI = 0.03;
+// --- Minigráfico: só o histórico. Fechamentos dos últimos PREG_MINI pregões até o dia dos preços, com a variação no
+// período ao lado. A cor é a tendência (M.tendencia: médias de 21 e 50 pregões e ADX de 14, com o IFR se TEND_IFR):
+// verde alta, vermelho queda, amarelo sem tendência. Sem máxima e mínima de 60 pregões (papel novo, dado que faltou),
+// a cor volta à faixa da variação (±FAIXA_MINI).
+const PREG_MINI = 60, FAIXA_MINI = 0.03, TEND_IFR = false;
+const COR_TEND = {alta: "var(--good)", queda: "var(--bad)", neutro: "var(--warn-text)"};
 function miniGrafico(ativo, w = 76, h = 30){
   const f = SNAP.fechamentos[ativo] || {}, v = Object.keys(f).filter(d => d <= S.data).sort().slice(-PREG_MINI).map(d => f[d]);
   if (v.length < 2) return null;
-  const vr = v[v.length - 1] / v[0] - 1, cor = vr > FAIXA_MINI ? "var(--good)" : vr < -FAIXA_MINI ? "var(--bad)" : "var(--warn-text)";
+  const vr = v[v.length - 1] / v[0] - 1, t = M.tendencia(f, (SNAP.maxmin || {})[ativo], S.data, TEND_IFR);
+  const classe = t ? t.classe : vr > FAIXA_MINI ? "alta" : vr < -FAIXA_MINI ? "queda" : "neutro", cor = COR_TEND[classe];
   const lo = Math.min(...v), hi = Math.max(...v), esp = hi - lo || 1, m = 2;
   const pts = v.map((p, i) => `${(m + i * (w - 2 * m) / (v.length - 1)).toFixed(1)},${(m + (hi - p) * (h - 2 * m) / esp).toFixed(1)}`).join(" ");
   const txt = `${vr > 0 ? "+" : vr < 0 ? "−" : ""}${Math.abs(vr * 100).toLocaleString("pt-BR", {minimumFractionDigits: 1, maximumFractionDigits: 1})}%`;
-  return {vr, cor, txt, n: v.length, svg: `<svg class="mini" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${cor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`};
+  return {vr, cor, classe, fonte: t ? "tendencia" : "faixa", txt, n: v.length, svg: `<svg class="mini" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${cor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`};
 }
 function listaAtivos(q){ q = (q||"").trim().toUpperCase(); const d = SNAP.por_data[S.data];
   const L = Object.keys(d).filter(n => n.includes(q)).sort();

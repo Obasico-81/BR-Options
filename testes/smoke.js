@@ -69,12 +69,22 @@ const arq = 'file://' + process.argv[2];
     await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('#nav');
     const v = await p.evaluate(() => [S.ativo, S.perda]); if (v[0] !== 'PETR4' || v[1] !== 500) throw new Error('padrão: ' + v);
   });
-  // minigráfico: variação dos últimos 60 pregões (cor pela faixa de ±3%) no cartão do ativo e em cada linha da lista
+  // minigráfico: variação dos últimos 60 pregões no cartão do ativo e em cada linha da lista; a cor é a tendência
+  // (M.tendencia) quando há máxima e mínima, senão a faixa de ±3%. Confere os dois casos (com máximas e mínimas sintéticas)
   await passo('minigráfico dos últimos 60 pregões', async () => {
     await p.evaluate(() => { localStorage.clear(); }); await p.reload(); await p.waitForSelector('#nav');
-    const r = await p.evaluate(() => Object.keys(SNAP.ativos).map(n => { const f = SNAP.fechamentos[n], ds = Object.keys(f).filter(d => d <= S.data).sort().slice(-60), vr = f[ds[ds.length - 1]] / f[ds[0]] - 1, g = miniGrafico(n);
-      const cor = vr > 0.03 ? 'good' : vr < -0.03 ? 'bad' : 'warn'; return { n, ok: g && g.n === Math.min(60, ds.length) && Math.abs(g.vr - vr) < 1e-12 && g.cor.includes(cor), g: g && [g.n, g.txt, g.cor] }; }));
-    const ruins = r.filter(x => !x.ok); if (ruins.length) throw new Error('variação/cor: ' + JSON.stringify(ruins));
+    const confere = () => p.evaluate(() => Object.keys(SNAP.ativos).map(n => { const f = SNAP.fechamentos[n], ds = Object.keys(f).filter(d => d <= S.data).sort().slice(-60), vr = f[ds[ds.length - 1]] / f[ds[0]] - 1, g = miniGrafico(n);
+      const t = M.tendencia(f, (SNAP.maxmin || {})[n], S.data, TEND_IFR), classe = t ? t.classe : vr > 0.03 ? 'alta' : vr < -0.03 ? 'queda' : 'neutro';
+      const cor = { alta: 'good', queda: 'bad', neutro: 'warn' }[classe];
+      return { n, fonte: g && g.fonte, classe, ok: g && g.n === Math.min(60, ds.length) && Math.abs(g.vr - vr) < 1e-12 && g.cor.includes(cor) && g.classe === classe && g.fonte === (t ? 'tendencia' : 'faixa'), g: g && [g.n, g.txt, g.cor, g.fonte] }; }));
+    let r = await confere(), ruins = r.filter(x => !x.ok); if (ruins.length) throw new Error('variação/cor: ' + JSON.stringify(ruins));
+    const semMM = await p.evaluate(() => !SNAP.maxmin);
+    if (semMM && r.some(x => x.fonte !== 'faixa')) throw new Error('sem máximas e mínimas, a cor deveria vir da faixa');
+    const orig = await p.evaluate(() => { const o = SNAP.maxmin; SNAP.maxmin = {}; for (const [n, f] of Object.entries(SNAP.fechamentos)) SNAP.maxmin[n] = Object.fromEntries(Object.entries(f).map(([d, c]) => [d, [c * 1.012, c * 0.988]])); return o === undefined ? null : o; });
+    r = await confere(); ruins = r.filter(x => !x.ok); if (ruins.length) throw new Error('com máximas e mínimas: ' + JSON.stringify(ruins));
+    if (r.some(x => x.fonte !== 'tendencia')) throw new Error('com máximas e mínimas, a cor deveria vir da tendência: ' + JSON.stringify(r.map(x => [x.n, x.fonte])));
+    console.log('     cores pela tendência (máx./mín. sintéticas):', r.map(x => x.n + ' ' + x.classe).join(', '));
+    await p.evaluate((o) => { if (o) SNAP.maxmin = o; else delete SNAP.maxmin; render(); }, orig);
     if (!(await p.locator('#atvBtn svg.mini').count())) throw new Error('sem gráfico no cartão do ativo');
     await p.click('#atvBtn'); const linhas = await p.locator('#atvL [data-ativo]').count(), comG = await p.locator('#atvL [data-ativo] svg.mini').count();
     if (linhas !== comG) throw new Error(`lista: ${comG} gráficos em ${linhas} linhas`);
