@@ -431,6 +431,43 @@ function vCad(){
   return h;
 }
 
+// --- Avisos no celular (só no app nativo, componente de notificações do Capacitor): prazo de saída e vencimento de
+// cada operação real em aberto, às 10h do dia. Refeitos ao abrir o app e a cada registro, encerramento ou apagamento;
+// a permissão é pedida ao registrar a primeira operação real. No site (sem Capacitor) nada disso roda.
+const avisosNativos = () => { const c = window.Capacitor; return c && typeof c.isNativePlatform === "function" && c.isNativePlatform() && c.Plugins && c.Plugins.LocalNotifications || null; };
+const idAviso = (o, k) => (Math.floor(o.id / 1000) % 1000000000) * 2 + k;   // inteiro de 32 bits, fixo por operação
+const hora10 = (iso) => { const [a, m, d] = iso.split("-").map(Number); return new Date(a, m - 1, d, 10, 0, 0); };
+function avisosDe(o){
+  const venc = addDias(o.data, o.m.dias), nome = `${o.m.estrutura} · ${o.ativo}`, L = [];
+  const prazo = addDias(venc, -o.m.saidaDias);
+  if (o.m.saidaDias > 0) L.push({id: idAviso(o, 0), title: "Prazo de saída hoje", body: `${nome}: hoje é o prazo de saída que você definiu na entrada.`, schedule: {at: hora10(prazo), allowWhileIdle: true}, extra: {dia: prazo, tipo: "prazo"}});
+  L.push({id: idAviso(o, 1), title: "Vencimento hoje", body: `${nome} vence hoje.`, schedule: {at: hora10(venc), allowWhileIdle: true}, extra: {dia: venc, tipo: "vencimento"}});
+  return L.filter(a => a.schedule.at > new Date());
+}
+let avisosEstado = null;   // "ligados" | "negados" | null (site, ou ainda sem resposta)
+async function sincronizarAvisos(pedir){
+  const ln = avisosNativos(); if (!ln) return;
+  try {
+    const reais = abertas().filter(o => o.real);
+    let perm = await ln.checkPermissions();
+    if (perm.display !== "granted" && pedir && reais.length) perm = await ln.requestPermissions();
+    const antes = avisosEstado; avisosEstado = perm.display === "granted" ? "ligados" : perm.display === "denied" ? "negados" : null;
+    if (avisosEstado === "ligados") {
+      const quero = reais.flatMap(avisosDe), ids = new Set(quero.map(a => a.id));
+      const sobra = ((await ln.getPending()).notifications || []).filter(n => !ids.has(n.id)).map(n => ({id: n.id}));
+      if (sobra.length) await ln.cancel({notifications: sobra});
+      if (quero.length) await ln.schedule({notifications: quero});
+    }
+    if (antes !== avisosEstado && tela === "acomp") render();
+  } catch(e) {}
+}
+function avisosHtml(o){
+  if (!avisosNativos() || !o.real || o.real.saida) return "";
+  const L = avisosDe(o).map(a => `${a.extra.tipo === "vencimento" ? "Vencimento" : "Prazo de saída"}: ${dBR(a.extra.dia)} às 10h`);
+  const corpo = avisosEstado === "ligados" ? (L.length ? L.join(" · ") + "." : "Sem avisos pela frente.") : avisosEstado === "negados" ? "Avisos desligados. Para receber, permita as notificações deste app nos Ajustes do celular." : "Os avisos aparecem depois que você permitir as notificações.";
+  return `<section class="card"><h2 style="font-size:16px">Avisos neste celular</h2><p class="small">${corpo}</p></section>`;
+}
+
 // --- Operação real (nível 1): o usuário registra o que executou na corretora e o app acompanha com esses preços ---
 const nomeOp = (x) => `${x.t==="C"?"call":"put"}, strike ${brl(x.k,2)}`;
 const custoBR = (v) => v === null || v === undefined ? null : Math.round(v * 100) / 100;
@@ -506,7 +543,7 @@ function vAcomp(){
    ${m.saidaDias>0?`<div class="step"><span class="n" style="background:var(--warn-soft);color:var(--warn-text)">7</span><p><strong>Prazo: sair até ${m.saidaDias} dias antes do vencimento</strong><br><span class="muted small">Em ${dBR(addDias(P.data,m.dias-m.saidaDias))}.</span></p></div>`:`<div class="step"><span class="n" style="background:var(--warn-soft);color:var(--warn-text)">7</span><p><strong>Vencimento em ${dBR(addDias(P.data,m.dias))}</strong><br><span class="muted small">Se o preço não passar do ponto de equilíbrio, a opção vale zero.</span></p></div>`}</section>`;
   }
   if (!R) h += custosHtml(m, P.cor ?? null);
-  else h += `<section class="card"><h2 style="font-size:16px">Custos da nota</h2><p class="small">Entrada: ${R.custos != null ? brl(R.custos, 2) : "não informados"}${fechada ? ` · Saída: ${R.saida.custos != null ? brl(R.saida.custos, 2) : "não informados"}` : ""}.</p></section>`;
+  else h += avisosHtml(P) + `<section class="card"><h2 style="font-size:16px">Custos da nota</h2><p class="small">Entrada: ${R.custos != null ? brl(R.custos, 2) : "não informados"}${fechada ? ` · Saída: ${R.saida.custos != null ? brl(R.saida.custos, 2) : "não informados"}` : ""}.</p></section>`;
   if (rep && !fechada){ const rr = Math.round((M.resultadoNoVencimento(m, rep.preco) - (R && R.custos || 0)) * 100) / 100; h += `<section class="card"><h2 style="font-size:16px">Como terminou de verdade</h2><p class="small">Em ${dBR(rep.venc)}, ${P.ativo} fechou em ${brl(rep.preco,2)}. Resultado: <strong style="color:${rr>0?"var(--good)":rr<0?"var(--bad)":"inherit"}">${rr===0?"R$ 0":sgn(rr)}</strong>, antes de imposto${R ? (R.custos != null ? ", com os custos de entrada e sem os de exercício" : ", sem custos") : ""}.</p></section>`; }
   if (R) h += `<p class="foot">Acompanhada pelos preços de fechamento de cada dia, que a B3 publica no fim do pregão.</p>${!fechada && !rep ? `<button class="btn" id="ir-sair">Registrar encerramento</button>` : ""}<button class="btn danger" id="encerrar">Apagar registro</button>`;
   else h += `<p class="foot">Valores calculados com preços de fechamento reais, em modo simulado.</p><button class="btn sec2" id="copiar">Copiar parâmetros</button><textarea id="cpbox" class="small" hidden readonly rows="6" style="width:100%;margin-top:8px"></textarea><button class="btn danger" id="encerrar">Encerrar operação simulada</button>`;
@@ -535,7 +572,7 @@ function bind(){
   const cp = q("#copiar"); if (cp) cp.onclick = () => { if (DEFASADO) { cp.textContent = "Bloqueado: preços desatualizados"; return; } if (tela==="acomp"){ const P = opSel(); if (P && P.m) copiar(textoParametros(P.m, P.ativo, P.data), cp); } else { const m = montagem(tese); if (typeof m!=="string") copiar(textoParametros(m, S.ativo, S.data), cp); } };
   document.querySelectorAll("[data-per]").forEach(b => b.onclick = () => { per = b.dataset.per; render(); });
   const pd = q("#pde"); if (pd) pd.onchange = () => { pDe = pd.value; render(); }; const pa = q("#pate"); if (pa) pa.onchange = () => { pAte = pa.value; render(); };
-  const lh = q("#limpar-hist"); if (lh) lh.onclick = () => { const real = lh.dataset.tipoLimpar === "real"; if (confirm(real ? "Apagar todas as operações reais registradas?" : "Apagar todo o histórico de operações simuladas?")){ save("historico", load("historico", []).filter(o => real ? !o.real : !!o.real)); render(); } };
+  const lh = q("#limpar-hist"); if (lh) lh.onclick = () => { const real = lh.dataset.tipoLimpar === "real"; if (confirm(real ? "Apagar todas as operações reais registradas?" : "Apagar todo o histórico de operações simuladas?")){ save("historico", load("historico", []).filter(o => real ? !o.real : !!o.real)); render(); sincronizarAvisos(false); } };
   document.querySelectorAll("[data-tipo]").forEach(b => b.onclick = () => { desTipo = b.dataset.tipo; render(); });
   // registrar operação real
   const rf = (id, f) => { const e = q("#"+id); if (e) e.onchange = () => { f(e.value); render(); }; };
@@ -544,13 +581,13 @@ function bind(){
   document.querySelectorAll("[id^=rpreco]").forEach(e => e.onchange = () => { const n = numBR(e.value); realF.precos[+e.id.slice(6)] = n > 0 ? n : null; render(); });
   const rg = q("#registrar"); if (rg) rg.onclick = () => { const m0 = montagem(tese); if (typeof m0 === "string") return; const m = realMontada(realF, m0); if (!m || realProblema(realF, m)) return;
     const hs = load("historico", []); selId = Date.now(); hs.push({m, ativo: S.ativo, data: S.data, id: selId, cor: S.cad.corretagem, real: {data: realF.data, custos: realF.custos, montada: {premio: m0.premio, perdaMax: m0.perdaMax, lotes: m0.lotes}}});
-    save("historico", hs); realF = null; slider = null; tela = "acomp"; render(); atualizarStatus(); };
+    save("historico", hs); realF = null; slider = null; tela = "acomp"; render(); atualizarStatus(); sincronizarAvisos(true); };
   // registrar encerramento
   const is = q("#ir-sair"); if (is) is.onclick = () => { saidaF = null; tela = "sair"; render(); };
   rf("sdata", v => { saidaF.data = v; }); rf("scustos", v => { const n = numBR(v); saidaF.custos = n === null || !(n >= 0) ? null : custoBR(n); });
   document.querySelectorAll("[id^=spreco]").forEach(e => e.onchange = () => { const n = numBR(e.value); saidaF.precos[+e.id.slice(6)] = n > 0 ? n : null; render(); });
   const rs = q("#registrar-saida"); if (rs) rs.onclick = () => { const hs = load("historico", []), o = hs.find(x => x.id === selId); if (!o || !o.real) return;
-    o.real.saida = {data: saidaF.data, precos: saidaF.precos.slice(), custos: saidaF.custos, res: resultadoSaida(o, saidaF)}; save("historico", hs); saidaF = null; tela = "acomp"; render(); };
+    o.real.saida = {data: saidaF.data, precos: saidaF.precos.slice(), custos: saidaF.custos, res: resultadoSaida(o, saidaF)}; save("historico", hs); saidaF = null; tela = "acomp"; render(); sincronizarAvisos(false); };
   const pickAtv = (b) => b.onclick = () => { S.ativo = b.dataset.ativo; S.sinal = Object.assign(S.sinal||{}, {entrada:null, alvo:null}); ativoAberto = false; save("estado", S); render(); };
   document.querySelectorAll("[data-ativo]").forEach(pickAtv);
   const ab = q("#atvBtn"); if (ab) ab.onclick = () => { ativoAberto = !ativoAberto; render(); const i = q("#atvQ"); if (i) i.focus(); };
@@ -563,8 +600,9 @@ function bind(){
   const ct = q("#ccorrtg"); if (ct) ct.onchange = () => { const n = numBR(ct.value); S.cad.corretagem = n === null || !(n >= 0) ? null : Math.round(n*100)/100; sv(); render(); };
   document.querySelectorAll("[data-tema]").forEach(b => b.onclick = () => { S.tema = b.dataset.tema; save("estado", S); aplicarTema(); render(); });
   const ap = q("#apagar-tudo"); if (ap) ap.onclick = () => { if (confirm("Apagar todos os seus dados neste aparelho?")){ try{ ["estado","historico","posicao"].forEach(k=>localStorage.removeItem(k)); }catch(e){} location.reload(); } };
-  const en = q("#encerrar"); if (en) en.onclick = () => { const P = opSel(); if (P && P.real && !confirm("Apagar o registro desta operação real? Isso não mexe na sua corretora.")) return; save("historico", load("historico", []).filter(o => o.id !== selId)); selId = null; tela = "acomp"; render(); };
+  const en = q("#encerrar"); if (en) en.onclick = () => { const P = opSel(); if (P && P.real && !confirm("Apagar o registro desta operação real? Isso não mexe na sua corretora.")) return; save("historico", load("historico", []).filter(o => o.id !== selId)); selId = null; tela = "acomp"; render(); sincronizarAvisos(false); };
 }
 render();
 atualizarStatus();
+sincronizarAvisos(false);
 </script>
