@@ -69,6 +69,17 @@ const arq = 'file://' + process.argv[2];
     await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('#nav');
     const v = await p.evaluate(() => [S.ativo, S.perda]); if (v[0] !== 'PETR4' || v[1] !== 500) throw new Error('padrão: ' + v);
   });
+  // minigráfico: variação dos últimos 60 pregões (cor pela faixa de ±3%) no cartão do ativo e em cada linha da lista
+  await passo('minigráfico dos últimos 60 pregões', async () => {
+    await p.evaluate(() => { localStorage.clear(); }); await p.reload(); await p.waitForSelector('#nav');
+    const r = await p.evaluate(() => Object.keys(SNAP.ativos).map(n => { const f = SNAP.fechamentos[n], ds = Object.keys(f).filter(d => d <= S.data).sort().slice(-60), vr = f[ds[ds.length - 1]] / f[ds[0]] - 1, g = miniGrafico(n);
+      const cor = vr > 0.03 ? 'good' : vr < -0.03 ? 'bad' : 'warn'; return { n, ok: g && g.n === Math.min(60, ds.length) && Math.abs(g.vr - vr) < 1e-12 && g.cor.includes(cor), g: g && [g.n, g.txt, g.cor] }; }));
+    const ruins = r.filter(x => !x.ok); if (ruins.length) throw new Error('variação/cor: ' + JSON.stringify(ruins));
+    if (!(await p.locator('#atvBtn svg.mini').count())) throw new Error('sem gráfico no cartão do ativo');
+    await p.click('#atvBtn'); const linhas = await p.locator('#atvL [data-ativo]').count(), comG = await p.locator('#atvL [data-ativo] svg.mini').count();
+    if (linhas !== comG) throw new Error(`lista: ${comG} gráficos em ${linhas} linhas`);
+    await p.click('#atvBtn');
+  });
   // Sobre o app: termos de uso e política de privacidade abrem em Ajustes e voltam; as páginas do site existem
   await passo('Ajustes: termos de uso e política de privacidade', async () => {
     const f = [];
