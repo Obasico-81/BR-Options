@@ -69,6 +69,22 @@ const arq = 'file://' + process.argv[2];
     await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('#nav');
     const v = await p.evaluate(() => [S.ativo, S.perda]); if (v[0] !== 'PETR4' || v[1] !== 500) throw new Error('padrão: ' + v);
   });
+  // Sobre o app: termos de uso e política de privacidade abrem em Ajustes e voltam; as páginas do site existem
+  await passo('Ajustes: termos de uso e política de privacidade', async () => {
+    const f = [];
+    await p.click('#nav [data-nav="cad"]'); await p.click('[data-doc="termos"]'); await p.waitForTimeout(100);
+    let t = await p.innerText('#app'); if (!t.includes('Termos de uso') || !t.includes('não recomenda ativo, direção nem momento') && !t.includes('Não recomenda ativo, direção nem momento')) f.push('termos: ' + t.slice(0, 120));
+    await p.click('text=‹ Ajustes'); await p.click('[data-doc="privacidade"]'); await p.waitForTimeout(100);
+    t = await p.innerText('#app'); if (!t.includes('Política de privacidade') || !t.includes('não coleta dados pessoais')) f.push('privacidade: ' + t.slice(0, 120));
+    if (!(await p.evaluate(() => document.querySelector('#nav [aria-current="page"]')?.dataset.nav === 'cad'))) f.push('menu não marca Ajustes');
+    const fs = require('fs'), path = require('path'), dir = path.dirname(process.argv[2]);
+    for (const [arq, h1] of [['termos.html', 'Termos de uso'], ['privacidade.html', 'Política de privacidade']]) {
+      const html = fs.existsSync(path.join(dir, arq)) ? fs.readFileSync(path.join(dir, arq), 'utf8') : '';
+      if (!html.includes(`<h1>${h1}</h1>`) || /https?:\/\/fonts\./.test(html)) f.push('página ' + arq);
+    }
+    if (/https?:\/\/fonts\./.test(fs.readFileSync(process.argv[2], 'utf8'))) f.push('o app ainda pede a fonte a outro servidor');
+    if (f.length) throw new Error(f.join(' | '));
+  });
   // tema: escuro por padrão (mesmo com o aparelho no claro); "Claro" em Ajustes vale, fica guardado; apagar os dados volta ao escuro
   await passo('tema escuro por padrão e opção Claro em Ajustes', async () => {
     const fundo = () => p.evaluate(() => [document.documentElement.dataset.theme || '', getComputedStyle(document.body).backgroundColor]);

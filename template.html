@@ -1,6 +1,7 @@
 <title>Montador de Opções</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
 <style>
+/* Fonte Figtree dentro do app (fontes/, licença SIL OFL 1.1): nenhum pedido a servidor de terceiros */
+/*FONTE*/
 /* Layout: uma coluna de celular (até 460px), quatro telas trocadas na própria página. Cores do canvas de telas aprovado. */
 /* Tema: escuro por padrão para todos (decisão de 03/11/2026), independente do tema do aparelho. O claro é a
    opção "Claro" em Ajustes (data-theme="light" no <html>, ver aplicarTema). */
@@ -68,6 +69,7 @@ td:last-child{text-align:right;font-weight:700;white-space:nowrap}
 .scroll{overflow-x:auto}
 .det{display:block}.det>summary{cursor:pointer;font-weight:700;font-size:16px;list-style:none;display:flex;justify-content:space-between;align-items:center;min-height:28px}.det>summary::-webkit-details-marker{display:none}.det>summary::after{content:"+";font-size:22px;font-weight:500;color:var(--muted)}.det[open]>summary::after{content:"−"}
 .detc{display:flex;flex-direction:column;gap:10px;margin-top:12px}.kv{display:flex;justify-content:space-between;gap:12px;font-size:15px}.kv>span:last-child{font-weight:700;white-space:nowrap}.kv.tot{border-top:1px solid var(--line);padding-top:10px}
+.doc{display:flex;flex-direction:column;gap:10px;font-size:15px;line-height:1.55}.doc h1{font-size:26px;margin:0}.doc h2{font-size:17px;margin-top:10px}.doc p,.doc ul{margin:0}.doc ul{padding-left:20px}.doc a{color:var(--accent-text)}
 .note{background:var(--accent-soft);border-radius:16px;padding:14px 16px;font-size:15px}
 .chk{display:flex;gap:10px;align-items:flex-start;font-size:15px;min-height:44px}
 .chk input{width:22px;height:22px;margin-top:2px;flex:none}
@@ -93,6 +95,8 @@ input[type=range]{width:100%;min-height:44px;accent-color:var(--accent-text)}
 <script>
 // Dados: snapshot embutido no build. No app nativo (build_nativo.py), o boot traz em window.SNAP_REMOTO a cópia do
 // site (ou a última guardada no aparelho); vale a mais nova das duas. No site, SNAP_REMOTO não existe.
+// Termos de uso e política de privacidade (textos/*.html, embutidos pelo build.py)
+const TEXTOS = /*TEXTOS*/;
 const SNAP = ((emb, r) => r && r.data && r.por_data && r.por_data[r.data] && r.fechamentos
   && (r.data > emb.data || (r.data === emb.data && (r.atualizado_em || "") >= (emb.atualizado_em || ""))) ? r : emb)(/*SNAPSHOT*/, window.SNAP_REMOTO);
 // O snapshot publicado traz só o pregão mais recente em por_data, sem a cópia em "ativos" (build.py): refeita aqui.
@@ -124,7 +128,7 @@ const fmtBR = (n, dec) => n === null || n === undefined || n === "" ? "" : Numbe
 const TESTE = /[?&]teste=1/.test(location.search);   // modo teste: deixa escolher o dia dos preços
 if (!TESTE || !SNAP.por_data[S.data]) S.data = SNAP.data;
 const DIAS_VELHOS = Math.floor((Date.now() - new Date(SNAP.data + "T12:00:00Z")) / 86400000), DEFASADO = DIAS_VELHOS > 5 && !TESTE;
-let tela = "obj", tese = null, ciente = false, slider = null, per = "90", pDe = "", pAte = "", selId = null, perfilAberto = false, ativoAberto = false, realF = null, saidaF = null, desTipo = null;
+let tela = "obj", tese = null, ciente = false, slider = null, per = "90", pDe = "", pAte = "", selId = null, perfilAberto = false, ativoAberto = false, realF = null, saidaF = null, desTipo = null, doc = "termos";
 const opSel = () => load("historico", []).find(o => o.id === selId) || null;
 // Em aberto: a simulada sai na primeira regra atingida; a real só quando o usuário registra o encerramento (ou vence).
 const abertas = () => { const hoje = S.data; return load("historico", []).filter(o => { const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); return !(rep && rep.venc <= hoje) && (o.real ? !o.real.saida : !STATUS.get(o.id)?.saida); }); };
@@ -199,7 +203,7 @@ function fechamentoNoVenc(ativo, iso, dias){
 }
 
 function navBar(){
-  const at = tela==="acomp" || tela==="sair" ? "acomp" : tela==="desemp" ? "desemp" : tela==="cad" ? "cad" : "obj";
+  const at = tela==="acomp" || tela==="sair" ? "acomp" : tela==="desemp" ? "desemp" : tela==="cad" || tela==="doc" ? "cad" : "obj";
   const it = (k, rot, ic) => `<button data-nav="${k}" ${at===k?'aria-current="page"':""}>${svg(ic,22)}${rot}</button>`;
   document.getElementById("nav").innerHTML = `<div class="in">${it("obj","Início",'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>')}${it("acomp","Operações",'<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l4-5 3 3 4-6"/>')}${it("desemp","Desempenho",'<path d="M5 20V11"/><path d="M12 20V4"/><path d="M19 20v-6"/>')}${it("cad","Ajustes",'<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>')}</div>`;
   document.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { selId = null; slider = null; tela = b.dataset.nav; render(); });
@@ -208,7 +212,7 @@ function render(){
   // o ativo salvo pode não existir no dia carregado (papel novo que ficou de fora num pregão, ou dia antigo no ?teste=1)
   { const doDia = SNAP.por_data[S.data]; if (!doDia[S.ativo]) S.ativo = doDia.PETR4 ? "PETR4" : Object.keys(doDia)[0]; }
   const el = document.getElementById("app");
-  el.innerHTML = tela==="obj" ? vObj() : tela==="cartao" ? vCartao() : tela==="cen" ? vCen() : tela==="desemp" ? vDesemp() : tela==="cad" ? vCad() : tela==="sinal" ? vSinal() : tela==="real" ? vReal() : tela==="sair" ? vSair() : vAcomp();
+  el.innerHTML = tela==="obj" ? vObj() : tela==="cartao" ? vCartao() : tela==="cen" ? vCen() : tela==="desemp" ? vDesemp() : tela==="cad" ? vCad() : tela==="sinal" ? vSinal() : tela==="real" ? vReal() : tela==="sair" ? vSair() : tela==="doc" ? vDoc() : vAcomp();
   window.scrollTo(0,0);
   navBar();
   bind();
@@ -429,6 +433,7 @@ function vCad(){
    <label class="f">Corretagem por ordem de opções (R$)<input id="ccorrtg" type="text" inputmode="decimal" autocomplete="off" placeholder="Não sei" value="${fmtBR(c.corretagem,2)}"></label>
    <p class="small muted">${c.corretagem===null?"Sem este valor, o custo das operações não inclui corretagem. Os custos aparecem em Detalhes da operação.":`O custo das operações usa ${brl(c.corretagem,2).replace(" ","&nbsp;")} por ordem, na entrada e na saída de cada perna. Aparece em Detalhes da operação.`} Consulte a tabela da sua corretora; o app não confere esse valor.</p></section>`;
   h += `<section class="card" aria-label="Aparência"><h2 style="font-size:16px">Aparência</h2><div role="group" aria-label="Tema" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${[["escuro","Escuro"],["claro","Claro"]].map(([k,n]) => { const on = (S.tema||"escuro") === k; return `<button class="seg" data-tema="${k}" aria-pressed="${on}" style="min-height:48px;padding:8px 10px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:15px;font-weight:600;cursor:pointer">${n}</button>`; }).join("")}</div></section>`;
+  h += `<section class="card" aria-label="Sobre o app"><h2 style="font-size:16px">Sobre o app</h2><p class="small muted">O app monta, simula e registra operações. Não é corretora e não recomenda ativo, direção nem momento.</p><button class="btn sec" data-doc="termos">Termos de uso</button><button class="btn sec" data-doc="privacidade">Política de privacidade</button></section>`;
   h += `<section class="card"><h2 style="font-size:16px">Seus dados neste aparelho</h2><p class="small muted">Apaga a corretora, o perfil, o tema, as operações simuladas e o histórico.</p><button class="btn danger" id="apagar-tudo">Apagar meus dados</button></section>`;
   return h;
 }
@@ -513,6 +518,10 @@ function vSair(){
     h += `<section class="card"><div class="small muted">Resultado da operação${cs ? ", com os custos informados" : ", sem custos"}</div><div style="font-size:30px;font-weight:700;color:${r > 0 ? "var(--good)" : r < 0 ? "var(--bad)" : "inherit"}">${sgn2(r)}</div><p class="small muted">Antes de imposto.</p></section>`; }
   else h += `<div class="note"><p>${prob}</p></div>`;
   return h + `<button class="btn" id="registrar-saida" ${prob ? "disabled" : ""}>Registrar encerramento</button><button class="btn sec2" data-go="acomp">Voltar</button>`;
+}
+
+function vDoc(){
+  return `<div class="top"><button class="back" data-go="cad">‹ Ajustes</button></div><article class="doc">${TEXTOS[doc] || ""}</article><button class="btn sec2" data-go="cad">Voltar</button>`;
 }
 
 function vAcomp(){
@@ -600,6 +609,7 @@ function bind(){
   const sv = () => { save("estado", S); M.setCorretagem(S.cad.corretagem); };
   const cc = q("#ccorr"); if (cc) cc.onchange = () => { S.cad.corretora = cc.value; sv(); };
   const ct = q("#ccorrtg"); if (ct) ct.onchange = () => { const n = numBR(ct.value); S.cad.corretagem = n === null || !(n >= 0) ? null : Math.round(n*100)/100; sv(); render(); };
+  document.querySelectorAll("[data-doc]").forEach(b => b.onclick = () => { doc = b.dataset.doc; tela = "doc"; render(); });
   document.querySelectorAll("[data-tema]").forEach(b => b.onclick = () => { S.tema = b.dataset.tema; save("estado", S); aplicarTema(); render(); });
   const ap = q("#apagar-tudo"); if (ap) ap.onclick = () => { if (confirm("Apagar todos os seus dados neste aparelho?")){ try{ ["estado","historico","posicao"].forEach(k=>localStorage.removeItem(k)); }catch(e){} location.reload(); } };
   const en = q("#encerrar"); if (en) en.onclick = () => { const P = opSel(); if (P && P.real && !confirm("Apagar o registro desta operação real? Isso não mexe na sua corretora.")) return; save("historico", load("historico", []).filter(o => o.id !== selId)); selId = null; tela = "acomp"; render(); sincronizarAvisos(false); };
