@@ -8,3 +8,5 @@ testes/tmp/
 node_modules/
 pwa/snapshot.json
 nativo/www/
+pwa/termos.html
+pwa/privacidade.html
