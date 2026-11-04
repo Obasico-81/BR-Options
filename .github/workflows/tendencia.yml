@@ -32,15 +32,29 @@ jobs:
       - name: Dependências (versão fixa)
         run: pip install --quiet numpy==2.1.3
 
+      # Anos fechados (2015 até o ano passado) ficam em cache: baixar os 11 leva ~10 min. O ano corrente vem sempre do site.
+      - name: Anos fechados em cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/anos
+          key: cotahist-anuais-2015-ate-ano-passado-v1
+
+      # --retry-all-errors e HTTP/1.1: a primeira execução caiu no meio do arquivo de 2026 (curl 92, HTTP/2 fechado)
       - name: Baixar os COTAHIST anuais da B3
         shell: bash
         run: |
-          mkdir -p "$RUNNER_TEMP/cotahist"
-          for a in $(seq 2015 "$(date -u +%Y)"); do
-            curl -fsSL --retry 3 -A "Mozilla/5.0" -o "$RUNNER_TEMP/cotahist/COTAHIST_A$a.ZIP" \
-              "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_A$a.ZIP"
-            echo "COTAHIST_A$a.ZIP: $(du -h "$RUNNER_TEMP/cotahist/COTAHIST_A$a.ZIP" | cut -f1)"
+          mkdir -p "$RUNNER_TEMP/anos" "$RUNNER_TEMP/cotahist"
+          baixa() { curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 10 -A "Mozilla/5.0" -o "$2" \
+            "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_A$1.ZIP" && unzip -tq "$2" >/dev/null; }
+          ano=$(date -u +%Y)
+          for a in $(seq 2015 $((ano - 1))); do
+            f="$RUNNER_TEMP/anos/COTAHIST_A$a.ZIP"
+            if [ -s "$f" ] && unzip -tq "$f" >/dev/null; then echo "COTAHIST_A$a.ZIP: do cache"; else baixa "$a" "$f"; fi
+            ln -sf "$f" "$RUNNER_TEMP/cotahist/"
+            echo "COTAHIST_A$a.ZIP: $(du -hL "$RUNNER_TEMP/cotahist/COTAHIST_A$a.ZIP" | cut -f1)"
           done
+          baixa "$ano" "$RUNNER_TEMP/cotahist/COTAHIST_A$ano.ZIP"
+          echo "COTAHIST_A$ano.ZIP: $(du -h "$RUNNER_TEMP/cotahist/COTAHIST_A$ano.ZIP" | cut -f1)"
 
       - name: Back-test
         run: python pesquisa/tendencia.py --zips "$RUNNER_TEMP/cotahist" --saida "$RUNNER_TEMP/tendencia.txt"
