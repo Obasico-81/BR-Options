@@ -75,3 +75,6 @@ jobs:
 
       - name: Avisos do app nativo (componente simulado)
         run: node testes/avisos.js
+
+      - name: Snapshot publicado (só o pregão mais recente)
+        run: python testes/publicado.py
