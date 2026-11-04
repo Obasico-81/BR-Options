@@ -93,8 +93,10 @@ input[type=range]{width:100%;min-height:44px;accent-color:var(--accent-text)}
 <script>
 // Dados: snapshot embutido no build. No app nativo (build_nativo.py), o boot traz em window.SNAP_REMOTO a cópia do
 // site (ou a última guardada no aparelho); vale a mais nova das duas. No site, SNAP_REMOTO não existe.
-const SNAP = ((emb, r) => r && r.data && r.ativos && r.por_data && r.fechamentos
+const SNAP = ((emb, r) => r && r.data && r.por_data && r.por_data[r.data] && r.fechamentos
   && (r.data > emb.data || (r.data === emb.data && (r.atualizado_em || "") >= (emb.atualizado_em || ""))) ? r : emb)(/*SNAPSHOT*/, window.SNAP_REMOTO);
+// O snapshot publicado traz só o pregão mais recente em por_data, sem a cópia em "ativos" (build.py): refeita aqui.
+if (!SNAP.ativos) SNAP.ativos = SNAP.por_data[SNAP.data];
 // Endereço dos preços diários: relativo no site; no app nativo, o do site publicado (window.BASE_DADOS).
 const BASE_DADOS = typeof window.BASE_DADOS === "string" ? window.BASE_DADOS : "";
 const M = window.Montador;
