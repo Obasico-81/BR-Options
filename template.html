@@ -122,7 +122,7 @@ const fmtBR = (n, dec) => n === null || n === undefined || n === "" ? "" : Numbe
 const TESTE = /[?&]teste=1/.test(location.search);   // modo teste: deixa escolher o dia dos preços
 if (!TESTE || !SNAP.por_data[S.data]) S.data = SNAP.data;
 const DIAS_VELHOS = Math.floor((Date.now() - new Date(SNAP.data + "T12:00:00Z")) / 86400000), DEFASADO = DIAS_VELHOS > 5 && !TESTE;
-let tela = "obj", tese = null, ciente = false, slider = null, per = "90", pDe = "", pAte = "", selId = null, perfilAberto = false, ativoAberto = false, realF = null, saidaF = null, desTipo = null, msgCopia = "";
+let tela = "obj", tese = null, ciente = false, slider = null, per = "90", pDe = "", pAte = "", selId = null, perfilAberto = false, ativoAberto = false, realF = null, saidaF = null, desTipo = null;
 const opSel = () => load("historico", []).find(o => o.id === selId) || null;
 // Em aberto: a simulada sai na primeira regra atingida; a real só quando o usuário registra o encerramento (ou vence).
 const abertas = () => { const hoje = S.data; return load("historico", []).filter(o => { const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); return !(rep && rep.venc <= hoje) && (o.real ? !o.real.saida : !STATUS.get(o.id)?.saida); }); };
@@ -200,7 +200,7 @@ function navBar(){
   const at = tela==="acomp" || tela==="sair" ? "acomp" : tela==="desemp" ? "desemp" : tela==="cad" ? "cad" : "obj";
   const it = (k, rot, ic) => `<button data-nav="${k}" ${at===k?'aria-current="page"':""}>${svg(ic,22)}${rot}</button>`;
   document.getElementById("nav").innerHTML = `<div class="in">${it("obj","Início",'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>')}${it("acomp","Operações",'<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l4-5 3 3 4-6"/>')}${it("desemp","Desempenho",'<path d="M5 20V11"/><path d="M12 20V4"/><path d="M19 20v-6"/>')}${it("cad","Ajustes",'<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>')}</div>`;
-  document.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { selId = null; slider = null; msgCopia = ""; tela = b.dataset.nav; render(); });
+  document.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { selId = null; slider = null; tela = b.dataset.nav; render(); });
 }
 function render(){
   // o ativo salvo pode não existir no dia carregado (papel novo que ficou de fora num pregão, ou dia antigo no ?teste=1)
@@ -427,17 +427,12 @@ function vCad(){
    <label class="f">Corretagem por ordem de opções (R$)<input id="ccorrtg" type="text" inputmode="decimal" autocomplete="off" placeholder="Não sei" value="${fmtBR(c.corretagem,2)}"></label>
    <p class="small muted">${c.corretagem===null?"Sem este valor, o custo das operações não inclui corretagem. Os custos aparecem em Detalhes da operação.":`O custo das operações usa ${brl(c.corretagem,2).replace(" ","&nbsp;")} por ordem, na entrada e na saída de cada perna. Aparece em Detalhes da operação.`} Consulte a tabela da sua corretora; o app não confere esse valor.</p></section>`;
   h += `<section class="card" aria-label="Aparência"><h2 style="font-size:16px">Aparência</h2><div role="group" aria-label="Tema" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${[["escuro","Escuro"],["claro","Claro"]].map(([k,n]) => { const on = (S.tema||"escuro") === k; return `<button class="seg" data-tema="${k}" aria-pressed="${on}" style="min-height:48px;padding:8px 10px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:15px;font-weight:600;cursor:pointer">${n}</button>`; }).join("")}</div></section>`;
-  { const ult = load("ultima_exportacao", null), hs = load("historico", []), nr = hs.filter(o => o.real).length;
-    h += `<section class="card" aria-label="Cópia dos seus dados"><h2 style="font-size:16px">Cópia dos seus dados</h2><p class="small muted">Suas operações e ajustes ficam só neste aparelho. Exporte uma cópia e guarde fora dele (Arquivos, iCloud, e-mail). Para restaurar, importe o arquivo.</p>
-     <p class="small">${hs.length} operaç${hs.length === 1 ? "ão" : "ões"} neste aparelho${nr ? ` (${nr} ${nr === 1 ? "real" : "reais"})` : ""} · ${ult ? `última cópia exportada em ${dBR(ult)}` : "nenhuma cópia exportada ainda"}.</p>
-     <button class="btn sec" id="exportar">Exportar meus dados</button><button class="btn sec" id="importar">Importar cópia</button><input id="arq-importar" type="file" accept=".json,application/json" hidden>
-     ${msgCopia ? `<div class="note"><p>${msgCopia}</p></div>` : ""}</section>`; }
   h += `<section class="card"><h2 style="font-size:16px">Seus dados neste aparelho</h2><p class="small muted">Apaga a corretora, o perfil, o tema, as operações simuladas e o histórico.</p><button class="btn danger" id="apagar-tudo">Apagar meus dados</button></section>`;
   return h;
 }
 
 // --- Avisos no celular (só no app nativo, componente de notificações do Capacitor): prazo de saída e vencimento de
-// cada operação real em aberto, às 10h do dia. Refeitos ao abrir o app e a cada registro, encerramento ou importação;
+// cada operação real em aberto, às 10h do dia. Refeitos ao abrir o app e a cada registro, encerramento ou apagamento;
 // a permissão é pedida ao registrar a primeira operação real. No site (sem Capacitor) nada disso roda.
 const avisosNativos = () => { const c = window.Capacitor; return c && typeof c.isNativePlatform === "function" && c.isNativePlatform() && c.Plugins && c.Plugins.LocalNotifications || null; };
 const idAviso = (o, k) => (Math.floor(o.id / 1000) % 1000000000) * 2 + k;   // inteiro de 32 bits, fixo por operação
@@ -471,34 +466,6 @@ function avisosHtml(o){
   const L = avisosDe(o).map(a => `${a.extra.tipo === "vencimento" ? "Vencimento" : "Prazo de saída"}: ${dBR(a.extra.dia)} às 10h`);
   const corpo = avisosEstado === "ligados" ? (L.length ? L.join(" · ") + "." : "Sem avisos pela frente.") : avisosEstado === "negados" ? "Avisos desligados. Para receber, permita as notificações deste app nos Ajustes do celular." : "Os avisos aparecem depois que você permitir as notificações.";
   return `<section class="card"><h2 style="font-size:16px">Avisos neste celular</h2><p class="small">${corpo}</p></section>`;
-}
-
-// --- Cópia dos dados (Ajustes): arquivo JSON com o que o app guarda no aparelho; importar junta sem apagar nada ---
-const COPIA_APP = "montador-opcoes", COPIA_VERSAO = 1, CHAVES_COPIA = ["estado", "historico", "posicao"];
-function dadosDaCopia(){ const d = {app: COPIA_APP, versao: COPIA_VERSAO, exportado_em: new Date().toISOString()};
-  for (const k of CHAVES_COPIA) { try { const v = localStorage.getItem(k); if (v) d[k] = JSON.parse(v); } catch(e){} } return d; }
-async function exportarCopia(){
-  const nome = `montador-opcoes-dados-${hojeISO()}.json`, blob = new Blob([JSON.stringify(dadosDaCopia())], {type: "application/json"});
-  let feito = false;
-  try { const f = new File([blob], nome, {type: "application/json"});   // iPhone/Android: folha de compartilhar (Arquivos, iCloud, e-mail)
-    if (navigator.canShare && navigator.canShare({files: [f]})) { await navigator.share({files: [f], title: nome}); feito = true; } }
-  catch(e) { if (e && e.name === "AbortError") return; }
-  if (!feito) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nome; document.body.appendChild(a); a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
-  save("ultima_exportacao", hojeISO()); msgCopia = `Cópia exportada: ${nome}. Guarde o arquivo fora do aparelho.`; render();
-}
-// Junta as operações do arquivo com as deste aparelho (as que já existem aqui ficam como estão); os ajustes do arquivo
-// só entram se este aparelho ainda não tiver os seus. Devolve o texto para a tela e se precisa recarregar.
-function importarCopia(txt){
-  let d; try { d = JSON.parse(txt); } catch(e) { return {msg: "Este arquivo não é uma cópia do app."}; }
-  if (!d || d.app !== COPIA_APP || (d.historico !== undefined && !Array.isArray(d.historico))) return {msg: "Este arquivo não é uma cópia do app."};
-  if (!(d.versao <= COPIA_VERSAO)) return {msg: "Esta cópia foi feita por uma versão mais nova do app. Atualize o app e tente de novo."};
-  const local = load("historico", []), ids = new Set(local.map(o => o.id)), arq = d.historico || [];
-  const validas = arq.filter(o => o && o.id && o.ativo && o.data && o.m && Array.isArray(o.m.pernas)), novas = validas.filter(o => !ids.has(o.id));
-  save("historico", local.concat(novas));
-  let ajustes = false; try { if (d.estado && !localStorage.getItem("estado")) { localStorage.setItem("estado", JSON.stringify(d.estado)); ajustes = true; } } catch(e){}
-  const de = d.exportado_em ? ` Cópia de ${dBR(String(d.exportado_em).slice(0, 10))}.` : "";
-  return {recarregar: ajustes, msg: `${novas.length} operaç${novas.length === 1 ? "ão importada" : "ões importadas"}${validas.length - novas.length ? `; ${validas.length - novas.length} já estava${validas.length - novas.length === 1 ? "" : "m"} neste aparelho` : ""}.${ajustes ? " Ajustes do arquivo aplicados." : ""}${de}`};
 }
 
 // --- Operação real (nível 1): o usuário registra o que executou na corretora e o app acompanha com esses preços ---
@@ -632,15 +599,9 @@ function bind(){
   const cc = q("#ccorr"); if (cc) cc.onchange = () => { S.cad.corretora = cc.value; sv(); };
   const ct = q("#ccorrtg"); if (ct) ct.onchange = () => { const n = numBR(ct.value); S.cad.corretagem = n === null || !(n >= 0) ? null : Math.round(n*100)/100; sv(); render(); };
   document.querySelectorAll("[data-tema]").forEach(b => b.onclick = () => { S.tema = b.dataset.tema; save("estado", S); aplicarTema(); render(); });
-  const ex = q("#exportar"); if (ex) ex.onclick = () => { exportarCopia(); };
-  const im = q("#importar"), ai = q("#arq-importar"); if (im && ai) { im.onclick = () => ai.click();
-    ai.onchange = () => { const f = ai.files && ai.files[0]; if (!f) return; const r = new FileReader();
-      r.onload = () => { const res = importarCopia(String(r.result)); msgCopia = res.msg; sincronizarAvisos(false); if (res.recarregar) { try { sessionStorage.setItem("msgCopia", res.msg); } catch(e){} location.reload(); return; } render(); atualizarStatus(); };
-      r.onerror = () => { msgCopia = "Não foi possível ler o arquivo."; render(); }; r.readAsText(f); }; }
-  const ap = q("#apagar-tudo"); if (ap) ap.onclick = () => { if (confirm("Apagar todos os seus dados neste aparelho?")){ try{ ["estado","historico","posicao","ultima_exportacao"].forEach(k=>localStorage.removeItem(k)); }catch(e){} location.reload(); } };
+  const ap = q("#apagar-tudo"); if (ap) ap.onclick = () => { if (confirm("Apagar todos os seus dados neste aparelho?")){ try{ ["estado","historico","posicao"].forEach(k=>localStorage.removeItem(k)); }catch(e){} location.reload(); } };
   const en = q("#encerrar"); if (en) en.onclick = () => { const P = opSel(); if (P && P.real && !confirm("Apagar o registro desta operação real? Isso não mexe na sua corretora.")) return; save("historico", load("historico", []).filter(o => o.id !== selId)); selId = null; tela = "acomp"; render(); sincronizarAvisos(false); };
 }
-try { const mc = sessionStorage.getItem("msgCopia"); if (mc) { msgCopia = mc; tela = "cad"; sessionStorage.removeItem("msgCopia"); } } catch(e){}
 render();
 atualizarStatus();
 sincronizarAvisos(false);

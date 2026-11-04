@@ -73,8 +73,5 @@ jobs:
       - name: Operação real — registrar, acompanhar, encerrar e Desempenho
         run: node testes/real.js
 
-      - name: Cópia dos dados — exportar e importar
-        run: node testes/copia.js
-
       - name: Avisos do app nativo (componente simulado)
         run: node testes/avisos.js
