@@ -36,7 +36,7 @@ R = 0.11                     # juro livre de risco usado na volatilidade implíc
 
 # (início 1-based, fim inclusive)
 CAMPOS = dict(tipreg=(1, 2), data=(3, 10), codneg=(13, 24), tpmerc=(25, 27),
-              preult=(109, 121), preofc=(122, 134), preofv=(135, 147), quatot=(153, 170),
+              premax=(70, 82), premin=(83, 95), preult=(109, 121), preofc=(122, 134), preofv=(135, 147), quatot=(153, 170),
               preexe=(189, 201), datven=(203, 210), codisi=(231, 242))
 
 
@@ -85,12 +85,13 @@ def linhas_do_zip(origem):
 
 
 def ler(linhas, so_data=None, opc_desde=None):
-    """Devolve (fechamentos, opcoes): fechamentos[nome][data] = último preço; opcoes[data][nome] = lista de linhas.
+    """Devolve (fechamentos, opcoes, maxmin): fechamentos[nome][data] = último preço; opcoes[data][nome] = lista de
+    linhas; maxmin[nome][data] = [máxima, mínima] do papel no dia (a tendência do minigráfico usa no ADX).
     A opção entra pelo prefixo do código E pelo papel-objeto: o CODISI da opção é o ISIN do papel à vista, e um prefixo
     serve a mais de um papel (BBDC: BBDC3 e BBDC4; PETR: PETR3 e PETR4; ITUB: ITUB3 e ITUB4). Só ficam as do papel do app."""
     prefixos = {pref: nome for nome, (pref, _) in ATIVOS.items()}
     papeis = {pap: nome for nome, (_, pap) in ATIVOS.items()}
-    fech, opc, isin = {n: {} for n in ATIVOS}, {}, {n: set() for n in ATIVOS}
+    fech, opc, isin, mm = {n: {} for n in ATIVOS}, {}, {n: set() for n in ATIVOS}, {n: {} for n in ATIVOS}
     for ln in linhas:
         if len(ln) < 210 or campo(ln, "tipreg") != "01":
             continue
@@ -103,6 +104,9 @@ def ler(linhas, so_data=None, opc_desde=None):
             p = preco(campo(ln, "preult"))
             if p > 0:
                 fech[papeis[cod]][iso(d)] = p
+                h, lo = preco(campo(ln, "premax")), preco(campo(ln, "premin"))
+                if h >= p >= lo > 0:
+                    mm[papeis[cod]][iso(d)] = [h, lo]
         elif tp in ("070", "080") and cod[:4] in prefixos and (not opc_desde or iso(d) >= opc_desde):
             b, a = preco(campo(ln, "preofc")), preco(campo(ln, "preofv"))
             if not (b > 0 and a >= b):
@@ -118,7 +122,7 @@ def ler(linhas, so_data=None, opc_desde=None):
                 fora[nome] = fora.get(nome, 0) + len(lst) - len(por[nome])
     if fora:
         print("Opções de outro papel com o mesmo prefixo, descartadas:", ", ".join(f"{n} {q}" for n, q in sorted(fora.items())))
-    return fech, opc
+    return fech, opc, mm
 
 
 def gravar_precos(opc, dias):
@@ -202,10 +206,13 @@ def gravar(snap):
     os.replace(tmp, SNAPSHOT)
 
 
-def incorporar(snap, fech, opc, dia_cadeia=None):
-    """Soma fechamentos e, se pedido, a cadeia completa de um dia. Devolve resumo."""
+def incorporar(snap, fech, opc, dia_cadeia=None, mm=None):
+    """Soma fechamentos (e máximas/mínimas) e, se pedido, a cadeia completa de um dia. Devolve resumo."""
     for nome, serie in fech.items():
         snap["fechamentos"].setdefault(nome, {}).update(serie)
+    for nome, serie in (mm or {}).items():
+        if serie:
+            snap.setdefault("maxmin", {}).setdefault(nome, {}).update(serie)
     if dia_cadeia:
         por = {}
         for nome in ATIVOS:
@@ -254,7 +261,7 @@ def main():
     snap = carregar()
 
     if a.validar:
-        fech, opc = ler(linhas_do_zip(a.validar))
+        fech, opc, _ = ler(linhas_do_zip(a.validar))
         dia = max(opc) if opc else max(max(s) for s in fech.values() if s)
         sys.exit(1 if comparar_com_snapshot(snap, dia, fech, opc) else 0)
 
@@ -262,12 +269,12 @@ def main():
         dados = baixar(URL_ANO.format(aaaa=a.ano))
         if dados is None:
             raise SystemExit("Arquivo anual não encontrado.")
-        fech, opc = ler(linhas_do_zip(dados))
+        fech, opc, mm = ler(linhas_do_zip(dados))
         ultimo = max(max(s) for s in fech.values() if s)
         recente = ultimo in opc and ultimo >= (date.today() - timedelta(days=20)).isoformat()
         # refaz também as cadeias dos pregões que o snapshot já tem e que estão no arquivo (vale para correções do leitor)
         refazer = sorted(d for d in snap["por_data"] if d in opc and d != ultimo) + ([ultimo] if ultimo in opc and (recente or ultimo in snap["por_data"]) else [])
-        resumo = incorporar(snap, fech, opc, None)
+        resumo = incorporar(snap, fech, opc, None, mm)
         for d in refazer:
             resumo = incorporar(snap, fech, opc, d)
         gravar(snap); novos = gravar_precos(opc, opc.keys())
@@ -276,7 +283,7 @@ def main():
 
     if a.arquivo:
         origem, dia = a.arquivo, None
-        fech, opc = ler(linhas_do_zip(origem))
+        fech, opc, mm = ler(linhas_do_zip(origem))
     else:
         alvo = date.fromisoformat(a.data) if a.data else datetime.now(timezone(timedelta(hours=-3))).date()
         # Do pregão mais novo para trás, até achar um dia que o snapshot já tem. Baixa todos os que faltam:
@@ -295,10 +302,10 @@ def main():
             # Uma semana inteira sem arquivo não acontece na B3: é URL errada, bloqueio ou formato novo.
             raise SystemExit(f"Nenhum arquivo da B3 nos 7 dias até {alvo} e o snapshot para em {max(ja)}. "
                              "Conferir a URL em URL_DIA ou se a B3 bloqueou o acesso. Nada foi gravado.")
-        fech, opc = achados[0][1]
-        for _, (f, o2) in achados[1:]:
+        fech, opc, mm = achados[0][1]
+        for _, (f, o2, mm2) in achados[1:]:
             for n in ATIVOS:
-                fech[n].update(f[n])
+                fech[n].update(f[n]); mm[n].update(mm2[n])
             for d2, v in o2.items():          # opções dos pregões recuperados: só para os preços diários
                 opc.setdefault(d2, v)          # (a cadeia continua sendo a do pregão mais novo, max(opc))
         if len(achados) > 1:
@@ -309,7 +316,7 @@ def main():
     dia = max(opc) if opc else None
     if not dia:
         raise SystemExit("O arquivo não tem opções dos papéis do app.")
-    resumo = incorporar(snap, fech, opc, dia)
+    resumo = incorporar(snap, fech, opc, dia, mm)
     gravar(snap); novos = gravar_precos(opc, opc.keys())
     print(f"Snapshot atualizado para {dia}:", resumo, f"| preços diários: {novos} dia(s) novo(s)")
 

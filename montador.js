@@ -201,6 +201,35 @@
     const mu = r.reduce((a, b) => a + b, 0) / r.length, sd = Math.sqrt(r.reduce((a, b) => a + (b - mu) * (b - mu), 0) / (r.length - 1));
     return sd * Math.sqrt(252);
   }
+  // --- Tendência do papel (só histórico; colore o minigráfico). Janela: os últimos 150 pregões até `ate` com fechamento,
+  // máxima e mínima (maxmin[data] = [máxima, mínima]). Alta: fechamento > média de 21 > média de 50, média de 50 acima da de 5 pregões antes, ADX(14) >= 20
+  // (e, com comIfr, IFR(14) > 50). Queda: o espelho (IFR < 50). Senão, neutro. ADX e IFR pelo método de Wilder.
+  // Com menos de 60 pregões na janela: null. Espelha tendencia do montador.py (mesma ordem das contas).
+  function tendencia(fech, maxmin, ate, comIfr) {
+    if (!maxmin) return null;
+    const ds = Object.keys(fech || {}).filter((d) => d <= ate && maxmin[d] !== undefined).sort().slice(-150);
+    if (ds.length < 60) return null;
+    const c = ds.map((d) => fech[d]), h = ds.map((d) => maxmin[d][0]), l = ds.map((d) => maxmin[d][1]), u = c.length - 1;
+    const media = (ini, fim) => { let s = 0; for (let i = ini; i <= fim; i++) s += c[i]; return s / (fim - ini + 1); };
+    const mm21 = media(u - 20, u), mm50 = media(u - 49, u), mm50ant = media(u - 54, u - 5);
+    let sTR = 0, sP = 0, sN = 0, adx = null, somaDX = 0, nDX = 0, gm = 0, pm = 0;
+    for (let i = 1; i <= u; i++) {
+      const tr = Math.max(h[i] - l[i], Math.abs(h[i] - c[i - 1]), Math.abs(l[i] - c[i - 1]));
+      const up = h[i] - h[i - 1], dn = l[i - 1] - l[i], pdm = up > dn && up > 0 ? up : 0, ndm = dn > up && dn > 0 ? dn : 0;
+      const ch = c[i] - c[i - 1], g = ch > 0 ? ch : 0, p = ch < 0 ? -ch : 0;
+      if (i <= 14) { sTR += tr; sP += pdm; sN += ndm; gm += g; pm += p; if (i === 14) { gm /= 14; pm /= 14; } }
+      else { sTR = sTR - sTR / 14 + tr; sP = sP - sP / 14 + pdm; sN = sN - sN / 14 + ndm; gm = (gm * 13 + g) / 14; pm = (pm * 13 + p) / 14; }
+      if (i >= 14) {
+        const pdi = sTR > 0 ? 100 * sP / sTR : 0, ndi = sTR > 0 ? 100 * sN / sTR : 0, dx = pdi + ndi > 0 ? 100 * Math.abs(pdi - ndi) / (pdi + ndi) : 0;
+        if (nDX < 14) { somaDX += dx; nDX++; if (nDX === 14) adx = somaDX / 14; } else adx = (adx * 13 + dx) / 14;
+      }
+    }
+    const ifr = pm === 0 ? 100 : 100 - 100 / (1 + gm / pm);
+    const forte = adx !== null && adx >= 20;
+    const alta = forte && c[u] > mm21 && mm21 > mm50 && mm50 > mm50ant && (!comIfr || ifr > 50);
+    const queda = forte && c[u] < mm21 && mm21 < mm50 && mm50 < mm50ant && (!comIfr || ifr < 50);
+    return { classe: alta ? "alta" : queda ? "queda" : "neutro", mm21, mm50, mm50ant, adx, ifr };
+  }
   // Quanto a ação precisa andar até o (primeiro) ponto de equilíbrio e quanto costuma oscilar no prazo da operação, em fração.
   function movimentoNecessario(m, S, fech, ate) {
     const vr = volReal60(fech, ate);
@@ -229,6 +258,6 @@
     }
     return null;
   }
-  const api = { setCorretagem, montar, montarSinal, montarAposta, execucao, probAcima, resultadoNoVencimento, volReal60, movimentoNecessario, resultadoNoDia, regraDeSaida };
+  const api = { setCorretagem, montar, montarSinal, montarAposta, execucao, probAcima, resultadoNoVencimento, volReal60, tendencia, movimentoNecessario, resultadoNoDia, regraDeSaida };
   if (typeof module !== "undefined") module.exports = api; else root.Montador = api;
 })(typeof window !== "undefined" ? window : globalThis);

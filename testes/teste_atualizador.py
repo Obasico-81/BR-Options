@@ -122,6 +122,10 @@ ok = (rc == 0 and s["data"] == "2026-01-05" and all("2026-01-02" in s["fechament
       and "2026-01-02" not in s["por_data"] and len(s["por_data"]) == 12 and "recuperados de 1" in out and "buraco" not in out
       and abs(s["fechamentos"]["PETR4"]["2026-01-02"] - round(SNAP0["por_data"][BASE]["PETR4"]["S"] * 1.01, 2)) < 1e-9)
 confere("dia perdido: recupera o fechamento de 02/01, cadeia de 05/01, mantém 12 dias de cadeia", ok, out)
+mm_esp = lambda S: [round(S * 1.01, 2), round(S * 0.99, 2)]
+ok = all(s.get("maxmin", {}).get(n, {}).get(d) == mm_esp(G.ativos_deslocados(SNAP0, BASE, d, f)[n]["S"])
+         for n in SNAP0["por_data"][BASE] for d, f in (("2026-01-02", 1.01), ("2026-01-05", 1.02)))
+confere("máxima e mínima do dia: grava a do pregão novo e a do recuperado", ok, json.dumps({n: s.get("maxmin", {}).get(n) for n in list(G.PAPEL)[:2]}))
 print("      " + out.replace("\n", "\n      "))
 pr = precos(t); e2, e5 = (esperado_precos(G.ativos_deslocados(SNAP0, BASE, d)) for d in ("2026-01-02", "2026-01-05"))
 confere("preços diários: grava 02/01 (recuperado) e 05/01, com compra e venda de cada série",
@@ -192,6 +196,8 @@ SRV.arquivos.clear(); SRV.arquivos["COTAHIST_A%d.ZIP" % hoje.year] = b.getvalue(
 t = projeto(); rc1, out1 = rodar(t, "--ano", str(hoje.year)); rc2, out2 = rodar(t); s = snap(t)
 ok = rc1 == 0 and rc2 == 0 and s["data"] == max(dias).isoformat() and all(d.isoformat() in s["fechamentos"]["VALE3"] for d in dias) and "Nada a fazer" in out2
 confere("workflow: --ano e depois a execução diária", ok, out1 + "\n" + out2)
+confere("--ano grava máxima e mínima de todos os pregões do arquivo",
+        all(set(s.get("maxmin", {}).get(n, {})) >= {d.isoformat() for d in dias} for n in SNAP0["por_data"][BASE]), json.dumps(s.get("maxmin")))
 confere("preços diários: --ano grava todos os pregões do arquivo", set(precos(t)) == {d.isoformat() for d in dias}
         and all(precos(t)[d.isoformat()]["op"] == esperado_precos({n: dict(a, chain=[dict(o) for o in a["chain"]]) for n, a in SNAP0["por_data"][BASE].items()}) for d in dias), out1)
 

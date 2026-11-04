@@ -319,6 +319,55 @@ def vol_real_60(fech: dict, ate: str) -> Optional[float]:
     return sqrt(q / (len(r) - 1)) * sqrt(252)
 
 
+def tendencia(fech: dict, maxmin: dict, ate: str, com_ifr: bool = False) -> Optional[dict]:
+    """Tendência do papel (só histórico; colore o minigráfico). maxmin[data] = [máxima, mínima] do dia. Janela: os
+    últimos 150 pregões até `ate` com fechamento, máxima e mínima. Alta: fechamento > média de 21 > média de 50, média de 50 acima da de 5 pregões antes, ADX(14) >= 20
+    (e, com com_ifr, IFR(14) > 50). Queda: o espelho (IFR < 50). Senão, neutro. ADX e IFR pelo método de Wilder.
+    Com menos de 60 pregões na janela: None. Espelha tendencia do montador.js (mesma ordem das contas)."""
+    if not maxmin:
+        return None
+    ds = sorted(d for d in (fech or {}) if d <= ate and d in maxmin)[-150:]
+    if len(ds) < 60:
+        return None
+    c, h, l = [fech[d] for d in ds], [maxmin[d][0] for d in ds], [maxmin[d][1] for d in ds]
+    u = len(c) - 1
+
+    def media(ini, fim):
+        q = 0.0
+        for i in range(ini, fim + 1): q += c[i]
+        return q / (fim - ini + 1)
+    mm21, mm50, mm50ant = media(u - 20, u), media(u - 49, u), media(u - 54, u - 5)
+    sTR = sP = sN = 0.0; adx = None; soma_dx = 0.0; n_dx = 0; gm = pm = 0.0
+    for i in range(1, u + 1):
+        tr = max(h[i] - l[i], abs(h[i] - c[i - 1]), abs(l[i] - c[i - 1]))
+        up, dn = h[i] - h[i - 1], l[i - 1] - l[i]
+        pdm = up if up > dn and up > 0 else 0.0
+        ndm = dn if dn > up and dn > 0 else 0.0
+        ch = c[i] - c[i - 1]; g = ch if ch > 0 else 0.0; pp = -ch if ch < 0 else 0.0
+        if i <= 14:
+            sTR += tr; sP += pdm; sN += ndm; gm += g; pm += pp
+            if i == 14:
+                gm /= 14; pm /= 14
+        else:
+            sTR = sTR - sTR / 14 + tr; sP = sP - sP / 14 + pdm; sN = sN - sN / 14 + ndm
+            gm = (gm * 13 + g) / 14; pm = (pm * 13 + pp) / 14
+        if i >= 14:
+            pdi = 100 * sP / sTR if sTR > 0 else 0.0
+            ndi = 100 * sN / sTR if sTR > 0 else 0.0
+            dx = 100 * abs(pdi - ndi) / (pdi + ndi) if pdi + ndi > 0 else 0.0
+            if n_dx < 14:
+                soma_dx += dx; n_dx += 1
+                if n_dx == 14:
+                    adx = soma_dx / 14
+            else:
+                adx = (adx * 13 + dx) / 14
+    ifr = 100.0 if pm == 0 else 100 - 100 / (1 + gm / pm)
+    forte = adx is not None and adx >= 20
+    alta = forte and c[u] > mm21 > mm50 > mm50ant and (not com_ifr or ifr > 50)
+    queda = forte and c[u] < mm21 < mm50 < mm50ant and (not com_ifr or ifr < 50)
+    return {"classe": "alta" if alta else "queda" if queda else "neutro", "mm21": mm21, "mm50": mm50, "mm50ant": mm50ant, "adx": adx, "ifr": ifr}
+
+
 def movimento_necessario(m: Montagem, S: float, fech: dict, ate: str) -> dict:
     """Bloco "Movimento e tempo" (só informação): quanto a ação precisa andar até o primeiro ponto de equilíbrio e
     quanto costuma oscilar no prazo da operação, em fração. Espelha movimentoNecessario do montador.js."""

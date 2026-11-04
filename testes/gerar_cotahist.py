@@ -40,8 +40,8 @@ def linhas_do_dia(dia, ativos, so_n_opcoes=None):
     ls = []
     for nome, a in ativos.items():
         ls.append(registro(TIPREG="01", DATA=d, CODBDI="02", CODNEG=PAPEL[nome], TPMERC="010", NOMRES=nome[:4],
-                           ESPECI="ON", MODREF="R$", PREULT=c(a["S"]), PREOFC=c(a["S"] - .01), PREOFV=c(a["S"] + .01),
-                           QUATOT=1000000, DATVEN="99991231", FATCOT=1, CODISI=isin(nome)))
+                           ESPECI="ON", MODREF="R$", PREMAX=c(a["S"] * 1.01), PREMIN=c(a["S"] * 0.99), PREULT=c(a["S"]),
+                           PREOFC=c(a["S"] - .01), PREOFV=c(a["S"] + .01), QUATOT=1000000, DATVEN="99991231", FATCOT=1, CODISI=isin(nome)))
         chain = a["chain"][:so_n_opcoes] if so_n_opcoes else a["chain"]
         for o in chain:
             venc = (d0 + timedelta(days=o["d"])).strftime("%Y%m%d")
