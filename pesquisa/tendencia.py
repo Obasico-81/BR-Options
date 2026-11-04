@@ -172,6 +172,21 @@ def main():
     txt += ["", "Limitações: observações sobrepostas (cada dia entra, prazo de 20 pregões); bonificações e proventos não "
             "ajustados (a queda do dia ex entra no retorno, igual para a cor e para a linha de base); papéis medidos "
             "juntos, com pesos pelo número de dias."]
+    # cor de hoje (série sem ajuste, como o app vê) e máxima/mínima dos últimos 160 pregões: prévia da tela antes do --ano
+    import json
+    hoje, mm_rec = {}, {}
+    for nome in ATIVOS:
+        s = serie[nome]
+        if len(s) < 60:
+            continue
+        ds = sorted(s)[-160:]
+        fe, mm = {d: s[d][0] for d in ds}, {d: [s[d][1], s[d][2]] for d in ds}
+        t0, t1 = tendencia(fe, mm, ds[-1], False), tendencia(fe, mm, ds[-1], True)
+        hoje[nome] = [ds[-1], t0["classe"], t1["classe"], round(t0["adx"], 1), round(t0["ifr"], 1)]
+        mm_rec[nome] = mm
+    txt += ["", "### Cor no último pregão (sem ajuste, como no app): data, sem IFR, com IFR, ADX, IFR"]
+    txt += [f"- {n}: {v}" for n, v in hoje.items()]
+    print("MAXMIN_RECENTE " + json.dumps(mm_rec, separators=(",", ":")))
     saida = "\n".join(txt)
     print(saida)
     if a.saida:
