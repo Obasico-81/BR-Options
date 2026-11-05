@@ -90,6 +90,30 @@ const arq = 'file://' + process.argv[2];
     if (linhas !== comG) throw new Error(`lista: ${comG} gráficos em ${linhas} linhas`);
     await p.click('#atvBtn');
   });
+  // gráfico de payoff: no cartão, o preço de hoje ao lado do equilíbrio; em "O que pode acontecer", o gráfico com a
+  // linha de hoje; em "Sua operação", o ponto do gráfico acompanha o controle de preço (mesmo resultado do montador)
+  await passo('gráfico de payoff e preço de hoje', async () => {
+    await p.evaluate(() => { localStorage.clear(); }); await p.reload(); await p.waitForSelector('#nav');
+    const r = await p.evaluate(() => {
+      let t = null; S.perda = 3000; S.capital = 12000;
+      for (const at of Object.keys(SNAP.ativos)) { S.ativo = at; if (typeof montagem('alta') !== 'string') { t = 'alta'; break; } }
+      if (!t) return 'nenhuma trava monta';
+      tese = t; tela = 'cartao'; render(); const cartao = document.getElementById('app').innerText;
+      tela = 'cen'; render(); const cen = document.querySelector('#app svg.payoff'), hojeTxt = cen && cen.textContent;
+      ciente = true; render(); document.getElementById('confirmar').click();
+      const h = load('historico', []); selId = h[0].id; tela = 'acomp'; render();
+      const sl = document.getElementById('sl'), m = h[0].m, antes = document.querySelector('#payoff circle[r="6"]').getAttribute('cx');
+      sl.value = String(+sl.max); sl.dispatchEvent(new Event('input'));
+      const depois = document.querySelector('#payoff circle[r="6"]').getAttribute('cx');
+      return { hojeCartao: /hoje R\$ [\d.,]+ · (precisa|pode)/.test(cartao), cen: !!cen, hojeTxt, antes, depois, rv: document.getElementById('rv').textContent, esperado: M.resultadoNoVencimento(m, +sl.max) };
+    });
+    if (typeof r === 'string') throw new Error(r);
+    const f = []; if (!r.hojeCartao) f.push('cartão sem "hoje R$ … · precisa/pode"'); if (!r.cen || !/hoje R\$/.test(r.hojeTxt)) f.push('cenários sem gráfico ou sem a linha de hoje');
+    if (!(+r.depois > +r.antes)) f.push(`ponto não andou com o controle (${r.antes} → ${r.depois})`);
+    const fmt = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + 'R$ ' + Math.abs(Math.round(v)).toLocaleString('pt-BR');
+    if (r.esperado !== 0 && r.rv.replace(/\s/g, ' ') !== fmt(r.esperado) && r.rv.replace(/\s/g, ' ') !== fmt(r.esperado).replace('−', '-')) f.push(`resultado ${r.rv} ≠ ${fmt(r.esperado)}`);
+    if (f.length) throw new Error(f.join(' | '));
+  });
   // Sobre o app: termos de uso e política de privacidade abrem em Ajustes e voltam; as páginas do site existem
   await passo('Ajustes: termos de uso e política de privacidade', async () => {
     const f = [];
