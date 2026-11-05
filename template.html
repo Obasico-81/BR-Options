@@ -73,6 +73,8 @@ td:last-child{text-align:right;font-weight:700;white-space:nowrap}
 .note{background:var(--accent-soft);border-radius:16px;padding:14px 16px;font-size:15px}
 .chk{display:flex;gap:10px;align-items:flex-start;font-size:15px;min-height:44px}
 .chk input{width:22px;height:22px;margin-top:2px;flex:none}
+.emp{font-size:13px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:370px){.emp{font-size:12px}}
 .bar{position:relative;height:10px;border-radius:999px;background:var(--track)}
 .bar i{position:absolute;top:-3px;width:2px;height:16px;background:var(--muted)}
 .bar b{position:absolute;height:10px;border-radius:999px}
@@ -292,15 +294,18 @@ function faixaPayoff(m, S, hoje, osc){
   for (const e of m.equilibrio) { if (!ateZero && e < lo) lo = e * 0.95; if (e > hi) hi = e * 1.05; }
   return {lo: Math.round(Math.max(0, lo) * 100) / 100, hi: Math.round(hi * 100) / 100};
 }
+// Nome da empresa (ou do fundo) embaixo do código, no cartão do ativo e na lista. Papel novo sem nome aqui: só o código.
+const EMPRESAS = {BOVA11: "ETF Ibovespa", PETR4: "Petrobras", VALE3: "Vale", BBDC4: "Bradesco", BBAS3: "Banco do Brasil",
+  MGLU3: "Magazine Luiza", WEGE3: "WEG", ITUB4: "Itaú Unibanco", USIM5: "Usiminas", B3SA3: "B3", PRIO3: "PRIO"};
 function listaAtivos(q){ q = (q||"").trim().toUpperCase(); const d = SNAP.por_data[S.data];
   const L = Object.keys(d).filter(n => n.includes(q)).sort();
-  return L.length ? L.map(n => { const g = miniGrafico(n, 56, 22); return `<button class="opt" role="option" data-ativo="${n}" aria-selected="${n===S.ativo}" style="border:0;border-top:1px solid var(--line);border-radius:0;justify-content:space-between;align-items:center;padding:12px 6px;${n===S.ativo?"font-weight:700":""}"><span>${n}</span><span style="display:flex;align-items:center;gap:10px">${g ? `${g.svg}<span class="small" style="color:${g.cor};font-weight:600;min-width:48px;text-align:right" aria-label="Variação em ${g.n} pregões">${g.txt}</span>` : ""}<span class="muted" style="min-width:72px;text-align:right">${brl(d[n].S,2)}</span></span></button>`; }).join("") : `<p class="small muted" style="padding:12px 6px">Nenhum ativo encontrado.</p>`; }
+  return L.length ? L.map(n => { const g = miniGrafico(n, 40, 22); return `<button class="opt" role="option" data-ativo="${n}" aria-selected="${n===S.ativo}" style="border:0;border-top:1px solid var(--line);border-radius:0;justify-content:space-between;align-items:center;padding:12px 6px;${n===S.ativo?"font-weight:700":""}"><span style="display:flex;flex-direction:column;text-align:left;flex:1;min-width:0"><span>${n}</span>${EMPRESAS[n] ? `<span class="muted emp">${EMPRESAS[n]}</span>` : ""}</span><span style="display:flex;align-items:center;gap:6px;flex-shrink:0">${g ? `${g.svg}<span class="small" style="color:${g.cor};font-weight:600;min-width:44px;text-align:right" aria-label="Variação em ${g.n} pregões">${g.txt}</span>` : ""}<span class="muted" style="min-width:68px;text-align:right;white-space:nowrap">${brl(d[n].S,2)}</span></span></button>`; }).join("") : `<p class="small muted" style="padding:12px 6px">Nenhum ativo encontrado.</p>`; }
 function vObj(){
   const a = dia();
   let h = topo(null,"",1) + `<h1>Monte sua operação</h1>`;
   if (DEFASADO) h += `<div class="note" role="alert"><p class="small"><strong>Preços desatualizados.</strong> O último fechamento carregado é de ${dBR(SNAP.data)}. As operações abaixo são só simulação, e a cópia dos parâmetros fica bloqueada até os preços serem atualizados.</p></div>`;
   { const nomes = Object.keys(SNAP.por_data[S.data]);
-    h += `<section class="card" aria-label="Ativo"><button class="opt" id="atvBtn" aria-expanded="${ativoAberto}" style="justify-content:space-between;align-items:center;padding:12px 14px"><span style="display:flex;flex-direction:column"><span class="small muted">Ativo</span><span style="font-weight:700;font-size:18px;white-space:nowrap">${S.ativo} <span class="muted" style="font-weight:500;font-size:15px">· ${brl(SNAP.por_data[S.data][S.ativo].S,2)}</span></span>${(g => g ? `<span class="small" style="color:${g.cor};font-weight:600">${g.txt} em ${g.n} pregões</span>` : "")(miniGrafico(S.ativo))}</span><span style="display:flex;align-items:center;gap:10px">${(g => g ? g.svg : "")(miniGrafico(S.ativo))}<span class="muted" aria-hidden="true">${ativoAberto?"▴":"▾"}</span></span></button>`;
+    h += `<section class="card" aria-label="Ativo"><button class="opt" id="atvBtn" aria-expanded="${ativoAberto}" style="justify-content:space-between;align-items:center;padding:12px 14px"><span style="display:flex;flex-direction:column"><span class="small muted">Ativo</span><span style="font-weight:700;font-size:18px;white-space:nowrap">${S.ativo} <span class="muted" style="font-weight:500;font-size:15px">· ${brl(SNAP.por_data[S.data][S.ativo].S,2)}</span></span>${EMPRESAS[S.ativo] ? `<span class="small muted">${EMPRESAS[S.ativo]}</span>` : ""}</span><span style="display:flex;align-items:center;gap:10px">${(g => g ? `${g.svg}<span class="small" style="color:${g.cor};font-weight:600" aria-label="Variação em ${g.n} pregões">${g.txt}</span>` : "")(miniGrafico(S.ativo))}<span class="muted" aria-hidden="true">${ativoAberto?"▴":"▾"}</span></span></button>`;
     if (ativoAberto) h += `<input id="atvQ" type="search" placeholder="Buscar ativo (${nomes.length} disponíveis)" autocomplete="off" style="font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:44px;width:100%"><div id="atvL" role="listbox" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column">${listaAtivos("")}</div>`;
     h += `</section>`; }
   if (perfilAberto) {
