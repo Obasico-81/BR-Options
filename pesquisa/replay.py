@@ -154,6 +154,18 @@ def chance_com_juro(tese, S, eq, dias, vol, r=R_JURO):
     return acima(eq[1]) + 1 - acima(eq[0])
 
 
+def no_pior_lado(m, precos):
+    """Desfazer no pior lado do fechamento (vende pela compra, recompra pela venda), sem piso: a marcação antiga do app,
+    aqui só para medir a execução ruim. None se faltar preço."""
+    v = 0.0
+    for l, o in m.pernas:
+        p = (precos or {}).get(o.simbolo)
+        if not p or not p[0] > 0 or not p[1] >= p[0]:
+            return None
+        v += p[0] if l > 0 else -p[1]
+    return v * MT.LOTE * m.lotes - m.premio
+
+
 def no_meio(m, precos):
     """Resultado se a operação fosse desfeita no preço médio (compra+venda)/2 de cada perna. None se faltar preço."""
     v = 0.0
@@ -232,7 +244,7 @@ def main():
         for d in sorted({d for _, o in m.pernas for d in px.get((o.simbolo, venc), {}) if op["data"] < d < venc}):
             precos = {o.simbolo: (px[(o.simbolo, venc)].get(d) or [None])[:2] for _, o in m.pernas}
             precos = {k: v for k, v in precos.items() if v and v[0] is not None}
-            marcas.append({"d": d, "r": MT.resultado_no_dia(m, precos)}); meio.append({"d": d, "r": no_meio(m, precos)})
+            marcas.append({"d": d, "r": no_pior_lado(m, precos)}); meio.append({"d": d, "r": no_meio(m, precos)})
         rg = MT.regra_de_saida(m, marcas, venc)
         regra = (rg["r"] - taxas) if rg else segurar
         risco = m.perda_max
@@ -251,10 +263,14 @@ def main():
                 rv = MT.regra_de_saida(mv, meio, venc)
                 if rv:
                     pr = pior_dia.get(rv["d"]); pr = pr if pr is not None else rv["r"]
-                    # saída no médio, no pior lado e no meio do caminho entre os dois
-                    partes[nomev] = ((rv["r"] - taxas) / risco, (pr - taxas) / risco, ((rv["r"] + pr) / 2 - taxas) / risco)
+                    # saída no pregão seguinte, pelo médio (a regra dispara num fechamento; sai-se no próximo): tira o
+                    # efeito de um preço do fim do dia que não se repete
+                    seg = next((mk["r"] for mk in meio if mk["d"] > rv["d"] and mk["r"] is not None), None)
+                    prox = (seg - taxas) / risco if seg is not None else segurar / risco
+                    # saída no médio, no pior lado, no meio do caminho entre os dois e no médio do pregão seguinte
+                    partes[nomev] = ((rv["r"] - taxas) / risco, (pr - taxas) / risco, ((rv["r"] + pr) / 2 - taxas) / risco, prox)
                 else:
-                    partes[nomev] = (segurar / risco,) * 3
+                    partes[nomev] = (segurar / risco,) * 4
         linhas_res.append(dict(ativo=op["ativo"], data=op["data"], tese=op["tese"], prob=m.prob_implicita,
                                alem=alem_do_equilibrio(op["tese"], eq, ST), segurar=segurar / risco, ajuste=ajuste,
                                regra=regra / risco, saida=(rg["regra"] if rg else "vencimento"), d_saida=(rg["d"] if rg else venc),
@@ -391,24 +407,25 @@ def main():
         txt.append(f"| {NOME[t]} | segurar até o vencimento | {pct(sum(x > 0 for x in vs) / n)} | {100 * sum(vs) / n:+.1f} | {100 * vs[max(0, int(0.05 * n) - 1)]:+.0f} |")
     # 6. o alvo, por período: alvo + prazo (a regra das travas sem limite) × só prazo × segurar, com três execuções
     txt += ["", "## 6. Alvo (50% do ganho máximo) por período: alvo + prazo × só prazo × segurar até o vencimento",
-            "Resultado médio em % do risco, saída no preço médio / no meio do caminho / no pior lado do fechamento. "
-            "Diferença = (alvo + prazo) − segurar, saída no meio do caminho, com IC 95%.", "",
-            "| estrutura | período | operações | alvo + prazo | só prazo | segurar | diferença (meio do caminho) | IC 95% | lucro % alvo + prazo (meio) / segurar |",
-            "|---|---|---|---|---|---|---|---|---|"]
+            "Resultado médio em % do risco, saída no preço médio / no meio do caminho / no pior lado do fechamento / no médio do "
+            "pregão seguinte. Diferenças = (alvo + prazo) − segurar, com IC 95%.", "",
+            "| estrutura | período | operações | alvo + prazo | só prazo | segurar | diferença (meio do caminho) | IC 95% | diferença (pregão seguinte) | IC 95% |",
+            "|---|---|---|---|---|---|---|---|---|---|"]
     for t in ("alta", "baixa", "forte"):
         for titulo, de, ate in PERIODOS:
             F = [r for r in linhas_res if r["tese"] == t and de <= r["data"][:4] <= ate]
             if len(F) < 20:
                 continue
             n = len(F); med = lambda nomev, i: 100 * sum(r["partes"][nomev][i] for r in F) / n
-            dif = defaultdict(list)
+            dif, dif2 = defaultdict(list), defaultdict(list)
             for r in F:
                 dif[r["data"][:7]].append(r["partes"]["sem limite"][2] - r["segurar"])
-            ic = boot_media(dif, rnd)
-            txt.append(f"| {NOME[t]} | {titulo} | {n} | {med('sem limite', 0):+.1f} / {med('sem limite', 2):+.1f} / {med('sem limite', 1):+.1f} | "
-                       f"{med('só prazo', 0):+.1f} / {med('só prazo', 2):+.1f} / {med('só prazo', 1):+.1f} | {100 * sum(r['segurar'] for r in F) / n:+.1f} | "
-                       f"{med('sem limite', 2) - 100 * sum(r['segurar'] for r in F) / n:+.1f} | [{100 * ic[0]:+.1f}, {100 * ic[1]:+.1f}] | "
-                       f"{pct(sum(r['partes']['sem limite'][2] > 0 for r in F) / n)} / {pct(sum(r['segurar'] > 0 for r in F) / n)} |")
+                dif2[r["data"][:7]].append(r["partes"]["sem limite"][3] - r["segurar"])
+            ic, ic2 = boot_media(dif, rnd), boot_media(dif2, rnd); seg = 100 * sum(r["segurar"] for r in F) / n
+            v4 = lambda nomev: " / ".join(f"{med(nomev, i):+.1f}" for i in (0, 2, 1, 3))
+            txt.append(f"| {NOME[t]} | {titulo} | {n} | {v4('sem limite')} | {v4('só prazo')} | {seg:+.1f} | "
+                       f"{med('sem limite', 2) - seg:+.1f} | [{100 * ic[0]:+.1f}, {100 * ic[1]:+.1f}] | "
+                       f"{med('sem limite', 3) - seg:+.1f} | [{100 * ic2[0]:+.1f}, {100 * ic2[1]:+.1f}] |")
     txt += ["", "Limitações: observações sobrepostas (entradas a cada 5 pregões, prazos de ~45 dias); preço de fechamento "
             "(melhor oferta no fim do dia), não o preço que se consegue no meio do pregão; sem corretagem; no vencimento vale o strike do último pregão da série (a B3 ajusta por proventos e "
             "desdobramentos); se o código da série mudar no ajuste, fica o strike da entrada; risco aceito e caixa grandes (o limite de perda da put vendida fica em 70% do risco, como no app)."]
