@@ -84,9 +84,14 @@ def _custos(spread1: float, taxas1: float, n_pernas: int, lotes: int) -> dict:
     return dict(custo_total=_r2(s + t + f), custo_spread=_r2(s), custo_taxas=_r2(t), custo_fixo=_r2(f))
 
 
+# juro livre de risco (10% a.a.): no Black-Scholes dos perfis e na chance implícita. Sem ele a chance ficava baixa nas
+# operações de alta e alta nas de baixa (replay 2015–2026, pesquisa/replay.py).
+R_BS = 0.10
+
+
 def prob_acima(S: float, K: float, dias: int, vol: float) -> float:
     t = dias / 365
-    return _n((log(S / K) - 0.5 * vol**2 * t) / (vol * sqrt(t)))
+    return _n((log(S / K) + (R_BS - 0.5 * vol**2) * t) / (vol * sqrt(t)))
 
 
 def _liquidas(chain, tipo, dias_min, dias_max, spread_max, vol_min):
@@ -266,8 +271,7 @@ def montar_sinal(S: float, chain: list, vol_impl: float, perda_aceita: float, en
     return motivo
 
 
-# --- Black-Scholes pelo preço de mercado (juro 10% a.a.), usado só nos perfis e no theta da compra simples ---
-R_BS = 0.10
+# --- Black-Scholes pelo preço de mercado (juro R_BS), usado só nos perfis e no theta da compra simples ---
 PERFIS = {"maior": 0.20, "eq": 0.42, "freq": 0.72}   # delta-alvo: Lucro maior · Equilibrada · Lucro frequente
 
 
