@@ -86,7 +86,7 @@ jobs:
 
   iphone:
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     permissions:
       contents: write   # só para publicar a foto da tela no branch capturas
     steps:
@@ -130,7 +130,7 @@ jobs:
 
       # Cada comando com limite de tempo e hora no log: a primeira versão travou aqui sem dizer onde.
       - name: Abrir no simulador e fotografar a tela
-        timeout-minutes: 20
+        timeout-minutes: 30
         shell: bash
         run: |
           passo() { echo "[$(date -u +%H:%M:%S)] $*"; }
@@ -147,7 +147,9 @@ jobs:
           passo "estado: $(xcrun simctl list devices | grep "$UDID")"
           limite 180 xcrun simctl install "$UDID" "$APP"; passo "instalado"
           ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$APP/Info.plist")
-          limite 120 xcrun simctl launch "$UDID" "$ID"; passo "aberto ($ID)"
+          # abrir o app às vezes passa de 2 min nestas máquinas (2 em 5 builds até 05/11/2026): até 5 min, e uma 2ª tentativa
+          limite 300 xcrun simctl launch "$UDID" "$ID" || { passo "2ª tentativa de abrir"; xcrun simctl terminate "$UDID" "$ID" 2>/dev/null; limite 300 xcrun simctl launch "$UDID" "$ID"; }
+          passo "aberto ($ID)"
           sleep 30
           limite 60 xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/iphone/tela.png"; passo "foto tirada"
 
