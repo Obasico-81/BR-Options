@@ -25,13 +25,14 @@ RAIZ = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, RAIZ)
 from atualizar_dados import ATIVOS, campo, preco, iso, linhas_do_zip, montar_dia      # noqa: E402
 import montador as MT                                                                 # noqa: E402
+from dataclasses import replace                                                      # noqa: E402
 
 TESES = ("alta", "baixa", "forte", "alta_com_caixa", "aposta_alta", "aposta_baixa")
 NOME = {"alta": "Trava de alta", "baixa": "Trava de baixa", "forte": "Strangle comprado", "alta_com_caixa": "Put vendida coberta",
         "aposta_alta": "Call comprada", "aposta_baixa": "Put comprada"}
 PERIODOS = (("2015–2020", "2015", "2020"), ("2021–2025", "2021", "2025"), ("2026", "2026", "2026"), ("tudo", "0000", "9999"))
 B = 2000
-PERDA, CAIXA = 1e6, 1e8
+PERDA = CAIXA = 1e8   # risco aceito >= risco total, como o app garante (limiteRisco): o limite da put vendida fica em 70% do risco
 
 
 # ---------- leitura ----------
@@ -242,13 +243,24 @@ def main():
         pior_dia = {mk["d"]: mk["r"] for mk in marcas}
         regra_meio_pior = ((pior_dia.get(rm["d"]) if pior_dia.get(rm["d"]) is not None else rm["r"]) - taxas) if rm else segurar
         abaixo = any(mk["r"] is not None and mk["r"] < -risco for mk in marcas)
+        # cada parte da regra, conferida no preço médio: resultado com saída no médio e no pior lado daquele dia
+        partes = {}
+        if not op["tese"].startswith("aposta"):
+            for nomev, mv in (("completa", m), ("sem limite", replace(m, stop=-1e18)), ("sem alvo", replace(m, alvo=None)),
+                              ("só prazo", replace(m, alvo=None, stop=-1e18))):
+                rv = MT.regra_de_saida(mv, meio, venc)
+                if rv:
+                    pr = pior_dia.get(rv["d"])
+                    partes[nomev] = ((rv["r"] - taxas) / risco, ((pr if pr is not None else rv["r"]) - taxas) / risco)
+                else:
+                    partes[nomev] = (segurar / risco, segurar / risco)
         linhas_res.append(dict(ativo=op["ativo"], data=op["data"], tese=op["tese"], prob=m.prob_implicita,
                                alem=alem_do_equilibrio(op["tese"], eq, ST), segurar=segurar / risco, ajuste=ajuste,
                                regra=regra / risco, saida=(rg["regra"] if rg else "vencimento"), d_saida=(rg["d"] if rg else venc),
                                custo=m.custo_total / risco, venc=venc,
                                prob_r=chance_com_juro(op["tese"], op["S"], m.pontos_equilibrio, m.pernas[0][1].dias, op["iv"]),
                                regra_meio=regra_meio / risco, saida_meio=(rm["regra"] if rm else "vencimento"),
-                               regra_meio_pior=regra_meio_pior / risco, abaixo=abaixo))
+                               regra_meio_pior=regra_meio_pior / risco, abaixo=abaixo, partes=partes))
     print(f"{len(linhas_res)} operações medidas; {sum(r['ajuste'] for r in linhas_res)} com strike ajustado pela B3 até o vencimento", flush=True)
 
     txt = ["# Replay do app no histórico", "",
@@ -311,12 +323,11 @@ def main():
                        f"— / {100 * sum(r['segurar'] for r in F) / n:+.1f} | — | — | — / {pct(sum(r['segurar'] <= -0.9 for r in F) / n)} | — | — |")
 
     # 3. uma por vez
-    txt += ["", "## 3. Uma operação por vez (seguindo a regra de saída), por papel — tudo",
+    txt += ["", "## 3. Uma operação por vez (segurando até o vencimento), por papel — tudo",
             "| estrutura | papel | operações | lucro % | resultado somado (× risco) | maior sequência de perdas | maior queda acumulada (× risco) |",
             "|---|---|---|---|---|---|---|"]
     for t in TESES:
-        chave = "segurar" if t.startswith("aposta") else "regra"
-        saida = "venc" if t.startswith("aposta") else "d_saida"
+        chave, saida = "segurar", "venc"
         for nome in ATIVOS:
             F = sorted((r for r in linhas_res if r["tese"] == t and r["ativo"] == nome), key=lambda r: r["data"])
             seq, livre = [], ""
@@ -363,9 +374,23 @@ def main():
                    f"{med('regra'):+.1f} / {med('regra_meio'):+.1f} / {med('regra_meio_pior'):+.1f} / {med('segurar'):+.1f} | "
                    f"{100 * q('regra'):+.0f} / {100 * q('regra_meio'):+.0f} | {pct(sum(r['saida'] == 'limite' for r in F) / n)} / "
                    f"{pct(sum(r['saida_meio'] == 'limite' for r in F) / n)} |")
+    txt += ["", "## 5. Cada parte da regra de saída, conferida no preço médio — tudo",
+            "| estrutura | regra | lucro % (saída no médio) | resultado médio % do risco (saída no médio / no pior lado) | pior 5% (médio) |",
+            "|---|---|---|---|---|"]
+    for t in ("alta", "baixa", "forte", "alta_com_caixa"):
+        F = [r for r in linhas_res if r["tese"] == t]
+        if not F:
+            continue
+        n = len(F)
+        for nomev in ("completa", "sem limite", "sem alvo", "só prazo"):
+            vm = sorted(r["partes"][nomev][0] for r in F)
+            txt.append(f"| {NOME[t]} | {nomev} | {pct(sum(x > 0 for x in vm) / n)} | {100 * sum(vm) / n:+.1f} / "
+                       f"{100 * sum(r['partes'][nomev][1] for r in F) / n:+.1f} | {100 * vm[max(0, int(0.05 * n) - 1)]:+.0f} |")
+        vs = sorted(r["segurar"] for r in F)
+        txt.append(f"| {NOME[t]} | segurar até o vencimento | {pct(sum(x > 0 for x in vs) / n)} | {100 * sum(vs) / n:+.1f} | {100 * vs[max(0, int(0.05 * n) - 1)]:+.0f} |")
     txt += ["", "Limitações: observações sobrepostas (entradas a cada 5 pregões, prazos de ~45 dias); preço de fechamento "
             "(melhor oferta no fim do dia), não o preço que se consegue no meio do pregão; sem corretagem; no vencimento vale o strike do último pregão da série (a B3 ajusta por proventos e "
-            "desdobramentos); se o código da série mudar no ajuste, fica o strike da entrada; risco aceito grande (o limite de perda da put vendida vira 70% do risco por lote)."]
+            "desdobramentos); se o código da série mudar no ajuste, fica o strike da entrada; risco aceito e caixa grandes (o limite de perda da put vendida fica em 70% do risco, como no app)."]
     saida = "\n".join(txt)
     print(saida)
     if a.saida:
