@@ -139,6 +139,31 @@ def alem_do_equilibrio(tese, eq, ST):
     return ST < eq[0] or ST > eq[1]
 
 
+R_JURO = 0.11   # o mesmo juro com que o atualizador tira a volatilidade implícita (atualizar_dados.R)
+
+
+def chance_com_juro(tese, S, eq, dias, vol, r=R_JURO):
+    """Mesma conta da tela (prob_acima), com o juro na deriva: d2 = (ln(S/K) + (r − σ²/2)t) / (σ√t)."""
+    t = dias / 365
+    acima = lambda K: 0.5 * (1 + math.erf((math.log(S / K) + (r - 0.5 * vol * vol) * t) / (vol * math.sqrt(t)) / math.sqrt(2)))
+    if tese in ("alta", "alta_com_caixa", "aposta_alta"):
+        return acima(eq[0])
+    if tese in ("baixa", "aposta_baixa"):
+        return 1 - acima(eq[0])
+    return acima(eq[1]) + 1 - acima(eq[0])
+
+
+def no_meio(m, precos):
+    """Resultado se a operação fosse desfeita no preço médio (compra+venda)/2 de cada perna. None se faltar preço."""
+    v = 0.0
+    for l, o in m.pernas:
+        p = (precos or {}).get(o.simbolo)
+        if not p or not p[0] > 0 or not p[1] >= p[0]:
+            return None
+        v += l * (p[0] + p[1]) / 2
+    return v * MT.LOTE * m.lotes - m.premio
+
+
 def fech_no(fech, venc):
     ds = [d for d in fech if d <= venc]
     if not ds:
@@ -202,17 +227,28 @@ def main():
         dk = sum(k - o.strike for (_, o), k in zip(m.pernas, ks)) / len(ks)
         eq = tuple(x + dk for x in m.pontos_equilibrio)
         segurar = no_vencimento(m, ST, ks) - taxas
-        marcas = []
+        marcas, meio = [], []
         for d in sorted({d for _, o in m.pernas for d in px.get((o.simbolo, venc), {}) if op["data"] < d < venc}):
             precos = {o.simbolo: (px[(o.simbolo, venc)].get(d) or [None])[:2] for _, o in m.pernas}
-            marcas.append({"d": d, "r": MT.resultado_no_dia(m, {k: v for k, v in precos.items() if v and v[0] is not None})})
+            precos = {k: v for k, v in precos.items() if v and v[0] is not None}
+            marcas.append({"d": d, "r": MT.resultado_no_dia(m, precos)}); meio.append({"d": d, "r": no_meio(m, precos)})
         rg = MT.regra_de_saida(m, marcas, venc)
         regra = (rg["r"] - taxas) if rg else segurar
         risco = m.perda_max
+        # variantes da marcação: regra conferida no preço médio e saída no preço médio; ou conferida no médio e saída no
+        # pior lado (compra/venda do fechamento) naquele dia
+        rm = MT.regra_de_saida(m, meio, venc)
+        regra_meio = (rm["r"] - taxas) if rm else segurar
+        pior_dia = {mk["d"]: mk["r"] for mk in marcas}
+        regra_meio_pior = ((pior_dia.get(rm["d"]) if pior_dia.get(rm["d"]) is not None else rm["r"]) - taxas) if rm else segurar
+        abaixo = any(mk["r"] is not None and mk["r"] < -risco for mk in marcas)
         linhas_res.append(dict(ativo=op["ativo"], data=op["data"], tese=op["tese"], prob=m.prob_implicita,
                                alem=alem_do_equilibrio(op["tese"], eq, ST), segurar=segurar / risco, ajuste=ajuste,
                                regra=regra / risco, saida=(rg["regra"] if rg else "vencimento"), d_saida=(rg["d"] if rg else venc),
-                               custo=m.custo_total / risco, venc=venc))
+                               custo=m.custo_total / risco, venc=venc,
+                               prob_r=chance_com_juro(op["tese"], op["S"], m.pontos_equilibrio, m.pernas[0][1].dias, op["iv"]),
+                               regra_meio=regra_meio / risco, saida_meio=(rm["regra"] if rm else "vencimento"),
+                               regra_meio_pior=regra_meio_pior / risco, abaixo=abaixo))
     print(f"{len(linhas_res)} operações medidas; {sum(r['ajuste'] for r in linhas_res)} com strike ajustado pela B3 até o vencimento", flush=True)
 
     txt = ["# Replay do app no histórico", "",
@@ -294,6 +330,39 @@ def main():
                 cur = cur + 1 if r[chave] < 0 else 0; maior = max(maior, cur)
                 acum += r[chave]; pico = max(pico, acum); queda = max(queda, pico - acum)
             txt.append(f"| {NOME[t]} | {nome} | {len(seq)} | {pct(sum(r[chave] > 0 for r in seq) / len(seq))} | {acum:+.1f} | {maior} | {queda:.1f} |")
+    # 4. diagnóstico: chance com o juro e a marcação no preço médio
+    txt += ["", "## 4a. Chance com o juro na conta (r = 11% a.a., o mesmo da volatilidade implícita) — tudo",
+            "| estrutura | operações | chance da tela | chance com juro | terminou além do equilíbrio |", "|---|---|---|---|---|"]
+    for t in TESES:
+        F = [r for r in linhas_res if r["tese"] == t]
+        if F:
+            txt.append(f"| {NOME[t]} | {len(F)} | {pct(sum(r['prob'] for r in F) / len(F))} | {pct(sum(r['prob_r'] for r in F) / len(F))} | "
+                       f"{pct(sum(r['alem'] for r in F) / len(F))} |")
+    txt += ["", "| chance com juro | operações | chance média % | terminou além do equilíbrio % | IC 95% |", "|---|---|---|---|---|"]
+    for lo, hi in faixas:
+        F = [r for r in linhas_res if lo <= r["prob_r"] < hi]
+        if len(F) < 20:
+            continue
+        al = defaultdict(list)
+        for r in F:
+            al[r["data"][:7]].append(r["alem"])
+        ia = boot_media(al, rnd)
+        txt.append(f"| {int(lo * 100)}–{min(int(hi * 100), 100)}% | {len(F)} | {pct(sum(r['prob_r'] for r in F) / len(F))} | "
+                   f"{pct(sum(r['alem'] for r in F) / len(F))} | [{pct(ia[0])}, {pct(ia[1])}] |")
+    txt += ["", "## 4b. Marcação diária: pior lado do fechamento (como o app hoje) × preço médio — tudo",
+            "| estrutura | operações | alguma marcação pior que o risco máximo % | lucro % (pior / médio / médio→pior) | resultado médio % do risco (pior / médio / médio→pior / segurar) | pior 5% (pior / médio) | saídas no limite % (pior / médio) |",
+            "|---|---|---|---|---|---|---|"]
+    for t in ("alta", "baixa", "forte", "alta_com_caixa"):
+        F = [r for r in linhas_res if r["tese"] == t]
+        if not F:
+            continue
+        n = len(F); q = lambda k: sorted(r[k] for r in F)[max(0, int(0.05 * n) - 1)]
+        med = lambda k: 100 * sum(r[k] for r in F) / n
+        txt.append(f"| {NOME[t]} | {n} | {pct(sum(r['abaixo'] for r in F) / n)} | {pct(sum(r['regra'] > 0 for r in F) / n)} / "
+                   f"{pct(sum(r['regra_meio'] > 0 for r in F) / n)} / {pct(sum(r['regra_meio_pior'] > 0 for r in F) / n)} | "
+                   f"{med('regra'):+.1f} / {med('regra_meio'):+.1f} / {med('regra_meio_pior'):+.1f} / {med('segurar'):+.1f} | "
+                   f"{100 * q('regra'):+.0f} / {100 * q('regra_meio'):+.0f} | {pct(sum(r['saida'] == 'limite' for r in F) / n)} / "
+                   f"{pct(sum(r['saida_meio'] == 'limite' for r in F) / n)} |")
     txt += ["", "Limitações: observações sobrepostas (entradas a cada 5 pregões, prazos de ~45 dias); preço de fechamento "
             "(melhor oferta no fim do dia), não o preço que se consegue no meio do pregão; sem corretagem; no vencimento vale o strike do último pregão da série (a B3 ajusta por proventos e "
             "desdobramentos); se o código da série mudar no ajuste, fica o strike da entrada; risco aceito grande (o limite de perda da put vendida vira 70% do risco por lote)."]
