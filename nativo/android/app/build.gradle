@@ -16,7 +16,20 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Chave fixa só para o APK de teste (debug): assim um APK novo instala por cima do anterior sem apagar os dados do
+    // app. Não é segredo e não serve para a loja (a da Google Play será outra, guardada fora do repositório).
+    signingConfigs {
+        teste {
+            storeFile file("teste.keystore")
+            storePassword "android"
+            keyAlias "teste"
+            keyPassword "android"
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.teste
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
