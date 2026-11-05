@@ -236,11 +236,12 @@ function miniGrafico(ativo, w = 76, h = 30){
   return {vr, cor, classe, fonte: t ? "tendencia" : "faixa", txt, n: v.length, svg: `<svg class="mini" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${cor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`};
 }
 // --- Gráfico de payoff: resultado no vencimento (R$) por preço da ação. Linha tracejada no preço de hoje, pontos no
-// equilíbrio e, ao fundo, a faixa em que a ação costuma oscilar até o vencimento (volatilidade dos últimos 60 pregões).
+// equilíbrio e, ao fundo, a oscilação que o preço das opções indica até o vencimento (±1 desvio pela volatilidade
+// implícita, a mesma base da chance implícita, que o replay 2015–2026 mostrou calibrada).
 // Só informação: mostra onde está o preço e onde a operação dá resultado, sem dizer para onde a ação vai.
 // o: {lo, hi, hoje, osc (fração ou null), marca (preço do ponto móvel ou null)}
 function payoffSvg(m, o){
-  const W = 340, H = 190, ml = 6, mr = 6, mt = 26, mb = 22, n = 90;
+  const W = 340, H = 204, ml = 6, mr = 6, mt = 40, mb = 22, n = 90;
   const xs = Array.from({length: n + 1}, (_, i) => o.lo + (o.hi - o.lo) * i / n);
   const quebras = [...m.pernas.map(([, x]) => x.k), ...m.equilibrio].filter(k => k > o.lo && k < o.hi);
   const pts = [...new Set([...xs, ...quebras])].sort((x, y) => x - y).map(p => [p, M.resultadoNoVencimento(m, p)]);
@@ -251,7 +252,8 @@ function payoffSvg(m, o){
   let s = `<svg class="payoff" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Resultado no vencimento por preço da ação"><defs><clipPath id="${id}c"><rect x="0" y="0" width="${W}" height="${zy}"/></clipPath><clipPath id="${id}b"><rect x="0" y="${zy}" width="${W}" height="${H}"/></clipPath></defs>`;
   if (o.osc) { const a = Math.max(o.lo, o.hoje * (1 - o.osc)), b = Math.min(o.hi, o.hoje * (1 + o.osc));
     const pc = `${(o.osc * 100).toLocaleString("pt-BR", {maximumFractionDigits: 0})}%`;
-    if (b > a) { s += `<rect x="${f(X(a))}" y="${mt - 4}" width="${f(X(b) - X(a))}" height="${H - mt - mb + 4}" fill="var(--muted)" opacity="0.13"/>`;
+    if (b > a) { const cx = (X(a) + X(b)) / 2, anc = cx > W * 0.7 ? "end" : cx < W * 0.3 ? "start" : "middle";
+      s += `<rect x="${f(X(a))}" y="${mt - 4}" width="${f(X(b) - X(a))}" height="${H - mt - mb + 4}" fill="var(--muted)" opacity="0.13"/><text x="${f(anc === "middle" ? cx : anc === "end" ? X(b) : X(a))}" y="${mt - 24}" font-size="11" fill="var(--muted)" text-anchor="${anc}">oscilação esperada pelo mercado ±${pc}</text>`;
       for (const [p, rot, anc] of [[a, `−${pc}`, "start"], [b, `+${pc}`, "end"]]) if (p > o.lo && p < o.hi)
         s += `<line x1="${f(X(p))}" x2="${f(X(p))}" y1="${mt - 4}" y2="${H - mb}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 3"/><text x="${f(X(p) + (anc === "start" ? 3 : -3))}" y="${H - mb - 4}" font-size="10" fill="var(--muted)" text-anchor="${anc}">${rot}</text>`; } }
   s += `<polygon points="${area}" fill="var(--good)" opacity="0.16" clip-path="url(#${id}c)"/><polygon points="${area}" fill="var(--bad)" opacity="0.16" clip-path="url(#${id}b)"/>`;
@@ -274,11 +276,13 @@ function distEquilibrio(m, S){
   return d > 0 ? `${hoje} · precisa subir ${pc(d)}` : `${hoje} · pode cair até ${pc(d)}`;
 }
 // legenda do gráfico de payoff (texto, abaixo do gráfico)
-const payoffLegenda = (m, o) => `<p class="small muted" style="margin-top:4px">Linha: resultado no vencimento por preço da ação. Pontos: equilíbrio (${m.equilibrio.map(e => brl(e, 2)).join(" e ")}).${o.osc ? ` Faixa entre as linhas pontilhadas: onde a ação costuma oscilar até o vencimento (±${(o.osc * 100).toLocaleString("pt-BR", {maximumFractionDigits: 1})}%, pelos últimos 60 pregões).` : ""}</p>`;
+const payoffLegenda = (m, o) => { const ks = [...new Set(m.pernas.map(([, x]) => x.k))].sort((x, y) => x - y);
+  return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:8px"><span class="small">Chance implícita de terminar com lucro${o.naEntrada ? " (na entrada)" : ""}</span><strong style="font-size:20px">${pct(m.probImplicita)}</strong></div>
+   <p class="small muted" style="margin-top:4px">${ks.length > 1 ? "Strikes" : "Strike"} ${ks.map(k => brl(k, 2)).join(" e ")} · equilíbrio ${m.equilibrio.map(e => brl(e, 2)).join(" e ")} (ponto branco).${o.osc ? " Pelo preço das opções, a ação termina dentro da faixa cinza em cerca de 2 de cada 3 vezes." : ""}</p>`; };
 function payoffOpcoes(P, lo, hi){
   const hoje = SNAP.ativos[P.ativo]?.S ?? SNAP.fechamentos[P.ativo]?.[S.data], venc = addDias(P.data, P.m.dias);
-  const falta = Math.max(1, Math.round((Date.parse(venc) - Date.parse(S.data)) / 864e5)), vr = M.volReal60(SNAP.fechamentos[P.ativo] || {}, S.data);
-  return {lo, hi, hoje, osc: vr === null || venc <= S.data ? null : vr * Math.sqrt(falta / 365), marca: slider, id: "pa"};
+  const falta = Math.max(1, Math.round((Date.parse(venc) - Date.parse(S.data)) / 864e5)), iv = SNAP.ativos[P.ativo]?.iv;
+  return {lo, hi, hoje, osc: !iv || venc <= S.data ? null : iv * Math.sqrt(falta / 365), marca: slider, id: "pa", naEntrada: true};
 }
 // faixa do gráfico (e do controle de preço): 80% a 120% do preço (desde R$ 0 na put vendida), aberta para caber o
 // equilíbrio e a faixa de oscilação em volta do preço de hoje, até 50% para cada lado
@@ -422,7 +426,7 @@ function vCen(){
   if (typeof m === "string") { tela="obj"; return vObj(); }
   const rows = cenarios(m), rep = fechamentoNoVenc(S.ativo, S.data, m.dias);
   let h = topo("cartao","Voltar",3) + `<div><h1>O que pode acontecer</h1><p class="muted" style="margin-top:6px">Resultado no vencimento, por preço da ação.</p></div>`;
-  { const a = dia(), mv = M.movimentoNecessario(m, a.S, SNAP.fechamentos[S.ativo], S.data), fx = faixaPayoff(m, a.S, a.S, mv.oscilacao), o = {...fx, hoje: a.S, osc: mv.oscilacao, marca: null, id: "pc"};
+  { const a = dia(), osc = a.iv ? a.iv * Math.sqrt(m.dias / 365) : null, fx = faixaPayoff(m, a.S, a.S, osc), o = {...fx, hoje: a.S, osc, marca: null, id: "pc"};
     h += `<section class="card">${payoffSvg(m, o)}${payoffLegenda(m, o)}</section>`; }
   h += `<section class="card scroll"><table>${rows.map(x=>`<tr><td>${x.zero?"Ação a R$ 0":`Ação em ${brl(x.p,2)}`}${x.eq?' <span class="small muted">· equilíbrio</span>':""}</td><td style="color:${x.r>0?"var(--good)":x.r<0?"var(--bad)":"inherit"}">${x.r===0?"R$ 0":sgn(x.r)}</td></tr>`).join("")}</table></section>`;
   if (rep){ const r = M.resultadoNoVencimento(m, rep.preco);
