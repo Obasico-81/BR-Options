@@ -130,8 +130,8 @@ def montar(tese: str, S: float, chain: list, vol_impl: float, perda_aceita: floa
         if caixa < caixa1:
             return f"Falta caixa: a put vendida exige reservar {brl(caixa1)}."
         lotes = int(caixa // caixa1); perda_lote = perda1
-        # perda aceita: a perda máxima é o caixa; o stop trava antes
-        stop = -min(stop_frac * perda1, perda_aceita)
+        # a perda máxima é o caixa; o limite de saída trava antes, e no total (todos os lotes) não passa do risco aceito
+        stop = -min(stop_frac * perda1, perda_aceita / lotes) if lotes else 0.0
     else:
         lotes = int(perda_aceita // perda1) if perda1 > 0 else 0
         stop = -stop_frac * perda1
@@ -253,7 +253,7 @@ def montar_sinal(S: float, chain: list, vol_impl: float, perda_aceita: float, en
             if lotes < 1:
                 motivo = f"A menor operação arrisca {brl(perda1)}, acima do seu limite de {brl(perda_aceita)}."; continue
         else:
-            lotes = int(caixa // (p.strike * LOTE)); stop = -min(stop_frac * perda1, perda_aceita)
+            lotes = int(caixa // (p.strike * LOTE)); stop = -min(stop_frac * perda1, perda_aceita / lotes)   # total ≤ risco aceito
         taxas = sum(TAXA_B3 * o.mid * LOTE for l, o in pernas) * 2
         c = _custos(abs(premio - premio_mid), taxas, len(pernas), lotes)
         prob = prob_acima(S, eq[0], d, vol_impl)

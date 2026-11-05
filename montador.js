@@ -72,7 +72,7 @@
     if (tese === "alta_com_caixa") {
       const caixa1 = pernas[0][1].k * LOTE;
       if (caixa < caixa1) return "Falta caixa: a put vendida exige reservar R$ " + fmt(caixa1) + ".";
-      lotes = Math.floor(caixa / caixa1); stop = -Math.min(stopFrac * perda1, perdaAceita);
+      lotes = Math.floor(caixa / caixa1); stop = -Math.min(stopFrac * perda1, perdaAceita / lotes);   // limite total ≤ risco aceito
     } else { lotes = perda1 > 0 ? Math.floor(perdaAceita / perda1) : 0; stop = -stopFrac * perda1; }
     if (lotes < 1) return "A menor operação arrisca R$ " + fmt(perda1) + ", acima do seu limite de R$ " + fmt(perdaAceita) + ".";
     const taxas = pernas.reduce((s, [l, x]) => s + TAXA_B3 * mid(x) * LOTE, 0) * 2;
@@ -120,7 +120,7 @@
         if (perda1 <= 0 || ganho1 / perda1 < minRR) { motivo = "A trava custa " + brl0(perda1) + " para ganhar no máximo " + brl0(ganho1) + ": ganho máximo menor que o risco."; continue; }
         lotes = Math.floor(perdaAceita / perda1); stop = -stopFrac * perda1;
         if (lotes < 1) { motivo = "A menor operação arrisca " + brl0(perda1) + ", acima do seu limite de " + brl0(perdaAceita) + "."; continue; }
-      } else { lotes = Math.floor(caixa / (p.k * LOTE)); stop = -Math.min(stopFrac * perda1, perdaAceita); }
+      } else { lotes = Math.floor(caixa / (p.k * LOTE)); stop = -Math.min(stopFrac * perda1, perdaAceita / lotes); }   // limite total ≤ risco aceito
       const taxas = pernas.reduce((s, [l, x]) => s + TAXA_B3 * mid(x) * LOTE, 0) * 2;
       const prob = probAcima(S, eq[0], d, volImpl);
       return { tese, estrutura: est, pernas, lotes, dias: d, premio: r2(premio * lotes), perdaMax: r2(perda1 * lotes), ganhoMax: r2(ganho1 * lotes), equilibrio: eq.map(r2),

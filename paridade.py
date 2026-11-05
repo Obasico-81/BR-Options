@@ -217,6 +217,8 @@ for cor in CORRETAGENS:
             if not ok: print("ERRO", rotulo, k, "| py:", v, "| js:", j)
             falhas += 0 if ok else 1; continue
         montados += 1
+        if v["stop"] < -300.01:   # regra do produto: o limite de saída (todos os lotes) nunca passa do risco aceito (300)
+            print("ERRO", rotulo, k, "limite de saída acima do risco aceito:", v["stop"]); falhas += 1
         for x in v["regras"]: regras[x["regra"] if x else "nenhuma"] = regras.get(x["regra"] if x else "nenhuma", 0) + 1
         ok = all(perto(v[f], j[f]) for f in ("lotes", "premio", "perda", "custo", "c_spread", "c_taxas", "c_fixo", "stop", "alvo")) and (v["ganho"] is None) == (j["ganho"] is None) \
             and all(perto(a, b) for a, b in zip(v["eq"], j["eq"])) and abs(v["prob"] - j["prob"]) < 0.002 and [list(x) for x in v["ks"]] == j["ks"] \
