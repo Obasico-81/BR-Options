@@ -16,7 +16,10 @@
     return s * y;
   };
   const N = (x) => 0.5 * (1 + erf(x / Math.SQRT2));
-  const probAcima = (S, K, dias, vol) => { const t = dias / 365; return N((Math.log(S / K) - 0.5 * vol * vol * t) / (vol * Math.sqrt(t))); };
+  // juro livre de risco (10% a.a.): no Black-Scholes dos perfis e na chance implícita. Sem ele a chance ficava baixa
+  // nas operações de alta e alta nas de baixa (replay 2015–2026, pesquisa/replay.py).
+  const R_BS = 0.10;
+  const probAcima = (S, K, dias, vol) => { const t = dias / 365; return N((Math.log(S / K) + (R_BS - 0.5 * vol * vol) * t) / (vol * Math.sqrt(t))); };
   const liquidas = (ch, tipo, spreadMax, volMin) => ch.filter((o) => o.t === tipo && o.b > 0 && o.a >= o.b && spread(o) <= spreadMax && o.v >= volMin);
   const perto = (L, alvo) => L.length ? L.reduce((m, o) => {
     const key = (x) => [Math.abs(x.k - alvo), spread(x)];
@@ -129,8 +132,7 @@
     return motivo;
   }
 
-  // --- delta de Black-Scholes pelo preço de mercado (juro 10% a.a.), usado só nos perfis da compra simples ---
-  const R_BS = 0.10;
+  // --- delta de Black-Scholes pelo preço de mercado (juro R_BS), usado só nos perfis da compra simples ---
   const bsPreco = (S, K, T, v, tipo) => { const d1 = (Math.log(S / K) + (R_BS + v * v / 2) * T) / (v * Math.sqrt(T)), d2 = d1 - v * Math.sqrt(T);
     return tipo === "C" ? S * N(d1) - K * Math.exp(-R_BS * T) * N(d2) : K * Math.exp(-R_BS * T) * N(-d2) - S * N(-d1); };
   const ivOpt = (S, o) => { const T = o.d / 365, p = mid(o); let lo = 0.02, hi = 3;
