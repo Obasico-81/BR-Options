@@ -45,9 +45,23 @@ Cada parte da regra, conferida no preço médio (resultado médio em % do risco;
 
 - O **limite** (sair em −70% do risco) piora as travas em todas as hipóteses de execução: a trava já tem o risco
   fechado no prêmio, e o limite realiza a perda em dias de preço ruim.
-- O **alvo** (50% do ganho máximo) depende de como se sai: no preço médio melhora; saindo no pior lado, piora. Sem
-  conclusão até medir uma execução realista e conferir por período.
+- O **alvo** (50% do ganho máximo) não muda o resultado esperado quando a saída é realista (seção 2a).
 - Sair antes custa o spread de novo: na entrada o spread já custa 17% do risco da trava, em média.
+
+## 2a. O alvo, com saída realista (run 41948142384, travas já sem limite)
+
+Resultado médio em % do risco. A regra é conferida no preço médio do fechamento; a saída é medida de quatro jeitos.
+
+| estrutura | alvo + prazo: médio / meio do caminho / pior lado / médio do pregão seguinte | segurar | diferença, pregão seguinte | IC 95% |
+|---|---|---|---|---|
+| Trava de alta | +9,4 / −15,7 / −40,9 / −12,1 | −12,8 | +0,7 | [−4,5; +5,7] |
+| Trava de baixa | +23,1 / −13,2 / −49,5 / −15,3 | −11,7 | −3,6 | [−9,8; +2,5] |
+| Strangle (só prazo) | +15,9 / +12,5 / +9,2 / +14,9 | +12,7 | +2,2 | [−0,3; +4,7] |
+
+O ganho do alvo saindo no preço médio do mesmo fechamento (+22 pontos na trava de alta) some quando a saída é no
+pregão seguinte: era o preço do fim do dia que não se repete (oferta isolada que puxa o médio). Por período, a diferença
+no pregão seguinte fica entre −4,8 e +9,1 pontos, com todos os intervalos incluindo zero. **Conclusão: o alvo não ajuda
+nem atrapalha o resultado médio**; muda só quando a operação termina. Fica no app como está, sem promessa de resultado.
 
 ## 3. Uma operação por vez (segurando até o vencimento)
 
