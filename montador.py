@@ -42,7 +42,7 @@ class Montagem:
     prob_implicita: float      # probabilidade implícita no preço de terminar com lucro
     custo_total: float         # custo_spread + custo_taxas + custo_fixo
     alvo: Optional[float]      # resultado em R$ que dispara a saída por ganho
-    stop: float                # resultado (negativo) que dispara a saída por perda
+    stop: Optional[float]      # resultado (negativo) que dispara a saída por perda; None = sem limite (trava e strangle)
     data_max_dias: int         # sair quando faltar este número de dias
     avisos: tuple = ()
     theta_dia: Optional[float] = None   # R$/dia que a operação desvaloriza se nada mudar (só compra simples)
@@ -139,7 +139,7 @@ def montar(tese: str, S: float, chain: list, vol_impl: float, perda_aceita: floa
         stop = -min(stop_frac * perda1, perda_aceita / lotes) if lotes else 0.0
     else:
         lotes = int(perda_aceita // perda1) if perda1 > 0 else 0
-        stop = -stop_frac * perda1
+        stop = None   # trava e strangle: sem limite (o risco já é o que se pagou; replay 2015–2026)
     if lotes < 1:
         return f"A menor operação arrisca {brl(perda1)}, acima do seu limite de {brl(perda_aceita)}."
     taxas = sum(TAXA_B3 * o.mid * LOTE for l, o in pernas) * 2
@@ -155,7 +155,7 @@ def montar(tese: str, S: float, chain: list, vol_impl: float, perda_aceita: floa
     return Montagem(tese, est, tuple(pernas), lotes, round(premio * lotes, 2), round(perda1 * lotes, 2),
                     None if ganho is None else round(ganho * lotes, 2), tuple(round(x, 2) for x in eq),
                     round(prob, 3), c.pop("custo_total"),
-                    None if alvo is None else round(alvo * lotes, 2), round(stop * lotes, 2),
+                    None if alvo is None else round(alvo * lotes, 2), None if stop is None else round(stop * lotes, 2),
                     7, tuple(avisos), **c)
 
 
@@ -254,7 +254,7 @@ def montar_sinal(S: float, chain: list, vol_impl: float, perda_aceita: float, en
             if perda1 <= 0 or ganho1 / perda1 < min_rr:
                 motivo = f"A trava custa {brl(perda1)} para ganhar no máximo {brl(ganho1)}: ganho máximo menor que o risco."
                 continue
-            lotes = int(perda_aceita // perda1); stop = -stop_frac * perda1
+            lotes = int(perda_aceita // perda1); stop = None   # trava: sem limite (o risco já é o que se pagou)
             if lotes < 1:
                 motivo = f"A menor operação arrisca {brl(perda1)}, acima do seu limite de {brl(perda_aceita)}."; continue
         else:
@@ -267,7 +267,7 @@ def montar_sinal(S: float, chain: list, vol_impl: float, perda_aceita: float, en
                   "Nos testes de 2015–2025 nenhuma estrutura teve lucro médio estável."]
         return Montagem(tese, est, tuple(pernas), lotes, round(premio * lotes, 2), round(perda1 * lotes, 2),
                         round(ganho1 * lotes, 2), tuple(round(x, 2) for x in eq), round(prob, 3),
-                        c.pop("custo_total"), round(alvo_frac * ganho1 * lotes, 2), round(stop * lotes, 2), 7, tuple(avisos), **c)
+                        c.pop("custo_total"), round(alvo_frac * ganho1 * lotes, 2), None if stop is None else round(stop * lotes, 2), 7, tuple(avisos), **c)
     return motivo
 
 
@@ -434,15 +434,21 @@ def _r2(x: float) -> float:
 
 
 def resultado_no_dia(m: Montagem, precos: dict) -> Optional[float]:
-    """Resultado (R$, todos os lotes) se a operação fosse desfeita no fechamento de um dia: o lado comprado vende pela
-    melhor compra e o vendido recompra pela melhor venda. precos: {símbolo: [compra, venda]}. None se faltar preço."""
+    """Resultado (R$, todos os lotes) se a operação fosse desfeita no fechamento de um dia, pelo preço médio de cada perna
+    ((compra + venda) / 2), nunca abaixo do risco máximo. precos: {símbolo: [compra, venda]}. None se faltar preço.
+    Espelha resultadoNoDia do montador.js."""
     v = 0.0
     for l, o in m.pernas:
         p = (precos or {}).get(o.simbolo)
         if not p or not p[0] > 0 or not p[1] >= p[0]:
             return None
-        v += p[0] if l > 0 else -p[1]
-    return _r2(v * LOTE * m.lotes - m.premio)
+        v += l * (p[0] + p[1]) / 2
+    return _r2(max(v * LOTE * m.lotes - m.premio, -m.perda_max))
+
+
+def resultado_com_precos(m: Montagem, precos: list) -> float:
+    """Resultado com os preços em que cada perna foi de fato desfeita (encerramento registrado): sem piso."""
+    return _r2(sum(l * p for (l, _), p in zip(m.pernas, precos)) * LOTE * m.lotes - m.premio)
 
 
 def execucao(m: Montagem, lotes: int, precos) -> Montagem:

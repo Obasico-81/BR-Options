@@ -86,7 +86,8 @@ def resumo(m, nome, S, theta=False):
     mv = movimento_necessario(m, S, snap["fechamentos"][nome], snap["data"]); d["mov"] = [mv["precisa"], mv["oscilacao"]]
     p0, p1 = PRECOS[nome]; dias = m.pernas[0][1].dias; venc = add_dias(snap["data"], dias)
     sem = {k: v for k, v in p0.items() if k != m.pernas[0][1].simbolo}
-    d["marc"] = [resultado_no_dia(m, p0), resultado_no_dia(m, p1), resultado_no_dia(m, sem)]
+    absurdo = {o.simbolo: ([0.01, 0.02] if l > 0 else [0.5, 99.0]) for l, o in m.pernas}   # piso no risco máximo
+    d["marc"] = [resultado_no_dia(m, p0), resultado_no_dia(m, p1), resultado_no_dia(m, sem), resultado_no_dia(m, absurdo)]
     # operação real: 1 lote a mais e preços 5% piores que os da montagem (compra mais cara, venda mais barata)
     x = execucao(m, m.lotes + 1, [r2(o.ask * 1.05) if l > 0 else r2(o.bid * 0.95) for l, o in m.pernas])
     d["ex"] = [x.premio, x.perda_max, x.ganho_max, list(x.pontos_equilibrio), x.alvo, x.stop, resultado_no_dia(x, p0),
@@ -139,7 +140,8 @@ const res=(m,theta,n,S)=>{ if(typeof m==='string') return m;
   const d={lotes:m.lotes,premio:m.premio,perda:m.perdaMax,ganho:m.ganhoMax,eq:m.equilibrio,prob:m.probImplicita,custo:m.custoTotal,c_spread:m.custoSpread,c_taxas:m.custoTaxas,c_fixo:m.custoFixo,alvo:m.alvo||0,stop:m.stop||0,ks:m.pernas.map(([l,o])=>[l,o.t,o.k,o.d])};
   if(theta) d.theta=m.thetaDia; const mv=M.movimentoNecessario(m,S,s.fechamentos[n],s.data); d.mov=[mv.precisa,mv.oscilacao];
   const [p0,p1]=PR[n], venc=addD(s.data,m.dias), sem={...p0}; delete sem[m.pernas[0][1].s];
-  d.marc=[M.resultadoNoDia(m,p0),M.resultadoNoDia(m,p1),M.resultadoNoDia(m,sem)];
+  const absurdo=Object.fromEntries(m.pernas.map(([l,o])=>[o.s,l>0?[0.01,0.02]:[0.5,99]]));
+  d.marc=[M.resultadoNoDia(m,p0),M.resultadoNoDia(m,p1),M.resultadoNoDia(m,sem),M.resultadoNoDia(m,absurdo)];
   const x=M.execucao(m,{lotes:m.lotes+1,precos:m.pernas.map(([l,o])=>l>0?r2(o.a*1.05):r2(o.b*0.95))});
   d.ex=[x.premio,x.perdaMax,x.ganhoMax,x.equilibrio,x.alvo,x.stop,M.resultadoNoDia(x,p0),x.pernas.map(([l,o])=>l>0?o.a:o.b)];
   d.regras=[false,true].map(peq=>M.regraDeSaida(m,marcas(m.perdaMax,m.dias,peq),venc)).concat([M.regraDeSaida(m,[{d:venc,r:10*m.perdaMax}],venc)]); return d; };
@@ -217,6 +219,8 @@ for cor in CORRETAGENS:
             if not ok: print("ERRO", rotulo, k, "| py:", v, "| js:", j)
             falhas += 0 if ok else 1; continue
         montados += 1
+        if v["marc"][3] is None or v["marc"][3] < -v["perda"] - 0.01:   # marcação nunca abaixo do risco máximo
+            print("ERRO", rotulo, k, "marcação abaixo do risco máximo:", v["marc"][3], v["perda"]); falhas += 1
         if v["stop"] < -300.01:   # regra do produto: o limite de saída (todos os lotes) nunca passa do risco aceito (300)
             print("ERRO", rotulo, k, "limite de saída acima do risco aceito:", v["stop"]); falhas += 1
         for x in v["regras"]: regras[x["regra"] if x else "nenhuma"] = regras.get(x["regra"] if x else "nenhuma", 0) + 1

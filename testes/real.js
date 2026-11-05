@@ -28,9 +28,6 @@ const r2 = (x) => Math.round(x * 100) / 100, br = (n) => n.toFixed(2).replace(".
     if (!esc) throw new Error("nenhuma trava monta no snapshot");
     await p.reload(); await p.waitForSelector("#nav");
     const m0 = await p.evaluate((t) => { tese = t; tela = "cen"; render(); return montagem(t); }, esc.t);
-    // preço do dia que leva a operação ao limite já no dia da execução: perna comprada quase sem valor, vendida cara
-    for (const [l, x] of m0.pernas) op[x.s] = l > 0 ? [0.01, 0.02] : [r2(x.a * 1.5), r2(x.a * 1.6)];
-    fs.writeFileSync(path.join(dir, "precos", `${snap.data}.json`), JSON.stringify({ data: snap.data, op }));
     await p.click("text=Já executei na corretora");
     const ini = await p.evaluate(() => ({ qtd: realF.qtd, precos: realF.precos.slice(), tela }));
     confere("registrar: abre com a quantidade e os preços da montagem", ini.tela === "real" && ini.qtd === m0.lotes * 100 && JSON.stringify(ini.precos) === JSON.stringify(m0.pernas.map(([l, x]) => (l > 0 ? x.a : x.b))), ini);
@@ -44,6 +41,11 @@ const r2 = (x) => Math.round(x * 100) / 100, br = (n) => n.toFixed(2).replace(".
     for (let i = 0; i < precos.length; i++) { await p.fill(`#rpreco${i}`, br(precos[i])); await p.dispatchEvent(`#rpreco${i}`, "change"); }
     await p.fill("#rcustos", "10,00"); await p.dispatchEvent("#rcustos", "change");
     const esp = M.execucao(m0, { lotes, precos });
+    // preço do dia (pelo médio) que leva a operação ao alvo já no dia da execução: perna vendida quase sem valor, a
+    // comprada acima do necessário. Gravado antes de registrar (o app só busca o preço do dia ao marcar a operação nova).
+    const longaMeio = (esp.alvo + esp.premio) / (100 * esp.lotes) + 0.06;
+    for (const [l, x] of esp.pernas) op[x.s] = l > 0 ? [r2(longaMeio - 0.01), r2(longaMeio + 0.01)] : [0.01, 0.01];
+    fs.writeFileSync(path.join(dir, "precos", `${snap.data}.json`), JSON.stringify({ data: snap.data, op }));
     const resumo = await p.innerText("#app");
     confere("registrar: resumo com os preços executados", resumo.includes(`R$ ${esp.perdaMax.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`), { esperado: esp.perdaMax });
     await p.click("#registrar"); await p.waitForTimeout(800); await p.evaluate(() => render());
@@ -56,7 +58,7 @@ const r2 = (x) => Math.round(x * 100) / 100, br = (n) => n.toFixed(2).replace(".
     confere("Sua operação: etiqueta de operação real e 'Se encerrar hoje' pelo preço executado", sua.includes("Operação real") && sua.includes("Se encerrar hoje") && sua.includes((hoje > 0 ? "+" : hoje < 0 ? "−" : "") + "R$ " + Math.abs(Math.round(hoje)).toLocaleString("pt-BR")), { hoje, trecho: sua.slice(0, 260) });
     const vencISO = (() => { const d = new Date(snap.data + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + esp.dias); return d.toISOString().slice(0, 10); })();
     const regraEsp = M.regraDeSaida(esp, [{ d: snap.data, r: hoje }], vencISO), regraApp = await p.evaluate((id) => STATUS.get(id)?.saida || null, o.id);
-    confere("regra de saída conta o fechamento do dia da execução (limite atingido)", regraEsp && regraEsp.regra === "limite" && JSON.stringify(regraApp) === JSON.stringify(regraEsp), { regraApp, regraEsp });
+    confere("regra de saída conta o fechamento do dia da execução (alvo atingido)", regraEsp && regraEsp.regra === "alvo" && JSON.stringify(regraApp) === JSON.stringify(regraEsp), { regraApp, regraEsp });
     const lst = await p.evaluate(() => { tela = "acomp"; selId = null; render(); return document.getElementById("app").innerText; });
     confere("operação real com a regra atingida continua em aberto, marcada na lista", /1 real/.test(lst) && lst.includes("regra atingida"), lst.slice(0, 200));
     await p.click(`[data-op="${o.id}"]`); await p.waitForTimeout(300);
@@ -71,7 +73,7 @@ const r2 = (x) => Math.round(x * 100) / 100, br = (n) => n.toFixed(2).replace(".
     const sugEsp = esp.pernas.map(([l, x]) => (l > 0 ? op[x.s][0] : op[x.s][1]));
     confere("encerramento: sugere o fechamento do dia de cada perna", JSON.stringify(sug) === JSON.stringify(sugEsp), { sug, sugEsp });
     await p.fill("#scustos", "10,00"); await p.dispatchEvent("#scustos", "change");
-    const resEsp = r2(M.resultadoNoDia(esp, Object.fromEntries(esp.pernas.map(([l, x], i) => [x.s, [sugEsp[i], sugEsp[i]]]))) - 20);
+    const resEsp = r2(M.resultadoComPrecos(esp, sugEsp) - 20);
     await p.click("#registrar-saida"); await p.waitForTimeout(300);
     const fech = await p.evaluate((id) => load("historico", []).find((x) => x.id === id).real.saida, o.id);
     confere("encerramento: resultado = preços de saída − prêmio − custos de entrada e saída", fech && fech.res === resEsp, { fech, resEsp });

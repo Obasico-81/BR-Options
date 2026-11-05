@@ -76,7 +76,7 @@
       const caixa1 = pernas[0][1].k * LOTE;
       if (caixa < caixa1) return "Falta caixa: a put vendida exige reservar R$ " + fmt(caixa1) + ".";
       lotes = Math.floor(caixa / caixa1); stop = -Math.min(stopFrac * perda1, perdaAceita / lotes);   // limite total ≤ risco aceito
-    } else { lotes = perda1 > 0 ? Math.floor(perdaAceita / perda1) : 0; stop = -stopFrac * perda1; }
+    } else { lotes = perda1 > 0 ? Math.floor(perdaAceita / perda1) : 0; stop = null; }   // trava e strangle: sem limite (o risco já é o que se pagou; replay 2015–2026)
     if (lotes < 1) return "A menor operação arrisca R$ " + fmt(perda1) + ", acima do seu limite de R$ " + fmt(perdaAceita) + ".";
     const taxas = pernas.reduce((s, [l, x]) => s + TAXA_B3 * mid(x) * LOTE, 0) * 2;
     const alvo = ganho1 === null ? null : alvoFrac * ganho1;
@@ -85,7 +85,7 @@
     else if (tese === "alta" || tese === "alta_com_caixa") prob = probAcima(S, eq[0], venc, volImpl);
     else prob = 1 - probAcima(S, eq[0], venc, volImpl);
     return { tese, estrutura: NOMES[tese], pernas, lotes, dias: venc, premio: r2(premio * lotes), perdaMax: r2(perda1 * lotes), ganhoMax: ganho1 === null ? null : r2(ganho1 * lotes),
-      equilibrio: eq.map(r2), probImplicita: Math.round(prob * 1000) / 1000, ...custos(Math.abs(premio - premioMid), taxas, pernas.length, lotes), alvo: alvo === null ? null : r2(alvo * lotes), stop: r2(stop * lotes), saidaDias: 7 };
+      equilibrio: eq.map(r2), probImplicita: Math.round(prob * 1000) / 1000, ...custos(Math.abs(premio - premioMid), taxas, pernas.length, lotes), alvo: alvo === null ? null : r2(alvo * lotes), stop: stop === null ? null : r2(stop * lotes), saidaDias: 7 };
   }
 
   const brl0 = (v) => "R$ " + Math.round(v).toLocaleString("pt-BR", { maximumFractionDigits: 0 });
@@ -121,13 +121,13 @@
       let lotes, stop;
       if (tese === "sinal_alta") {
         if (perda1 <= 0 || ganho1 / perda1 < minRR) { motivo = "A trava custa " + brl0(perda1) + " para ganhar no máximo " + brl0(ganho1) + ": ganho máximo menor que o risco."; continue; }
-        lotes = Math.floor(perdaAceita / perda1); stop = -stopFrac * perda1;
+        lotes = Math.floor(perdaAceita / perda1); stop = null;   // trava: sem limite (o risco já é o que se pagou)
         if (lotes < 1) { motivo = "A menor operação arrisca " + brl0(perda1) + ", acima do seu limite de " + brl0(perdaAceita) + "."; continue; }
       } else { lotes = Math.floor(caixa / (p.k * LOTE)); stop = -Math.min(stopFrac * perda1, perdaAceita / lotes); }   // limite total ≤ risco aceito
       const taxas = pernas.reduce((s, [l, x]) => s + TAXA_B3 * mid(x) * LOTE, 0) * 2;
       const prob = probAcima(S, eq[0], d, volImpl);
       return { tese, estrutura: est, pernas, lotes, dias: d, premio: r2(premio * lotes), perdaMax: r2(perda1 * lotes), ganhoMax: r2(ganho1 * lotes), equilibrio: eq.map(r2),
-        probImplicita: Math.round(prob * 1000) / 1000, ...custos(Math.abs(premio - premioMid), taxas, pernas.length, lotes), alvo: r2(alvoFrac * ganho1 * lotes), stop: r2(stop * lotes), saidaDias: 7 };
+        probImplicita: Math.round(prob * 1000) / 1000, ...custos(Math.abs(premio - premioMid), taxas, pernas.length, lotes), alvo: r2(alvoFrac * ganho1 * lotes), stop: stop === null ? null : r2(stop * lotes), saidaDias: 7 };
     }
     return motivo;
   }
@@ -239,14 +239,17 @@
   }
   // --- Marcação diária: valor de hoje e regras de saída, com os preços de fechamento de cada pregão ---
   const addDiasISO = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
-  // Resultado (R$, todos os lotes) se a operação fosse desfeita no fechamento de um dia: o lado comprado vende pela melhor
-  // compra e o vendido recompra pela melhor venda (o lado pior, como na montagem). precos: {símbolo: [compra, venda]}.
-  // null se faltar preço de alguma perna naquele dia.
+  // Resultado (R$, todos os lotes) se a operação fosse desfeita no fechamento de um dia, pelo preço médio de cada perna
+  // ((compra + venda) / 2), nunca abaixo do risco máximo. O pior lado do fechamento (vender pela compra, recomprar pela
+  // venda) dava perdas maiores que o risco máximo em 58–67% das travas e disparava o limite por preço ruim (replay
+  // 2015–2026). precos: {símbolo: [compra, venda]}. null se faltar preço de alguma perna naquele dia.
   function resultadoNoDia(m, precos) {
     let v = 0;
-    for (const [l, x] of m.pernas) { const p = precos && precos[x.s]; if (!p || !(p[0] > 0) || !(p[1] >= p[0])) return null; v += l > 0 ? p[0] : -p[1]; }
-    return r2(v * LOTE * m.lotes - m.premio);
+    for (const [l, x] of m.pernas) { const p = precos && precos[x.s]; if (!p || !(p[0] > 0) || !(p[1] >= p[0])) return null; v += l * (p[0] + p[1]) / 2; }
+    return r2(Math.max(v * LOTE * m.lotes - m.premio, -m.perdaMax));
   }
+  // Resultado com os preços em que cada perna foi de fato desfeita (encerramento registrado de operação real): sem piso.
+  function resultadoComPrecos(m, precos) { return r2(m.pernas.reduce((s, [l], i) => s + l * precos[i], 0) * LOTE * m.lotes - m.premio); }
   // Primeira regra de saída atingida nos fechamentos depois da entrada e antes do vencimento: alvo (resultado >= alvo),
   // limite (resultado <= stop) ou prazo (a partir de `saidaDias` antes do vencimento). marcas: [{d, r}] em ordem de data,
   // r = resultadoNoDia ou null (dia sem preço: pulado). Devolve {regra, d, r} ou null (nenhuma regra até o último dia).
@@ -260,6 +263,6 @@
     }
     return null;
   }
-  const api = { setCorretagem, montar, montarSinal, montarAposta, execucao, probAcima, resultadoNoVencimento, volReal60, tendencia, movimentoNecessario, resultadoNoDia, regraDeSaida };
+  const api = { setCorretagem, montar, montarSinal, montarAposta, execucao, probAcima, resultadoNoVencimento, volReal60, tendencia, movimentoNecessario, resultadoNoDia, resultadoComPrecos, regraDeSaida };
   if (typeof module !== "undefined") module.exports = api; else root.Montador = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -9,15 +9,22 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
 const a = snap.ativos.PETR4;
 const m = M.montar("alta", a.S, a.chain, a.iv, 500, { caixa: 12000 });   // trava de alta: +1 call, -1 call
 const [[, longa], [, curta]] = m.pernas;
-// preços que dão um resultado-alvo r: v·100·lotes − prêmio = r  =>  compra da longa = v + venda da curta
-const precosPara = (r) => { const v = (r + m.premio) / (100 * m.lotes), vendaCurta = 1.0; return { [longa.s]: [+(v + vendaCurta).toFixed(4), +(v + vendaCurta + 0.05).toFixed(4)], [curta.s]: [0.95, vendaCurta] }; };
-confere("resultadoNoDia: desfazer no dia da entrada custa o spread das duas pernas",
-  M.resultadoNoDia(m, Object.fromEntries(a.chain.map((o) => [o.s, [o.b, o.a]]))) === Math.round(((longa.b - curta.a) * 100 * m.lotes - m.premio) * 100) / 100);
+// preços que dão um resultado-alvo r pelo preço médio: (médio da longa − médio da curta)·100·lotes − prêmio = r
+const precosPara = (r) => { const v = (r + m.premio) / (100 * m.lotes); return { [longa.s]: [+(v + 0.975).toFixed(4), +(v + 1.025).toFixed(4)], [curta.s]: [0.975, 1.025] }; };
+const meio = (o) => (o.b + o.a) / 2;
+confere("resultadoNoDia: desfazer no dia da entrada, pelo preço médio, custa metade do spread das duas pernas",
+  M.resultadoNoDia(m, Object.fromEntries(a.chain.map((o) => [o.s, [o.b, o.a]]))) === Math.round(((meio(longa) - meio(curta)) * 100 * m.lotes - m.premio) * 100) / 100);
+confere("resultadoNoDia: nunca abaixo do risco máximo (curta com venda absurda no fechamento)",
+  M.resultadoNoDia(m, { [longa.s]: [0.01, 0.02], [curta.s]: [0.5, 99] }) === -m.perdaMax);
+confere("resultadoComPrecos: encerramento registrado, sem piso", M.resultadoComPrecos(m, [0.01, 99]) === Math.round(((0.01 - 99) * 100 * m.lotes - m.premio) * 100) / 100);
+confere("trava sem limite de perda (só alvo e prazo)", m.stop === null && m.alvo > 0 && m.saidaDias === 7);
 confere("resultadoNoDia: preço que leva a +R$ 200 dá +R$ 200", Math.abs(M.resultadoNoDia(m, precosPara(200)) - 200) < 0.01, M.resultadoNoDia(m, precosPara(200)));
 confere("resultadoNoDia: perna sem preço no dia -> null", M.resultadoNoDia(m, { [longa.s]: [1, 1.1] }) === null);
 const venc = "2026-12-18";
 confere("regraDeSaida: alvo", JSON.stringify(M.regraDeSaida(m, [{ d: "2026-10-01", r: 50 }, { d: "2026-10-02", r: null }, { d: "2026-10-05", r: m.alvo + 1 }], venc)) === JSON.stringify({ regra: "alvo", d: "2026-10-05", r: m.alvo + 1 }));
-confere("regraDeSaida: limite antes do alvo", M.regraDeSaida(m, [{ d: "2026-10-01", r: m.stop - 1 }, { d: "2026-10-05", r: m.alvo + 1 }], venc)?.regra === "limite");
+confere("regraDeSaida: trava não sai por perda grande (sem limite); sai no alvo depois", M.regraDeSaida(m, [{ d: "2026-10-01", r: -m.perdaMax }, { d: "2026-10-05", r: m.alvo + 1 }], venc)?.regra === "alvo");
+const pv = M.montar("alta_com_caixa", a.S, a.chain, a.iv, 1e6, { caixa: 1e6 });
+confere("regraDeSaida: put vendida mantém o limite e sai nele antes do alvo", typeof pv !== "string" && pv.stop < 0 && M.regraDeSaida(pv, [{ d: "2026-10-01", r: pv.stop - 1 }, { d: "2026-10-05", r: pv.alvo + 1 }], venc)?.regra === "limite");
 confere("regraDeSaida: prazo (7 dias antes do vencimento)", JSON.stringify(M.regraDeSaida(m, [{ d: "2026-12-10", r: 10 }, { d: "2026-12-11", r: 20 }], venc)) === JSON.stringify({ regra: "prazo", d: "2026-12-11", r: 20 }));
 confere("regraDeSaida: dia sem preço e dias no/após o vencimento são ignorados", M.regraDeSaida(m, [{ d: "2026-10-01", r: null }, { d: venc, r: m.alvo + 1 }], venc) === null);
 const compra = M.montarAposta("alta", a.S, a.chain, a.iv, 2000);
