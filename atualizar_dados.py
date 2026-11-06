@@ -18,10 +18,11 @@ from statistics import median
 # Papéis do app: nome -> (prefixo das opções, código do papel à vista)
 ATIVOS = {"BOVA11": ("BOVA", "BOVA11"), "PETR4": ("PETR", "PETR4"), "VALE3": ("VALE", "VALE3"),
           # incluídos em 02/11/2026: montam em >= 60% dos pregões com o corte do app (pesquisa/liquidez.py)
-          "BBDC4": ("BBDC", "BBDC4"), "BBAS3": ("BBAS", "BBAS3"), "MGLU3": ("MGLU", "MGLU3"), "WEGE3": ("WEGE", "WEGE3"),
-          "ITUB4": ("ITUB", "ITUB4"), "USIM5": ("USIM", "USIM5"), "B3SA3": ("B3SA", "B3SA3"),
-          # incluído em 03/11/2026: monta em 73% dos pregões com risco de até R$ 500 (liquidez refeita pelo papel-objeto)
-          "PRIO3": ("PRIO", "PRIO3")}
+          "BBDC4": ("BBDC", "BBDC4"), "BBAS3": ("BBAS", "BBAS3"), "MGLU3": ("MGLU", "MGLU3"),
+          "ITUB4": ("ITUB", "ITUB4"), "B3SA3": ("B3SA", "B3SA3")}
+# Retirados em 06/11/2026: WEGE3, USIM5 e PRIO3. Com as quatro operações do Início e o perfil padrão (risco R$ 500,
+# capital R$ 12.000), em qualquer vencimento, montavam em menos de 60% dos pregões em 2025 e 2026 (pesquisa/disponibilidade.py,
+# pesquisa/RESULTADO_DISPONIBILIDADE.md). Os fechamentos já gravados ficam no snapshot (operações antigas nesses papéis).
 # Se um destes vier sem preço ou com menos de 20 opções, o arquivo do dia está com problema: nada é gravado.
 # Os demais ficam de fora só naquele dia (o app não os lista), com aviso.
 OBRIGATORIOS = ("BOVA11", "PETR4", "VALE3")

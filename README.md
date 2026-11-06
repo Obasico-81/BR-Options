@@ -127,7 +127,7 @@ pesquisa_perfis.py` dentro de `pesquisa/`, depois de montar a base.
 
 ## Limites conhecidos
 
-- Ativos: BOVA11, PETR4, VALE3, BBDC4, BBAS3, MGLU3, WEGE3, ITUB4, USIM5, B3SA3 e PRIO3 (`ATIVOS` em `atualizar_dados.py`; BBDC4 a B3SA3 entraram em 02/11/2026 e PRIO3 em 03/11/2026, por montarem em >= 60% dos pregões com risco de até R$ 500, ver `pesquisa/liquidez.py`). BOVA11, PETR4 e VALE3 são obrigatórios: se um deles vier incompleto, nada é gravado; um dos outros que vier com menos de 20 opções fica de fora só naquele dia.
+- Ativos: BOVA11, PETR4, VALE3, BBDC4, BBAS3, MGLU3, ITUB4 e B3SA3 (`ATIVOS` em `atualizar_dados.py`; BBDC4 a B3SA3 entraram em 02/11/2026, ver `pesquisa/liquidez.py`). WEGE3, USIM5 e PRIO3 saíram em 06/11/2026: com as quatro operações do Início e o perfil padrão, em qualquer vencimento, montavam em menos de 60% dos pregões (`pesquisa/RESULTADO_DISPONIBILIDADE.md`); os fechamentos já gravados ficam no snapshot. BOVA11, PETR4 e VALE3 são obrigatórios: se um deles vier incompleto, nada é gravado; um dos outros que vier com menos de 20 opções fica de fora só naquele dia.
 - Opções de cada ativo: prefixo do código (4 letras) **e** papel-objeto. O prefixo sozinho mistura papéis (BBDC serve a
   BBDC3 e BBDC4; PETR a PETR3 e PETR4; ITUB a ITUB3 e ITUB4); o atualizador só aceita a opção cujo CODISI (ISIN do
   papel-objeto) é o do papel à vista do app, e avisa quantas descartou. `--ano` refaz as cadeias dos pregões que o

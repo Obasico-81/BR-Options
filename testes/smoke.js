@@ -64,6 +64,27 @@ const arq = 'file://' + process.argv[2];
     await p.reload(); await p.waitForSelector('#nav');
     const at = await p.evaluate(() => S.ativo); if (at !== 'PETR4') throw new Error('ativo depois do reload: ' + at);
   });
+  // papel que saiu da lista (WEGE3, USIM5 e PRIO3 em 06/11/2026): sem cadeia no dia, com os fechamentos antigos. O ativo
+  // salvo cai para PETR4, e uma operação antiga nele abre em Operações e no Desempenho sem quebrar
+  await passo('papel que saiu da lista: ativo salvo e operação antiga', async () => {
+    const sai = await p.evaluate(() => Object.keys(SNAP.fechamentos).find((n) => !SNAP.por_data[SNAP.data][n]) || null);
+    if (!sai) { console.log('     (nenhum papel fora da lista no snapshot; passo sem efeito)'); return; }
+    await p.evaluate((sai) => {
+      let m = null;
+      for (const at of Object.keys(SNAP.por_data[SNAP.data])) { S.ativo = at; S.perda = 1e6; S.capital = 1e7;
+        for (const t of ['alta', 'baixa', 'forte']) { m = montagem(t); if (typeof m !== 'string') break; }
+        if (typeof m !== 'string') break; }
+      const data = Object.keys(SNAP.fechamentos[sai]).sort().slice(-3)[0];
+      localStorage.setItem('estado', JSON.stringify({ ativo: sai }));
+      localStorage.setItem('historico', JSON.stringify([{ m, ativo: sai, data, id: 7 }]));
+    }, sai);
+    await p.reload(); await p.waitForSelector('#nav');
+    const at = await p.evaluate(() => S.ativo); if (at === sai) throw new Error('ativo salvo fora da lista continuou selecionado: ' + at);
+    await p.click('#nav [data-nav="acomp"]'); await p.click('[data-op="7"]', { timeout: 3000 }); await p.waitForTimeout(200);
+    if (!(await p.locator('text=Sua operação').count())) throw new Error('"Sua operação" não abriu para ' + sai);
+    await p.click('#nav [data-nav="desemp"]'); await p.waitForTimeout(150);
+    await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('#nav');
+  });
   // perfil padrão de quem abre o app pela primeira vez
   await passo('perfil padrão (PETR4, risco R$ 500)', async () => {
     await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('#nav');
