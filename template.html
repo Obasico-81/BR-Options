@@ -219,6 +219,22 @@ function motivo(t, m){
   if (m.startsWith("Falta caixa")) return `${m} Seu capital disponível é ${brl(S.capital)}.`;
   return m;
 }
+// Quanto falta para operar o ativo, quando nenhum vencimento tem operação que caiba no perfil: a menor operação entre as
+// quatro e todos os vencimentos (só risco, ou caixa da put vendida), ou que não há opções com liquidez. Informação, não
+// sugestão de aumentar.
+const CURTA = {alta: "“Acho que vai subir”", baixa: "“Acho que vai cair”", forte: "“Acho que vai se mexer muito”", alta_com_caixa: "“Aceito comprar a ação por um preço menor”"};
+function quantoFalta(){
+  const a = dia(), atual = vencSel(), L = [];
+  for (const t of TESES) for (const v of vencs()) {
+    const m = M.montar(t.k, a.S, a.chain, a.iv, 1e9, {prazoAlvo: v.d, caixa: 1e9});
+    if (typeof m !== "string") L.push({t: t.k, d: m.dias, r1: Math.ceil(m.perdaMax / m.lotes), caixa1: t.k === "alta_com_caixa" ? m.pernas[0][1].k * 100 : 0}); }
+  if (!L.length) return `Hoje ${S.ativo} não tem opções com liquidez em nenhum vencimento. Aumentar o risco não muda isso.`;
+  const perto = (x, y) => x.r1 - y.r1 || Math.abs(x.d - atual.d) - Math.abs(y.d - atual.d);
+  const so = L.filter(x => x.caixa1 <= S.capital).sort(perto)[0];
+  if (so) return `Para operar ${S.ativo} hoje, o risco máximo precisaria ser de pelo menos ${brl(so.r1)}: ${CURTA[so.t]}, vencimento de ${dm(addDias(S.data, so.d))} (${so.d} dias).`;
+  const c = L.sort((x, y) => x.caixa1 - y.caixa1 || perto(x, y))[0];
+  return `Para operar ${S.ativo} hoje, a única operação exige reservar ${brl(c.caixa1)} (seu capital: ${brl(S.capital)}) e arrisca ${brl(c.r1)}: ${CURTA[c.t]}, vencimento de ${dm(addDias(S.data, c.d))}.`;
+}
 // Nenhuma operação disponível no ativo: onde há (outro vencimento do mesmo ativo, ou outros ativos), com o perfil atual.
 function semNenhuma(){
   const atual = vencSel(), salvo = {ativo: S.ativo, venc: S.venc, prazo: S.prazo}, conta = () => TESES.filter(t => typeof montagem(t.k) !== "string").length;
@@ -232,6 +248,7 @@ function semNenhuma(){
   } finally { Object.assign(S, salvo); }
   let h = `<div class="note" role="status"><p><strong>Nenhuma operação disponível em ${S.ativo}</strong> com o vencimento de ${dm(atual.iso)}, risco máximo de ${brl(S.perda)} e capital de ${brl(S.capital)}. O motivo de cada uma está abaixo.</p>`;
   if (venc) h += `<button class="btn sec2" data-venc="${venc.iso}" style="color:var(--accent-text);width:auto;padding:0">Ver o vencimento de ${dm(venc.iso)} (${venc.d} dias) ›</button>`;
+  else h += `<p style="margin-top:8px"><strong>${quantoFalta()}</strong></p>`;
   if (ativos.length) h += `<p class="small" style="margin-top:8px">Com o seu perfil, estes ativos têm operação disponível hoje:</p><div class="chips">${ativos.map(n => `<button class="chip" data-ativo="${n}">${n}</button>`).join("")}</div>`;
   else h += `<p class="small" style="margin-top:8px">Com o seu perfil, nenhum outro ativo tem operação disponível hoje.</p>`;
   return h + `</div>`;
