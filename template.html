@@ -228,15 +228,15 @@ function quantoFalta(){
   for (const t of TESES) for (const v of vencs()) {
     const m = M.montar(t.k, a.S, a.chain, a.iv, 1e9, {prazoAlvo: v.d, caixa: 1e9});
     if (typeof m !== "string") L.push({t: t.k, d: m.dias, r1: Math.ceil(m.perdaMax / m.lotes), caixa1: t.k === "alta_com_caixa" ? m.pernas[0][1].k * 100 : 0}); }
-  if (!L.length) return `Hoje ${S.ativo} não tem opções com liquidez em nenhum vencimento. Aumentar o risco não muda isso.`;
+  if (!L.length) return `Não há opções com liquidez em nenhum vencimento. Aumentar o risco não muda isso.`;
   const perto = (x, y) => x.r1 - y.r1 || Math.abs(x.d - atual.d) - Math.abs(y.d - atual.d);
   const so = L.filter(x => x.caixa1 <= S.capital).sort(perto)[0];
-  if (so) return `Para operar ${S.ativo} hoje, o risco máximo precisaria ser de pelo menos ${brl(so.r1)}: ${CURTA[so.t]}, vencimento de ${dm(addDias(S.data, so.d))} (${so.d} dias).`;
+  if (so) return `Para operar, o risco máximo precisaria ser de pelo menos ${brl(so.r1)}: ${CURTA[so.t]}, vencimento de ${dm(addDias(S.data, so.d))} (${so.d} dias).`;
   const c = L.sort((x, y) => x.caixa1 - y.caixa1 || perto(x, y))[0];
-  return `Para operar ${S.ativo} hoje, a única operação exige reservar ${brl(c.caixa1)} (seu capital: ${brl(S.capital)}) e arrisca ${brl(c.r1)}: ${CURTA[c.t]}, vencimento de ${dm(addDias(S.data, c.d))}.`;
+  return `A única operação exige reservar ${brl(c.caixa1)} (seu capital: ${brl(S.capital)}) e arrisca ${brl(c.r1)}: ${CURTA[c.t]}, vencimento de ${dm(addDias(S.data, c.d))}.`;
 }
 // Nenhuma operação disponível no ativo: onde há (outro vencimento do mesmo ativo, ou outros ativos), com o perfil atual.
-function semNenhuma(){
+function semNenhuma(motivosIguais){
   const atual = vencSel(), salvo = {ativo: S.ativo, venc: S.venc, prazo: S.prazo}, conta = () => TESES.filter(t => typeof montagem(t.k) !== "string").length;
   let venc = null, ativos = [];
   try {
@@ -246,11 +246,13 @@ function semNenhuma(){
     S.venc = salvo.venc;
     for (const n of Object.keys(SNAP.por_data[S.data]).sort()) { if (n === salvo.ativo) continue; S.ativo = n; if (conta()) ativos.push(n); }
   } finally { Object.assign(S, salvo); }
-  let h = `<div class="note" role="status"><p><strong>Nenhuma operação disponível em ${S.ativo}</strong> com o vencimento de ${dm(atual.iso)}, risco máximo de ${brl(S.perda)} e capital de ${brl(S.capital)}. O motivo de cada uma está abaixo.</p>`;
-  if (venc) h += `<button class="btn sec2" data-venc="${venc.iso}" style="color:var(--accent-text);width:auto;padding:0">Ver o vencimento de ${dm(venc.iso)} (${venc.d} dias) ›</button>`;
-  else h += `<p style="margin-top:8px"><strong>${quantoFalta()}</strong></p>`;
-  if (ativos.length) h += `<p class="small" style="margin-top:8px">Com o seu perfil, estes ativos têm operação disponível hoje:</p><div class="chips">${ativos.map(n => `<button class="chip" data-ativo="${n}">${n}</button>`).join("")}</div>`;
-  else h += `<p class="small" style="margin-top:8px">Com o seu perfil, nenhum outro ativo tem operação disponível hoje.</p>`;
+  // título curto, depois o que importa (em destaque), depois os outros ativos. O perfil já está no cartão logo acima.
+  let h = `<div class="note" role="status"><p style="font-size:17px;font-weight:700">Sem operação em ${S.ativo} ${venc ? `no vencimento de ${dm(atual.iso)}` : "hoje"}</p>`;
+  if (venc) h += `<p style="margin-top:6px">No vencimento de ${dm(venc.iso)} (${venc.d} dias) há operação dentro do seu perfil.</p><button class="btn sec2" data-venc="${venc.iso}" style="color:var(--accent-text);width:auto;padding:0">Ver o vencimento de ${dm(venc.iso)} ›</button>`;
+  else h += `<p style="margin-top:6px"><strong>${quantoFalta()}</strong></p>`;
+  if (!motivosIguais) h += `<p class="small muted" style="margin-top:6px">O motivo de cada operação está nos cartões abaixo.</p>`;
+  if (ativos.length) h += `<p class="small" style="margin-top:12px">Com o seu perfil, estes ativos têm operação disponível hoje:</p><div class="chips">${ativos.map(n => `<button class="chip" data-ativo="${n}">${n}</button>`).join("")}</div>`;
+  else h += `<p class="small" style="margin-top:12px">Com o seu perfil, nenhum outro ativo tem operação disponível hoje.</p>`;
   return h + `</div>`;
 }
 const esc = (s) => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -382,16 +384,20 @@ function vObj(){
   } else {
     h += `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-weight:700">Vence ${dBR(vencSel().iso).slice(0,5)} · risco máx. ${brl(S.perda).replace(" ","&nbsp;")}</div><div class="small muted">Preços de ${dBR(S.data)}${S.cad.corretora?` · ${esc(S.cad.corretora)}`:""}</div></div><button class="back" data-perfil="1" style="min-height:44px">Editar</button></div></section>`;
   }
-  h += `<p class="muted" style="margin-top:4px">Diga o que você espera do papel. O app calcula o custo, o risco máximo em R$ e os cenários no vencimento.</p>`;
-  const MS = TESES.map(t => montagem(t.k));
-  if (MS.every(m => typeof m === "string")) h += semNenhuma();
+  const MS = TESES.map(t => montagem(t.k)), nada = MS.every(m => typeof m === "string");
+  const MOT = MS.map((m, i) => typeof m === "string" ? motivo(TESES[i].k, m) : null), iguais = nada && new Set(MOT).size === 1;
+  // nada disponível: o aviso no lugar do convite a escolher; com o mesmo motivo nos quatro cartões, eles vêm recolhidos
+  if (nada) h += semNenhuma(iguais);
+  else h += `<p class="muted" style="margin-top:4px">Diga o que você espera do papel. O app calcula o custo, o risco máximo em R$ e os cenários no vencimento.</p>`;
+  if (iguais) h += `<details class="card det"><summary>Ver as ${TESES.length} operações (indisponíveis)</summary><div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">`;   // mesmo estilo de "Detalhes da operação"
   let ult = null;
   TESES.forEach((t, i) => {
     if (t.bloco && t.bloco!==ult){ h += `<div class="sec"><div><h2>${t.bloco}</h2></div></div>`; ult = t.bloco; }
     const m = MS[i], ok = typeof m !== "string";
     h += `<button class="opt" data-tese="${t.k}" ${ok?"":"disabled"}><span class="ic">${svg(t.icone)}</span><span class="tx"><span class="t">${t.frase}</span>
-      <span class="st"><span class="pill ${ok?"ok":"no"}">${ok?"Disponível":"Indisponível"}</span>${ok?"":`<span>${esc(motivo(t.k, m))}</span>`}</span></span></button>`;
+      <span class="st"><span class="pill ${ok?"ok":"no"}">${ok?"Disponível":"Indisponível"}</span>${ok||iguais?"":`<span>${esc(MOT[i])}</span>`}</span></span></button>`;
   });
+  if (iguais) h += `</div></details>`;
   h += `<button class="btn sec2" data-go="sinal">Tenho um sinal pronto</button>`;
   return h;
 }

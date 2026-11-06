@@ -97,21 +97,23 @@ const arq = 'file://' + process.argv[2];
     const r = await p.evaluate(() => {
       const f = [], txt = () => document.querySelector('#app, main, body').innerText;
       tela = 'obj'; S.ativo = 'PETR4'; S.perda = 1; S.capital = 1e7; render();
-      if (!/Nenhuma operação disponível em PETR4/.test(txt())) f.push('risco R$ 1: sem o aviso no topo');
+      if (!/Sem operação em PETR4 hoje/.test(txt())) f.push('risco R$ 1: sem o aviso no topo');
+      if (/Diga o que você espera do papel/.test(txt())) f.push('risco R$ 1: o convite a escolher continua junto com o aviso');
       if (!/precisaria ser de pelo menos R\$/.test(txt())) f.push('risco R$ 1: cartão sem o mínimo');
-      if (!/Para operar PETR4 hoje, o risco máximo precisaria ser de pelo menos R\$ [\d.]+: “[^”]+”, vencimento de \d\d\/\d\d/.test(txt()))
+      if (!/Para operar, o risco máximo precisaria ser de pelo menos R\$ [\d.]+: “[^”]+”, vencimento de \d\d\/\d\d/.test(txt()))
         f.push('risco R$ 1: aviso do topo sem o risco mínimo para operar o ativo');
       const a = SNAP.por_data[S.data].PETR4, o = a.chain.find(x => x.t === 'C') || a.chain[0];
       // cadeia vazia: nenhum vencimento com liquidez, e o aviso diz que aumentar o risco não muda isso
       const cad = a.chain; a.chain = []; render();
-      if (!/Hoje PETR4 não tem opções com liquidez em nenhum vencimento\. Aumentar o risco não muda isso\./.test(txt()))
+      if (!/Não há opções com liquidez em nenhum vencimento\. Aumentar o risco não muda isso\./.test(txt()))
         f.push('cadeia vazia: aviso do topo sem "nenhum vencimento"');
+      if (!document.querySelector('details') || /Hoje nenhum vencimento de PETR4/.test(txt())) f.push('cadeia vazia: os quatro cartões com o mesmo motivo deveriam vir recolhidos');
       a.chain = cad;
       const d = [140, 130, 120].find(d => !a.chain.some(x => Math.abs(x.d - d) <= 15));
       if (!d) return ['sem espaço para um vencimento falso na cadeia de PETR4'];
       a.chain.push(Object.assign({}, o, { d, v: 0, s: 'FALSO1' }));
       S.perda = 1e6; S.venc = addDias(S.data, d); render();
-      if (!/Sem opções com liquidez neste vencimento \(\d\d\/\d\d\)\. Em \d\d\/\d\d \(\d+ dias\) ela existe|Hoje nenhum vencimento de PETR4/.test(txt()))
+      if (!/Sem opções com liquidez neste vencimento \(\d\d\/\d\d\)\. Em \d\d\/\d\d \(\d+ dias\) ela existe|Hoje nenhum vencimento de PETR4/.test(txt()) && !document.querySelector('details'))
         f.push('vencimento sem liquidez: cartão sem o motivo');
       const b = document.querySelector('[data-venc]');
       if (b) { b.click(); if (!document.querySelector('.pill.ok')) f.push('depois do botão do vencimento: nada disponível'); }
