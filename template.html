@@ -71,6 +71,8 @@ td:last-child{text-align:right;font-weight:700;white-space:nowrap}
 .detc{display:flex;flex-direction:column;gap:10px;margin-top:12px}.kv{display:flex;justify-content:space-between;gap:12px;font-size:15px}.kv>span:last-child{font-weight:700;white-space:nowrap}.kv.tot{border-top:1px solid var(--line);padding-top:10px}
 .doc{display:flex;flex-direction:column;gap:10px;font-size:15px;line-height:1.55}.doc h1{font-size:26px;margin:0}.doc h2{font-size:17px;margin-top:10px}.doc p,.doc ul{margin:0}.doc ul{padding-left:20px}.doc a{color:var(--accent-text)}
 .note{background:var(--accent-soft);border-radius:16px;padding:14px 16px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:700;font-size:14px;border-radius:999px;padding:0 14px;min-height:44px;cursor:pointer}
 .chk{display:flex;gap:10px;align-items:flex-start;font-size:15px;min-height:44px}
 .chk input{width:22px;height:22px;margin-top:2px;flex:none}
 .emp{font-size:13px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -192,6 +194,46 @@ function limiteRisco(m, refazer){
   const r1 = m.perdaMax / m.lotes, caixa1 = m.pernas[0][1].k * 100;
   if (refazer && r1 <= S.perda) { const m2 = refazer(Math.min(S.capital, Math.floor(S.perda / r1) * caixa1)); if (typeof m2 !== "string" && m2.perdaMax <= S.perda) return m2; }
   return msgLimite(brl(Math.ceil(r1)));
+}
+// Sem opções com liquidez no vencimento escolhido: procura nos outros vencimentos da cadeia onde a operação existe e diz
+// quanto a menor arrisca (e o caixa da put vendida). Informação: quem decide mudar o vencimento é o usuário.
+const dm = (iso) => dBR(iso).slice(0,5);
+function outroVenc(t){
+  const a = dia(), atual = vencSel(), achados = new Map();
+  for (const v of vencs()) { if (v.d === atual.d) continue;
+    const m = M.montar(t, a.S, a.chain, a.iv, 1e9, {prazoAlvo: v.d, caixa: 1e9});
+    if (typeof m !== "string" && m.dias !== atual.d && !achados.has(m.dias)) achados.set(m.dias, m); }
+  if (!achados.size) return `Hoje nenhum vencimento de ${S.ativo} tem opções com liquidez para esta operação.`;
+  // o vencimento mais perto do escolhido em que ela cabe no perfil; se em nenhum cabe, o de menor risco (quanto falta)
+  const L = [...achados].map(([d, m]) => { const r1 = Math.ceil(m.perdaMax / m.lotes), caixa1 = t === "alta_com_caixa" ? m.pernas[0][1].k * 100 : 0;
+    return {d, r1, caixa1, cabe: r1 <= S.perda && caixa1 <= S.capital}; });
+  const ok = L.filter(x => x.cabe).sort((x, y) => Math.abs(x.d - atual.d) - Math.abs(y.d - atual.d) || x.d - y.d);
+  const {d, r1, caixa1, cabe} = ok[0] || L.sort((x, y) => x.r1 - y.r1 || Math.abs(x.d - atual.d) - Math.abs(y.d - atual.d))[0];
+  return `Sem opções com liquidez neste vencimento (${dm(atual.iso)}). Em ${dm(addDias(S.data, d))} (${d} dias) ela existe: a menor arrisca ${brl(r1)}` +
+    (cabe ? `, dentro do seu risco máximo.` : r1 > S.perda ? `, acima do seu risco máximo de ${brl(S.perda)}.` : `, mas exige reservar ${brl(caixa1)} (seu capital: ${brl(S.capital)}).`);
+}
+// Motivo de uma operação indisponível, como aparece no cartão.
+function motivo(t, m){
+  if (m.startsWith("Sem opções líquidas")) return outroVenc(t);
+  if (m.startsWith("Falta caixa")) return `${m} Seu capital disponível é ${brl(S.capital)}.`;
+  return m;
+}
+// Nenhuma operação disponível no ativo: onde há (outro vencimento do mesmo ativo, ou outros ativos), com o perfil atual.
+function semNenhuma(){
+  const atual = vencSel(), salvo = {ativo: S.ativo, venc: S.venc, prazo: S.prazo}, conta = () => TESES.filter(t => typeof montagem(t.k) !== "string").length;
+  let venc = null, ativos = [];
+  try {
+    const L = vencs().filter(v => v.d !== atual.d).sort((x, y) => Math.abs(x.d - atual.d) - Math.abs(y.d - atual.d) || x.d - y.d);
+    for (const v of L) { S.venc = v.iso; const m = TESES.map(t => montagem(t.k)).find(m => typeof m !== "string");
+      if (m && m.dias !== atual.d) { venc = {d: m.dias, iso: addDias(S.data, m.dias)}; break; } }   // o vencimento em que ela de fato monta
+    S.venc = salvo.venc;
+    for (const n of Object.keys(SNAP.por_data[S.data]).sort()) { if (n === salvo.ativo) continue; S.ativo = n; if (conta()) ativos.push(n); }
+  } finally { Object.assign(S, salvo); }
+  let h = `<div class="note" role="status"><p><strong>Nenhuma operação disponível em ${S.ativo}</strong> com o vencimento de ${dm(atual.iso)}, risco máximo de ${brl(S.perda)} e capital de ${brl(S.capital)}. O motivo de cada uma está abaixo.</p>`;
+  if (venc) h += `<button class="btn sec2" data-venc="${venc.iso}" style="color:var(--accent-text);width:auto;padding:0">Ver o vencimento de ${dm(venc.iso)} (${venc.d} dias) ›</button>`;
+  if (ativos.length) h += `<p class="small" style="margin-top:8px">Com o seu perfil, estes ativos têm operação disponível hoje:</p><div class="chips">${ativos.map(n => `<button class="chip" data-ativo="${n}">${n}</button>`).join("")}</div>`;
+  else h += `<p class="small" style="margin-top:8px">Com o seu perfil, nenhum outro ativo tem operação disponível hoje.</p>`;
+  return h + `</div>`;
 }
 const esc = (s) => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const svg = (p, w=24) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -323,13 +365,15 @@ function vObj(){
     h += `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-weight:700">Vence ${dBR(vencSel().iso).slice(0,5)} · risco máx. ${brl(S.perda).replace(" ","&nbsp;")}</div><div class="small muted">Preços de ${dBR(S.data)}${S.cad.corretora?` · ${esc(S.cad.corretora)}`:""}</div></div><button class="back" data-perfil="1" style="min-height:44px">Editar</button></div></section>`;
   }
   h += `<p class="muted" style="margin-top:4px">Diga o que você espera do papel. O app calcula o custo, o risco máximo em R$ e os cenários no vencimento.</p>`;
+  const MS = TESES.map(t => montagem(t.k));
+  if (MS.every(m => typeof m === "string")) h += semNenhuma();
   let ult = null;
-  for (const t of TESES){
+  TESES.forEach((t, i) => {
     if (t.bloco && t.bloco!==ult){ h += `<div class="sec"><div><h2>${t.bloco}</h2></div></div>`; ult = t.bloco; }
-    const m = montagem(t.k), ok = typeof m !== "string";
+    const m = MS[i], ok = typeof m !== "string";
     h += `<button class="opt" data-tese="${t.k}" ${ok?"":"disabled"}><span class="ic">${svg(t.icone)}</span><span class="tx"><span class="t">${t.frase}</span>
-      <span class="st"><span class="pill ${ok?"ok":"no"}">${ok?"Disponível":"Indisponível"}</span>${ok?"":`<span>${esc(m)}</span>`}</span></span></button>`;
-  }
+      <span class="st"><span class="pill ${ok?"ok":"no"}">${ok?"Disponível":"Indisponível"}</span>${ok?"":`<span>${esc(motivo(t.k, m))}</span>`}</span></span></button>`;
+  });
   h += `<button class="btn sec2" data-go="sinal">Tenho um sinal pronto</button>`;
   return h;
 }
@@ -657,6 +701,7 @@ function bind(){
   const sg = (id, key, f) => { const e = q("#"+id); if (e) e.onchange = () => { S.sinal = S.sinal || {}; S.sinal[key] = f(e.value); save("estado", S); render(); }; };
   sg("sentrada","entrada",v=>numBR(v)>0?numBR(v):null); sg("salvo","alvo",v=>numBR(v)>0?numBR(v):null); sg("sprazo","prazo",v=>Math.max(5,+v||20)); sg("sest","est",v=>v);
   const p = q("#prazo"); if (p) p.onchange = () => { S.venc = p.value; S.prazo = vencSel().d; save("estado", S); render(); };
+  document.querySelectorAll("[data-venc]").forEach(b => b.onclick = () => { S.venc = b.dataset.venc; S.prazo = vencSel().d; save("estado", S); render(); });
   const c = q("#ciente"); if (c) c.onchange = () => { ciente = c.checked; q("#confirmar").disabled = !ciente; };
   const cf = q("#confirmar"); if (cf) cf.onclick = () => { const m = montagem(tese); if (typeof m==="string") return; { const hs = load("historico", []); selId = Date.now(); hs.push({m, ativo:S.ativo, data:S.data, id:selId, cor:S.cad.corretagem}); save("historico", hs); } slider = null; tela = "acomp"; render(); atualizarStatus(); };
   const sl = q("#sl"); if (sl) sl.oninput = () => {

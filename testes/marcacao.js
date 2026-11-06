@@ -7,7 +7,10 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
 
 // ---------- 1. contas ----------
 const a = snap.ativos.PETR4;
-const m = M.montar("alta", a.S, a.chain, a.iv, 500, { caixa: 12000 });   // trava de alta: +1 call, -1 call
+// trava de alta: +1 call, -1 call. O vencimento de ~45 dias pode estar sem liquidez no dia (ex.: 05/11/2026): tenta outros
+// prazos; o vencimento da montagem não importa aqui (as datas do teste vêm de `venc`)
+const m = [45, 30, 15, 60, 75, 90].map((p) => M.montar("alta", a.S, a.chain, a.iv, 500, { caixa: 12000, prazoAlvo: p })).find((x) => typeof x !== "string");
+if (!m) { console.log("FALHA nenhuma trava de alta de PETR4 monta no snapshot, em nenhum prazo"); process.exit(1); }
 const [[, longa], [, curta]] = m.pernas;
 // preços que dão um resultado-alvo r pelo preço médio: (médio da longa − médio da curta)·100·lotes − prêmio = r
 const precosPara = (r) => { const v = (r + m.premio) / (100 * m.lotes); return { [longa.s]: [+(v + 0.975).toFixed(4), +(v + 1.025).toFixed(4)], [curta.s]: [0.975, 1.025] }; };

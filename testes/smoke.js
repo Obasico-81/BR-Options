@@ -69,6 +69,31 @@ const arq = 'file://' + process.argv[2];
     await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('#nav');
     const v = await p.evaluate(() => [S.ativo, S.perda]); if (v[0] !== 'PETR4' || v[1] !== 500) throw new Error('padrão: ' + v);
   });
+  // Início sem nenhuma operação disponível: o aviso no topo diz o perfil; cada cartão diz o motivo. Risco pequeno demais:
+  // quanto precisaria. Vencimento sem liquidez (um vencimento falso com uma opção sem negócios): onde a operação existe,
+  // ou que nenhum vencimento tem; o botão do aviso troca para um vencimento em que algo monta
+  await passo('Início: nada disponível, motivo e onde há', async () => {
+    const r = await p.evaluate(() => {
+      const f = [], txt = () => document.querySelector('#app, main, body').innerText;
+      tela = 'obj'; S.ativo = 'PETR4'; S.perda = 1; S.capital = 1e7; render();
+      if (!/Nenhuma operação disponível em PETR4/.test(txt())) f.push('risco R$ 1: sem o aviso no topo');
+      if (!/precisaria ser de pelo menos R\$/.test(txt())) f.push('risco R$ 1: cartão sem o mínimo');
+      const a = SNAP.por_data[S.data].PETR4, o = a.chain.find(x => x.t === 'C') || a.chain[0];
+      const d = [140, 130, 120].find(d => !a.chain.some(x => Math.abs(x.d - d) <= 15));
+      if (!d) return ['sem espaço para um vencimento falso na cadeia de PETR4'];
+      a.chain.push(Object.assign({}, o, { d, v: 0, s: 'FALSO1' }));
+      S.perda = 1e6; S.venc = addDias(S.data, d); render();
+      if (!/Sem opções com liquidez neste vencimento \(\d\d\/\d\d\)\. Em \d\d\/\d\d \(\d+ dias\) ela existe|Hoje nenhum vencimento de PETR4/.test(txt()))
+        f.push('vencimento sem liquidez: cartão sem o motivo');
+      const b = document.querySelector('[data-venc]');
+      if (b) { b.click(); if (!document.querySelector('.pill.ok')) f.push('depois do botão do vencimento: nada disponível'); }
+      else if (TESES.some(t => vencs().some(v => typeof M.montar(t.k, a.S, a.chain, a.iv, 1e9, { prazoAlvo: v.d, caixa: 1e9 }) !== 'string')))
+        f.push('há vencimento em que algo monta, mas o aviso não mostrou o botão');
+      return f;
+    });
+    await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('#nav');
+    if (r.length) throw new Error(r.join(' | '));
+  });
   // minigráfico: variação dos últimos 60 pregões no cartão do ativo e em cada linha da lista; a cor é a tendência
   // (M.tendencia) quando há máxima e mínima, senão a faixa de ±3%. Confere os dois casos (com máximas e mínimas sintéticas)
   await passo('minigráfico dos últimos 60 pregões', async () => {
