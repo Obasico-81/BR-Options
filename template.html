@@ -318,11 +318,18 @@ function payoffSvg(m, o){
     const pc = `${(o.osc * 100).toLocaleString("pt-BR", {maximumFractionDigits: 0})}%`;
     if (b > a) { const cx = (X(a) + X(b)) / 2, anc = cx > W * 0.7 ? "end" : cx < W * 0.3 ? "start" : "middle";
       s += `<rect x="${f(X(a))}" y="${mt - 4}" width="${f(X(b) - X(a))}" height="${H - mt - mb + 4}" fill="var(--muted)" opacity="0.13"/><text x="${f(anc === "middle" ? cx : anc === "end" ? X(b) : X(a))}" y="${mt - 24}" font-size="11" fill="var(--muted)" text-anchor="${anc}">oscilação esperada pelo mercado ±${pc}</text>`;
-      for (const [p, rot, anc] of [[a, `−${pc}`, "start"], [b, `+${pc}`, "end"]]) if (p > o.lo && p < o.hi)
-        s += `<line x1="${f(X(p))}" x2="${f(X(p))}" y1="${mt - 4}" y2="${H - mb}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 3"/><text x="${f(X(p) + (anc === "start" ? 3 : -3))}" y="${H - mb - 4}" font-size="10" fill="var(--muted)" text-anchor="${anc}">${rot}</text>`; } }
+      for (const p of [a, b]) if (p > o.lo && p < o.hi)   // só as linhas: os rótulos ±% se sobrepunham à curva (a oscilação está no topo)
+        s += `<line x1="${f(X(p))}" x2="${f(X(p))}" y1="${mt - 4}" y2="${H - mb}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 3"/>`; } }
   s += `<polygon points="${area}" fill="var(--good)" opacity="0.16" clip-path="url(#${id}c)"/><polygon points="${area}" fill="var(--bad)" opacity="0.16" clip-path="url(#${id}b)"/>`;
   s += `<line x1="${ml}" x2="${W - mr}" y1="${zy}" y2="${zy}" stroke="var(--muted)" stroke-width="1" opacity="0.6"/>`;
   s += `<polyline points="${linha}" fill="none" stroke="var(--good)" stroke-width="2.5" stroke-linejoin="round" clip-path="url(#${id}c)"/><polyline points="${linha}" fill="none" stroke="var(--bad)" stroke-width="2.5" stroke-linejoin="round" clip-path="url(#${id}b)"/>`;
+  // risco máximo e ganho máximo escritos sobre o trecho reto da linha, na forma curta (−R$ 450, +R$ 300); nada se não couber
+  const rot = (alvo, txt, cor, acima) => { const L = pts.filter(([, r]) => Math.abs(r - alvo) < 0.5); if (!L.length) return;
+    const xa = X(L[0][0]), xb = X(L[L.length - 1][0]), cx = (xa + xb) / 2, anc = cx > W * 0.66 ? "end" : cx < W * 0.34 ? "start" : "middle";
+    if (txt.length * 5.6 + 8 > Math.max(xb - xa, 44)) return;
+    s += `<text x="${f(anc === "end" ? xb : anc === "start" ? xa : cx)}" y="${f(Y(alvo) + (acima ? -6 : 14))}" font-size="11" font-weight="700" fill="${cor}" text-anchor="${anc}">${txt}</text>`; };
+  rot(-m.perdaMax, `−${brl(m.perdaMax)}`, "var(--bad)", true);
+  if (m.ganhoMax !== null) rot(m.ganhoMax, `+${brl(m.ganhoMax)}`, "var(--good)", false);
   if (o.hoje > o.lo && o.hoje < o.hi) { const hx = f(X(o.hoje)), ancora = X(o.hoje) > W * 0.75 ? "end" : X(o.hoje) < W * 0.25 ? "start" : "middle";
     s += `<line x1="${hx}" x2="${hx}" y1="${mt - 4}" y2="${H - mb}" stroke="var(--ink)" stroke-width="1" stroke-dasharray="4 3" opacity="0.7"/><text x="${hx}" y="${mt - 9}" font-size="11" fill="var(--ink)" text-anchor="${ancora}">hoje ${brl(o.hoje, 2)}</text>`; }
   for (const e of m.equilibrio) if (e > o.lo && e < o.hi) s += `<circle cx="${f(X(e))}" cy="${zy}" r="3.5" fill="var(--ink)"/>`;

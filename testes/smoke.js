@@ -164,6 +164,7 @@ const arq = 'file://' + process.argv[2];
     });
     if (typeof r === 'string') throw new Error(r);
     const f = []; if (!r.hojeCartao) f.push('cartão sem "hoje R$ … · precisa/pode"'); if (!r.cen || !/hoje R\$/.test(r.hojeTxt)) f.push('cenários sem gráfico ou sem a linha de hoje');
+    if (!/−R\$ [\d.]+/.test(r.hojeTxt || '')) f.push('gráfico sem o risco máximo escrito na linha');
     if (!(+r.depois > +r.antes)) f.push(`ponto não andou com o controle (${r.antes} → ${r.depois})`);
     const fmt = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + 'R$ ' + Math.abs(Math.round(v)).toLocaleString('pt-BR');
     if (r.esperado !== 0 && r.rv.replace(/\s/g, ' ') !== fmt(r.esperado) && r.rv.replace(/\s/g, ' ') !== fmt(r.esperado).replace('−', '-')) f.push(`resultado ${r.rv} ≠ ${fmt(r.esperado)}`);
