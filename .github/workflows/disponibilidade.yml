@@ -1,0 +1,54 @@
+name: Pesquisa — dias com operação por papel
+
+# Para cada papel do app e cada pregão de 2025 até hoje: as operações do Início montam (liquidez), cabem no perfil
+# padrão no vencimento que o app escolhe, ou em algum vencimento (pesquisa/disponibilidade.py). Sequências de dias sem
+# operação, para decidir se um papel continua na lista. Só leitura: não grava nada no repositório.
+on:
+  workflow_dispatch:
+  push:
+    branches: [disponibilidade]
+    paths:
+      - "pesquisa/disponibilidade.py"
+      - ".github/workflows/disponibilidade.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  disponibilidade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # 2025 vem do cache das outras pesquisas (anos fechados); o ano corrente vem sempre do site.
+      - name: Anos fechados em cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/anos
+          key: cotahist-anuais-2015-ate-ano-passado-v1
+
+      - name: Baixar os COTAHIST de 2025 e do ano corrente
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/anos" "$RUNNER_TEMP/cotahist"
+          baixa() { curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 10 -A "Mozilla/5.0" -o "$2" \
+            "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_A$1.ZIP" && unzip -tq "$2" >/dev/null; }
+          ano=$(date -u +%Y); f="$RUNNER_TEMP/anos/COTAHIST_A$((ano - 1)).ZIP"
+          if [ -s "$f" ] && unzip -tq "$f" >/dev/null; then echo "ano passado: do cache"; else baixa "$((ano - 1))" "$f"; fi
+          ln -sf "$f" "$RUNNER_TEMP/cotahist/"
+          baixa "$ano" "$RUNNER_TEMP/cotahist/COTAHIST_A$ano.ZIP"
+          ls -lL "$RUNNER_TEMP/cotahist"
+
+      - name: Dias com operação
+        run: python pesquisa/disponibilidade.py --zips "$RUNNER_TEMP/cotahist" --saida "$RUNNER_TEMP/disponibilidade.txt"
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: pesquisa-disponibilidade
+          path: ${{ runner.temp }}/disponibilidade.txt
+          retention-days: 30
