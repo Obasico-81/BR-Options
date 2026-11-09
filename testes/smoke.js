@@ -170,6 +170,28 @@ const arq = 'file://' + process.argv[2];
     if (r.esperado !== 0 && r.rv.replace(/\s/g, ' ') !== fmt(r.esperado) && r.rv.replace(/\s/g, ' ') !== fmt(r.esperado).replace('−', '-')) f.push(`resultado ${r.rv} ≠ ${fmt(r.esperado)}`);
     if (f.length) throw new Error(f.join(' | '));
   });
+  // compra simples: no lugar do "Ganho máximo" (put: só com a ação a R$ 0), o resultado se a ação andar a oscilação
+  // esperada pelo mercado a favor; nas travas, o ganho máximo continua
+  await passo('compra simples: resultado com a oscilação do mercado, sem ganho máximo', async () => {
+    await p.evaluate(() => { localStorage.clear(); }); await p.reload(); await p.waitForSelector('#nav');
+    const r = await p.evaluate(() => {
+      S.perda = 3000; S.capital = 12000; const f = [];
+      for (const [t, verbo] of [['aposta_baixa', 'cair'], ['aposta_alta', 'subir']]) {
+        let ok = false;
+        for (const at of Object.keys(SNAP.ativos)) { S.ativo = at; const m = montagem(t); if (typeof m === 'string') continue;
+          tese = t; tela = 'cartao'; render(); const txt = document.getElementById('app').innerText; ok = true;
+          if (/Ganho máximo/.test(txt)) f.push(t + ': ainda mostra "Ganho máximo"');
+          if (!new RegExp('Se ' + verbo + ' \\d+% até \\d\\d/\\d\\d').test(txt)) f.push(t + ': sem "Se ' + verbo + ' X% até dd/mm"');
+          break; }
+        if (!ok) f.push(t + ': não montou em nenhum ativo');
+      }
+      for (const at of Object.keys(SNAP.ativos)) { S.ativo = at; if (typeof montagem('alta') !== 'string') { tese = 'alta'; tela = 'cartao'; render();
+        if (!/Ganho máximo/.test(document.getElementById('app').innerText)) f.push('trava de alta perdeu o "Ganho máximo"'); break; } }
+      return f;
+    });
+    await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('#nav');
+    if (r.length) throw new Error(r.join(' | '));
+  });
   // Sobre o app: termos de uso e política de privacidade abrem em Ajustes e voltam; as páginas do site existem
   await passo('Ajustes: termos de uso e política de privacidade', async () => {
     const f = [];

@@ -437,6 +437,15 @@ function copiar(txt, btn){
   try{ navigator.clipboard.writeText(txt).then(ok, fb); }catch(e){ fb(); }
 }
 // Custos, recolhidos em "Detalhes da operação": os números em destaque não mudam (decisão de 03/11/2026).
+// Compra simples (uma call ou uma put comprada): o "ganho máximo" da put só existe com a ação a R$ 0, e o da call não
+// tem teto; nenhum dos dois serve de referência. No lugar, o resultado no vencimento se a ação andar a oscilação esperada
+// pelo mercado (a mesma faixa cinza do gráfico) a favor da operação. Pode dar negativo, e aparece assim.
+const compraSimples = (m) => m.pernas.length === 1 && m.pernas[0][0] > 0;
+function cenarioCompra(m, S, osc, vencISO){
+  if (!compraSimples(m) || !(osc > 0) || !(S > 0)) return null;
+  const put = m.pernas[0][1].t === "P", p = S * (put ? 1 - osc : 1 + osc), pc = `${(osc * 100).toLocaleString("pt-BR", {maximumFractionDigits: 0})}%`;
+  return {rot: `Se ${put ? "cair" : "subir"} ${pc} até ${dm(vencISO)}`, r: M.resultadoNoVencimento(m, p)};
+}
 // cor = corretagem por ordem usada na montagem (null = não cadastrada: só spread e taxas da B3). Operações antigas, sem os campos, não mostram.
 function custosHtml(m, cor){
   if (m.custoFixo === undefined) return "";
@@ -445,7 +454,7 @@ function custosHtml(m, cor){
    ${linha("Spread na entrada", m.custoSpread)}<p class="small muted" style="margin-top:-6px">Diferença para o preço médio das opções. Já está no valor pago ou recebido e no risco máximo.</p>
    ${linha("Taxas da B3 (entrada e saída, estimadas)", m.custoTaxas, " tot")}
    ${cor===null?`<div class="kv"><span>Corretagem</span><span>não cadastrada</span></div>`:linha(`Corretagem (${n} ordens × ${brl(m.custoFixo/n,2).replace(" ","&nbsp;")})`, m.custoFixo)+linha("Taxas e corretagem", extra)}
-   ${linha(`Risco máximo com ${rot}`, m.perdaMax + extra, " tot")}${m.ganhoMax===null?"":linha(`Ganho máximo com ${rot}`, m.ganhoMax - extra)}
+   ${linha(`Risco máximo com ${rot}`, m.perdaMax + extra, " tot")}${m.ganhoMax===null||compraSimples(m)?"":linha(`Ganho máximo com ${rot}`, m.ganhoMax - extra)}
    <p class="small muted">${cor===null?"Sem a corretagem cadastrada, o app não a soma. Cadastre o valor por ordem da sua corretora em Ajustes.":"Corretagem do seu cadastro, por ordem, na entrada e na saída de cada perna."} Os resultados dos cenários, de “Se encerrar hoje” e do Desempenho não descontam taxas e corretagem.</p>
   </div></details>`;
 }
@@ -471,7 +480,8 @@ function vCartao(){
     ${pagaERisco ? `<div class="stat risk" style="grid-column:1/-1"><div class="l">Você paga agora · é o risco máximo</div><div class="v bad">${brl(m.perdaMax)}</div><div class="s">${riscoSub}</div></div>`
     : `<div class="stat"><div class="l">${credito?"Você recebe agora":"Você paga agora"}</div><div class="v">${brl(Math.abs(m.premio))}</div></div>
     <div class="stat risk"><div class="l">Risco máximo</div><div class="v bad">${brl(m.perdaMax)}</div><div class="s">${riscoSub}</div></div>`}
-    <div class="stat"><div class="l">Ganho máximo</div><div class="v good">${m.ganhoMax===null?"Sem limite":brl(m.ganhoMax)}</div></div>
+    ${(c => c ? `<div class="stat"><div class="l">${c.rot}</div><div class="v ${c.r > 0 ? "good" : c.r < 0 ? "bad" : ""}">${c.r === 0 ? "R$ 0" : sgn(c.r)}</div><div class="s">oscilação esperada pelo mercado</div></div>`
+      : `<div class="stat"><div class="l">Ganho máximo</div><div class="v good">${m.ganhoMax===null?"Sem limite":brl(m.ganhoMax)}</div></div>`)(cenarioCompra(m, a.S, a.iv * Math.sqrt(m.dias / 365), addDias(S.data, m.dias)))}
     <div class="stat"><div class="l">${m.equilibrio.length>1?"Lucra fora de":"Lucra "+(tese==="baixa"||tese==="aposta_baixa"?"abaixo de":"acima de")}</div><div class="v">${m.equilibrio.length>1?`${brl(m.equilibrio[0],2)} e ${brl(m.equilibrio[1],2)}`:brl(m.equilibrio[0],2)}</div><div class="s">${distEquilibrio(m, a.S)}</div></div>
    </div>`;
   h += `<div class="card" style="flex-direction:row;justify-content:space-between;align-items:center"><div><div class="small muted">Chance implícita no preço</div><div class="small muted" style="margin-top:2px">Calculada a partir do preço das opções. Não é vantagem sua.</div></div><div style="font-size:26px;font-weight:700">${pct(m.probImplicita)}</div></div>`;
@@ -657,7 +667,7 @@ function vReal(){
   h += `<section class="card"><div class="row3"><label class="f">Data da execução<input id="rdata" type="date" value="${realF.data}" min="${S.data}"></label><label class="f">Opções por perna<input id="rqtd" type="text" inputmode="numeric" autocomplete="off" value="${realF.qtd || ""}"></label></div><p class="small muted">Montada com ${m0.lotes * 100} opções por perna, com os preços de ${dBR(S.data)}.</p></section>`;
   h += m0.pernas.map(([l,x], i) => `<section class="card"><div><div style="font-weight:700">${l > 0 ? "Comprou" : "Vendeu"} ${esc(x.s)}</div><div class="small muted">${nomeOp(x)} · vence ${dBR(addDias(S.data, m0.dias))}</div></div><label class="f">Preço executado (R$ por opção)<input id="rpreco${i}" type="text" inputmode="decimal" autocomplete="off" value="${fmtBR(realF.precos[i], 2)}"></label><p class="small muted">Na montagem: ${l > 0 ? "pagar até" : "receber pelo menos"} ${brl(l > 0 ? x.a : x.b, 2)}.</p></section>`).join("");
   h += `<section class="card"><label class="f">Custos da nota (opcional)<input id="rcustos" type="text" inputmode="decimal" autocomplete="off" placeholder="Taxas e corretagem, em R$" value="${fmtBR(realF.custos, 2)}"></label><p class="small muted">Sem este valor, o resultado fica sem custos.</p></section>`;
-  if (m) h += `<section class="card"><h2 style="font-size:16px">Com os preços executados</h2><div class="kv"><span>${m.premio < 0 ? "Você recebeu" : "Você pagou"}</span><span>${brl(Math.abs(m.premio), 2)}</span></div><div class="kv"><span>Risco máximo</span><span>${brl(m.perdaMax, 2)}</span></div><div class="kv"><span>Ganho máximo</span><span>${m.ganhoMax === null ? "Sem limite" : brl(m.ganhoMax, 2)}</span></div><div class="kv"><span>${m.equilibrio.length > 1 ? "Equilíbrios" : "Equilíbrio"}</span><span>${m.equilibrio.map(e => brl(e, 2)).join(" e ")}</span></div>
+  if (m) h += `<section class="card"><h2 style="font-size:16px">Com os preços executados</h2><div class="kv"><span>${m.premio < 0 ? "Você recebeu" : "Você pagou"}</span><span>${brl(Math.abs(m.premio), 2)}</span></div><div class="kv"><span>Risco máximo</span><span>${brl(m.perdaMax, 2)}</span></div>${(c => c ? `<div class="kv"><span>${c.rot}</span><span>${c.r === 0 ? "R$ 0" : sgn(c.r)}</span></div>` : `<div class="kv"><span>Ganho máximo</span><span>${m.ganhoMax === null ? "Sem limite" : brl(m.ganhoMax, 2)}</span></div>`)(cenarioCompra(m, dia().S, dia().iv * Math.sqrt(m.dias / 365), addDias(S.data, m.dias)))}<div class="kv"><span>${m.equilibrio.length > 1 ? "Equilíbrios" : "Equilíbrio"}</span><span>${m.equilibrio.map(e => brl(e, 2)).join(" e ")}</span></div>
    <p class="small muted">Na montagem: ${m0.premio < 0 ? "receberia" : "pagaria"} ${brl(Math.abs(m0.premio))}, com risco máximo de ${brl(m0.perdaMax)}.${m.perdaMax > S.perda ? ` O risco máximo executado passa do seu limite por operação (${brl(S.perda)}).` : ""}</p></section>`;
   if (prob) h += `<div class="note"><p>${prob}</p></div>`;
   return h + `<button class="btn" id="registrar" ${prob ? "disabled" : ""}>Registrar operação real</button><button class="btn sec2" data-go="cen">Voltar</button>`;
@@ -705,7 +715,7 @@ function vAcomp(){
   h += `<section class="card"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><div><div class="small muted">Resultado no vencimento, se a ação estiver em</div><div id="rv" style="font-size:30px;font-weight:700;color:${r>0?"var(--good)":r<0?"var(--bad)":"inherit"}">${r===0?"R$ 0":sgn(r)}</div></div><div style="text-align:right"><div class="small muted">Ação</div><div id="px" style="font-size:20px;font-weight:700;white-space:nowrap">${brl(slider,2)}</div></div></div>
    <div id="payoff">${payoffSvg(m, payoffOpcoes(P, lo, hi))}</div>
    <input id="sl" type="range" min="${lo}" max="${hi}" step="0.01" value="${slider}" aria-label="Preço da ação no vencimento">
-   <div><div class="small muted" style="display:flex;justify-content:space-between"><span>Risco máx. ${sgn(pior)}</span><span>${m.ganhoMax===null?"Sem teto":"Ganho máx. "+sgn(m.ganhoMax)}</span></div></div>${payoffLegenda(m, payoffOpcoes(P, lo, hi))}
+   <div><div class="small muted" style="display:flex;justify-content:space-between"><span>Risco máx. ${sgn(pior)}</span><span>${(c => c ? `${c.rot}: ${c.r === 0 ? "R$ 0" : sgn(c.r)}` : compraSimples(m) ? "" : m.ganhoMax===null?"Sem teto":"Ganho máx. "+sgn(m.ganhoMax))(cenarioCompra(m, po.hoje, po.osc, addDias(P.data, m.dias)))}</span></div></div>${payoffLegenda(m, payoffOpcoes(P, lo, hi))}
    <div class="row3" style="border-top:1px solid var(--line);padding-top:10px">${m.premio >= 0 && Math.abs(m.premio - m.perdaMax) < 1 ? `<div><div class="small muted">Você pagou · é o risco máximo</div><div style="font-weight:700">${brl(m.perdaMax)}</div></div>`
      : `<div><div class="small muted">${m.premio < 0 ? "Você recebeu" : "Você pagou"}</div><div style="font-weight:700">${brl(Math.abs(m.premio))}</div></div><div><div class="small muted">Risco máx.</div><div style="font-weight:700">${brl(m.perdaMax)}</div></div>`}<div><div class="small muted">Vence em</div><div style="font-weight:700">${dBR(addDias(P.data,m.dias))}</div></div></div></section>`;
   h += `<section class="card"><h2 style="font-size:16px">Quando sair</h2><p class="small muted">Regras definidas na entrada. Elas não mudam com o humor do mercado.</p>
