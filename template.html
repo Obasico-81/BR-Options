@@ -73,6 +73,9 @@ td:last-child{text-align:right;font-weight:700;white-space:nowrap}
 /* Avisos: fundo de cartão e faixa amarela à esquerda (o fundo amarelado escuro foi trocado em 06/11/2026) */
 .note{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:16px;padding:14px 16px;font-size:15px}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.campo{font:inherit;font-size:17px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-height:52px;width:100%}
+.lk{border:0;background:none;padding:0;font:inherit;color:var(--accent-text);font-weight:600;cursor:pointer}.lk:disabled{color:var(--muted);cursor:default}
+.marca{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;color:var(--muted)}.marca i{width:28px;height:28px;border-radius:8px;background:var(--accent);display:inline-block}
 .chip{border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-weight:700;font-size:14px;border-radius:999px;padding:0 14px;min-height:44px;cursor:pointer}
 .chk{display:flex;gap:10px;align-items:flex-start;font-size:15px;min-height:44px}
 .chk input{width:22px;height:22px;margin-top:2px;flex:none}
@@ -165,7 +168,149 @@ async function atualizarStatus(){
 const COMO = {alvo: "saiu no alvo", limite: "saiu no limite", prazo: "saiu no prazo", vencimento: "venceu", encerrada: "encerrada"};
 
 function load(k, d){ try{ const v = localStorage.getItem(k); if (!v) return d; const j = JSON.parse(v); return (d && typeof d === "object") ? Object.assign(d, j) : j; }catch(e){ return d; } }
-function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+function save(k, v){
+  if (k === "historico") marcarMudancas(v);
+  if (k === "estado") marcarPerfil(v);
+  try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){}
+  if (k === "historico" || k === "estado") agendarSincronia();
+}
+
+// ---------- Conta (Supabase): entrar com código por e-mail; cópia das operações e do perfil na nuvem ----------
+// O aparelho continua sendo a fonte da tela (localStorage); a conta guarda uma cópia e junta os aparelhos. Cada
+// operação leva _t (quando mudou por último); a versão mais nova vence, inclusive para apagar. Sem conta, nada sai do
+// aparelho. A chave abaixo é a publicável (pública por natureza): o banco só deixa cada usuário ver as próprias linhas.
+const SB = {url: "https://xoljwckdiedcfoygbiij.supabase.co", chave: "sb_publishable_JCJEXNtelgr8_iulqzFlSg_VkFRCbMz"};
+var sessao = load("sessao", null), sinc = {rodando: false, ultima: null, erro: null, timer: null};   // var: save() pode rodar antes desta linha
+const PERFIL = ["capital", "perda", "cad", "tema", "pf"];   // o que do perfil vai para a conta
+async function sbReq(caminho, o = {}){
+  const h = {apikey: SB.chave, "Content-Type": "application/json"};
+  if (o.auth !== false) { const t = await sbToken(); if (!t) throw Object.assign(new Error("sem sessão"), {status: 401}); h.Authorization = "Bearer " + t; }
+  if (o.prefer) h.Prefer = o.prefer;
+  const r = await fetch(SB.url + caminho, {method: o.metodo || "GET", headers: h, body: o.corpo === undefined ? undefined : JSON.stringify(o.corpo)});
+  const txt = await r.text(); let j = null; try { j = txt ? JSON.parse(txt) : null; } catch(e) {}
+  if (!r.ok) throw Object.assign(new Error((j && (j.msg || j.message || j.error_description || j.error)) || ("HTTP " + r.status)), {status: r.status, codigo: j && (j.error_code || j.code)});
+  return j;
+}
+function guardarSessao(j){
+  sessao = {access_token: j.access_token, refresh_token: j.refresh_token, expires_at: j.expires_at || Math.floor(Date.now() / 1000) + (j.expires_in || 3600),
+    uid: j.user ? j.user.id : sessao && sessao.uid, email: j.user ? j.user.email : sessao && sessao.email};
+  try { localStorage.setItem("sessao", JSON.stringify(sessao)); } catch(e) {}
+}
+async function sbToken(){
+  if (!sessao) return null;
+  if (Date.now() / 1000 < sessao.expires_at - 60) return sessao.access_token;
+  try { guardarSessao(await sbReq("/auth/v1/token?grant_type=refresh_token", {metodo: "POST", corpo: {refresh_token: sessao.refresh_token}, auth: false})); return sessao.access_token; }
+  catch(e) { if (e.status >= 400 && e.status < 500) sairLocal(); return null; }
+}
+function sairLocal(){ sessao = null; try { ["sessao", "apagadas", "perfil_t"].forEach(k => localStorage.removeItem(k)); } catch(e) {} }
+const contaEnviarCodigo = (email) => sbReq("/auth/v1/otp", {metodo: "POST", corpo: {email, create_user: true}, auth: false});
+async function contaVerificar(email, token){ guardarSessao(await sbReq("/auth/v1/verify", {metodo: "POST", corpo: {type: "email", email, token}, auth: false})); }
+async function contaSair(){ try { await sbReq("/auth/v1/logout", {metodo: "POST"}); } catch(e) {} sairLocal(); }
+async function contaExcluir(){ await sbReq("/rest/v1/rpc/excluir_minha_conta", {metodo: "POST", corpo: {}}); sairLocal(); }
+// O que mudou no histórico desde a última gravação: carimba _t nas operações alteradas e anota as apagadas
+function marcarMudancas(novas){
+  if (!Array.isArray(novas)) return;
+  let ant = []; try { ant = JSON.parse(localStorage.getItem("historico") || "[]") || []; } catch(e) {}
+  const assin = (o) => { const {_t, ...r} = o; return JSON.stringify(r); }, porId = new Map(ant.map(o => [o.id, assin(o)])), agora = Date.now();
+  for (const o of novas) { if (porId.get(o.id) !== assin(o)) o._t = agora; porId.delete(o.id); }
+  if (porId.size) { const ap = load("apagadas", {}); for (const id of porId.keys()) ap[id] = agora; try { localStorage.setItem("apagadas", JSON.stringify(ap)); } catch(e) {} }
+}
+function marcarPerfil(novo){
+  let ant = {}; try { ant = JSON.parse(localStorage.getItem("estado") || "{}") || {}; } catch(e) {}
+  if (PERFIL.some(k => JSON.stringify(ant[k]) !== JSON.stringify(novo[k]))) try { localStorage.setItem("perfil_t", String(Date.now())); } catch(e) {}
+}
+function agendarSincronia(){ if (!sessao) return; clearTimeout(sinc.timer); sinc.timer = setTimeout(sincronizar, 2500); }
+async function sincronizar(){
+  if (!sessao || sinc.rodando) return; sinc.rodando = true;
+  let redesenha = tela === "cad";
+  try {
+    const R = await sbReq("/rest/v1/operacoes?select=id,dados,apagada,atualizado_em");
+    const L = load("historico", []), D = load("apagadas", {}), envio = [];
+    const lm = new Map(L.map(o => [o.id, o])), rm = new Map(R.map(r => [Number(r.id), r]));
+    let mudou = false;
+    for (const id of new Set([...lm.keys(), ...rm.keys(), ...Object.keys(D).map(Number)])) {
+      const l = lm.get(id), r = rm.get(id), tl = l ? (l._t || 0) : -1, td = D[id] || -1, tr = r ? Date.parse(r.atualizado_em) : -1;
+      if (r && tr >= Math.max(tl, td)) {             // a nuvem tem a versão mais nova (ou a mesma)
+        if (r.apagada) { if (l) { lm.delete(id); mudou = true; } }
+        else if (tr > tl) { lm.set(id, Object.assign({}, r.dados, {_t: tr})); mudou = true; }
+        delete D[id];
+      } else if (td > tl) {                          // apagada aqui depois da última versão
+        if (r && !r.apagada) envio.push({user_id: sessao.uid, id, dados: r.dados, apagada: true, atualizado_em: new Date(td).toISOString()});
+        delete D[id];
+      } else if (l) {                                // a versão daqui é a mais nova
+        if (!l._t) { l._t = Date.now(); mudou = true; }
+        envio.push({user_id: sessao.uid, id, dados: l, apagada: false, atualizado_em: new Date(l._t).toISOString()});
+      }
+    }
+    if (envio.length) await sbReq("/rest/v1/operacoes?on_conflict=user_id,id", {metodo: "POST", corpo: envio, prefer: "resolution=merge-duplicates,return=minimal"});
+    const P = await sbReq("/rest/v1/perfis?select=dados,atualizado_em"), rp = P && P[0];
+    const tpl = +(localStorage.getItem("perfil_t") || 0), tpr = rp ? Date.parse(rp.atualizado_em) : -1;
+    if (rp && tpr > tpl) {
+      for (const k of PERFIL) if (rp.dados[k] !== undefined) S[k] = rp.dados[k];
+      S.cad = Object.assign({corretora: "", corretagem: null}, S.cad || {});
+      try { localStorage.setItem("estado", JSON.stringify(S)); localStorage.setItem("perfil_t", String(tpr)); } catch(e) {}
+      M.setCorretagem(S.cad.corretagem); aplicarTema(); mudou = true;
+    } else if (!rp || tpl > tpr) {
+      const t = tpl || Date.now(), dados = Object.fromEntries(PERFIL.map(k => [k, S[k] === undefined ? null : S[k]]));
+      await sbReq("/rest/v1/perfis?on_conflict=user_id", {metodo: "POST", corpo: [{user_id: sessao.uid, dados, atualizado_em: new Date(t).toISOString()}], prefer: "resolution=merge-duplicates,return=minimal"});
+      try { localStorage.setItem("perfil_t", String(t)); } catch(e) {}
+    }
+    try { localStorage.setItem("historico", JSON.stringify([...lm.values()].sort((a, b) => a.id - b.id))); localStorage.setItem("apagadas", JSON.stringify(D)); } catch(e) {}
+    sinc.ultima = new Date(); sinc.erro = null; redesenha = redesenha || mudou;
+  } catch(e) { sinc.erro = e.message || "erro"; }
+  finally { sinc.rodando = false; }
+  if (redesenha && tela !== "login") render();
+}
+// tela de entrar: e-mail → código. volta: para onde ir depois ("inicio" = boas-vindas, com "Continuar sem conta")
+var login = {passo: "email", email: "", erro: "", ocupado: false, volta: "cad", reenviarEm: 0};
+const msgConta = (e) => e.status === 429 ? "Muitos pedidos de código seguidos. Espere alguns minutos e tente de novo."
+  : /otp_expired|invalid|expired/i.test((e.codigo || "") + " " + e.message) ? "Código errado ou vencido. Confira o e-mail ou peça um novo."
+  : !e.status ? "Sem conexão com a internet. Tente de novo." : "Não deu certo agora. Tente de novo em instantes.";
+function vLogin(){
+  const L = login, ini = L.volta === "inicio", faltam = Math.max(0, Math.ceil((L.reenviarEm - Date.now()) / 1000));
+  const erro = L.erro ? `<p class="small" role="alert" style="color:var(--bad)">${esc(L.erro)}</p>` : "";
+  if (L.passo === "email") return `${ini ? `<div class="marca"><i></i>Montador de Opções</div>` : `<div class="top"><button class="back" data-go="${L.volta}">‹ Voltar</button></div>`}
+   <div><h1 style="font-size:30px;line-height:1.15">Entre para guardar suas operações</h1><p class="muted" style="margin-top:10px;font-size:17px">Suas operações e seu perfil ficam guardados na conta: trocar de celular não apaga nada. Sem senha: você recebe um código por e-mail.</p></div>
+   <label class="f" style="font-size:14px">Seu e-mail<input id="lg-email" class="campo" type="email" inputmode="email" autocomplete="email" placeholder="voce@email.com" value="${esc(L.email)}"></label>
+   ${erro}<button class="btn" id="lg-enviar" ${L.ocupado ? "disabled" : ""}>${L.ocupado ? "Enviando…" : "Receber código por e-mail"}</button>
+   ${ini ? `<button class="btn sec2" id="lg-sem">Continuar sem conta</button>` : ""}
+   <p class="small muted" style="text-align:center">Ao entrar, você concorda com os <button class="lk" data-doc="termos">Termos de uso</button> e a <button class="lk" data-doc="privacidade">Política de privacidade</button>.</p>`;
+  return `<div class="top"><button class="back" id="lg-trocar">‹ Voltar</button></div>
+   <div><h1 style="font-size:30px;line-height:1.15">Digite o código</h1><p class="muted" style="margin-top:10px;font-size:17px">Enviamos um código para <strong style="color:var(--ink)">${esc(L.email)}</strong>. Ele vale por pouco tempo e só pode ser usado uma vez.</p></div>
+   <label class="f" style="font-size:14px">Código<input id="lg-codigo" class="campo" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="000000" style="font-size:26px;letter-spacing:6px;text-align:center"></label>
+   ${erro}<button class="btn" id="lg-entrar" ${L.ocupado ? "disabled" : ""}>${L.ocupado ? "Entrando…" : "Entrar"}</button>
+   <p class="small muted" style="text-align:center">Não chegou? Veja a caixa de spam ou <button class="lk" id="lg-reenviar" ${faltam ? "disabled" : ""}>reenvie o código</button><span id="lg-falta">${faltam ? ` em ${faltam} s` : ""}</span>.</p>`;
+}
+function contaCard(){
+  if (!sessao) return `<section class="card" aria-label="Sua conta"><h2 style="font-size:16px">Sua conta</h2><p class="small muted">Sem conta, as operações ficam só neste aparelho. Com conta, ficam guardadas também na nuvem e voltam se você trocar de celular.</p><button class="btn sec" id="conta-entrar" style="min-height:48px">Entrar ou criar conta</button></section>`;
+  const st = sinc.rodando ? "Sincronizando…" : sinc.erro ? "Não sincronizou agora; tenta de novo sozinho." : sinc.ultima ? `Sincronizado às ${sinc.ultima.toLocaleTimeString("pt-BR", {hour: "2-digit", minute: "2-digit"})}` : "Suas operações ficam guardadas na conta.";
+  return `<section class="card" aria-label="Sua conta"><h2 style="font-size:16px">Sua conta</h2><div><div style="font-weight:700;overflow-wrap:anywhere">${esc(sessao.email || "")}</div><div class="small muted">${st}</div></div>
+   <button class="btn sec" id="conta-sair" style="min-height:48px">Sair da conta</button><button class="btn sec2" id="conta-excluir" style="color:var(--bad)">Excluir minha conta</button>
+   <p class="small muted">Excluir apaga a conta e as operações guardadas nela. As que estão neste aparelho continuam aqui até você apagar.</p></section>`;
+}
+function bindConta(q){
+  const ce = q("#conta-entrar"); if (ce) ce.onclick = () => { login = {passo: "email", email: "", erro: "", ocupado: false, volta: "cad", reenviarEm: 0}; tela = "login"; render(); };
+  const cs = q("#conta-sair"); if (cs) cs.onclick = async () => { if (!confirm("Sair da conta? As operações continuam neste aparelho e na conta.")) return; await contaSair(); render(); };
+  const cx = q("#conta-excluir"); if (cx) cx.onclick = async () => { if (!confirm("Excluir sua conta e todas as operações guardadas nela? Não dá para desfazer.")) return;
+    try { await contaExcluir(); alert("Conta excluída."); } catch(e) { alert(msgConta(e)); } render(); };
+  const ls = q("#lg-sem"); if (ls) ls.onclick = () => { try { localStorage.setItem("semConta", "1"); } catch(e) {} tela = "obj"; render(); };
+  const le = q("#lg-enviar"); if (le) le.onclick = async () => {
+    const email = (q("#lg-email").value || "").trim().toLowerCase(); login.email = email;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { login.erro = "Confira o e-mail digitado."; return render(); }
+    login.ocupado = true; login.erro = ""; render();
+    try { await contaEnviarCodigo(email); login.passo = "codigo"; login.reenviarEm = Date.now() + 60000; } catch(e) { login.erro = msgConta(e); }
+    login.ocupado = false; render(); const c = q("#lg-codigo"); if (c) c.focus(); };
+  const lt = q("#lg-trocar"); if (lt) lt.onclick = () => { login.passo = "email"; login.erro = ""; render(); };
+  const lr = q("#lg-reenviar"); if (lr) lr.onclick = async () => { login.erro = ""; try { await contaEnviarCodigo(login.email); login.reenviarEm = Date.now() + 60000; } catch(e) { login.erro = msgConta(e); } render(); };
+  const lg = q("#lg-entrar"); if (lg) lg.onclick = async () => {
+    const cod = (q("#lg-codigo").value || "").replace(/\D/g, "");
+    if (cod.length < 6) { login.erro = "Digite os números do código."; return render(); }
+    login.ocupado = true; login.erro = ""; render();
+    try { await contaVerificar(login.email, cod); try { localStorage.setItem("semConta", "1"); } catch(e) {} login.ocupado = false; tela = login.volta === "inicio" ? "obj" : "cad"; render(); await sincronizar(); }
+    catch(e) { login.ocupado = false; login.erro = msgConta(e); render(); } };
+  if (tela === "login" && login.passo === "codigo") { const tick = () => { const b = q("#lg-reenviar"), s = q("#lg-falta"); if (!b) return;
+    const f = Math.max(0, Math.ceil((login.reenviarEm - Date.now()) / 1000)); b.disabled = f > 0; if (s) s.textContent = f ? ` em ${f} s` : ""; if (f > 0) setTimeout(tick, 1000); }; setTimeout(tick, 1000); }
+}
 const brl = (v, d=0) => (v<0?"−":"") + "R$ " + Math.abs(v).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d});
 const sgn = (v) => (v>0?"+":"") + brl(v);
 const sgn2 = (v) => v === 0 ? "R$ 0,00" : (v>0?"+":"") + brl(v, 2);   // resultado de operação real: com centavos
@@ -276,9 +421,9 @@ function render(){
   // o ativo salvo pode não existir no dia carregado (papel novo que ficou de fora num pregão, ou dia antigo no ?teste=1)
   { const doDia = SNAP.por_data[S.data]; if (!doDia[S.ativo]) S.ativo = doDia.PETR4 ? "PETR4" : Object.keys(doDia)[0]; }
   const el = document.getElementById("app");
-  el.innerHTML = tela==="obj" ? vObj() : tela==="cartao" ? vCartao() : tela==="cen" ? vCen() : tela==="desemp" ? vDesemp() : tela==="cad" ? vCad() : tela==="sinal" ? vSinal() : tela==="real" ? vReal() : tela==="sair" ? vSair() : tela==="doc" ? vDoc() : vAcomp();
+  el.innerHTML = tela==="login" ? vLogin() : tela==="obj" ? vObj() : tela==="cartao" ? vCartao() : tela==="cen" ? vCen() : tela==="desemp" ? vDesemp() : tela==="cad" ? vCad() : tela==="sinal" ? vSinal() : tela==="real" ? vReal() : tela==="sair" ? vSair() : tela==="doc" ? vDoc() : vAcomp();
   window.scrollTo(0,0);
-  navBar();
+  navBar(); document.getElementById("nav").style.display = tela === "login" ? "none" : "";
   bind();
 }
 const topo = (back, label, passo) => `<div class="top">${back?`<button class="back" data-go="${back}">‹ ${label}</button>`:`<span class="small muted" style="font-weight:600">Passo ${passo} de 4</span>`}<span>${back?`<span class="small muted" style="font-weight:600;margin-right:8px">Passo ${passo} de 4</span>`:""}<span class="pill sim">Modo simulado</span></span></div>`;
@@ -593,7 +738,7 @@ function vLista(){
 }
 function vCad(){
   const c = S.cad;
-  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Ajustes</h1><p class="muted">Estes dados ficam guardados só neste aparelho.</p>`;
+  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Ajustes</h1><p class="muted">${sessao ? "Estes dados ficam neste aparelho e na sua conta." : "Estes dados ficam guardados só neste aparelho."}</p>` + contaCard();
   h += `<section class="card"><label class="f">Corretora<select id="ccorr"><option value="">Escolha…</option>${CORRETORAS.map(n=>`<option ${n===c.corretora?"selected":""}>${n}</option>`).join("")}</select></label>
    <label class="f">Corretagem por ordem de opções (R$)<input id="ccorrtg" type="text" inputmode="decimal" autocomplete="off" placeholder="Não sei" value="${fmtBR(c.corretagem,2)}"></label>
    <p class="small muted">${c.corretagem===null?"Sem este valor, o custo das operações não inclui corretagem. Os custos aparecem em Detalhes da operação.":`O custo das operações usa ${brl(c.corretagem,2).replace(" ","&nbsp;")} por ordem, na entrada e na saída de cada perna. Aparece em Detalhes da operação.`} Consulte a tabela da sua corretora; o app não confere esse valor.</p></section>`;
@@ -781,11 +926,16 @@ function bind(){
   const cc = q("#ccorr"); if (cc) cc.onchange = () => { S.cad.corretora = cc.value; sv(); };
   const ct = q("#ccorrtg"); if (ct) ct.onchange = () => { const n = numBR(ct.value); S.cad.corretagem = n === null || !(n >= 0) ? null : Math.round(n*100)/100; sv(); render(); };
   document.querySelectorAll("[data-doc]").forEach(b => b.onclick = () => { doc = b.dataset.doc; tela = "doc"; render(); });
+  bindConta(q);
   document.querySelectorAll("[data-tema]").forEach(b => b.onclick = () => { S.tema = b.dataset.tema; save("estado", S); aplicarTema(); render(); });
-  const ap = q("#apagar-tudo"); if (ap) ap.onclick = () => { if (confirm("Apagar todos os seus dados neste aparelho?")){ try{ ["estado","historico","posicao"].forEach(k=>localStorage.removeItem(k)); }catch(e){} location.reload(); } };
+  const ap = q("#apagar-tudo"); if (ap) ap.onclick = () => { if (confirm("Apagar todos os seus dados neste aparelho?")){ try{ ["estado","historico","posicao","sessao","apagadas","perfil_t","semConta"].forEach(k=>localStorage.removeItem(k)); }catch(e){} location.reload(); } };
   const en = q("#encerrar"); if (en) en.onclick = () => { const P = opSel(); if (P && P.real && !confirm("Apagar o registro desta operação real? Isso não mexe na sua corretora.")) return; save("historico", load("historico", []).filter(o => o.id !== selId)); selId = null; tela = "acomp"; render(); sincronizarAvisos(false); };
 }
+// primeira abertura sem conta: a tela de entrar, com "Continuar sem conta" (os testes automáticos começam direto no Início)
+if (!sessao && !localStorage.getItem("semConta") && !navigator.webdriver) { tela = "login"; login.volta = "inicio"; }
 render();
 atualizarStatus();
 sincronizarAvisos(false);
+if (sessao) sincronizar();
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && sessao) sincronizar(); });
 </script>
