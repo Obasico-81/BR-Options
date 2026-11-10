@@ -1,0 +1,63 @@
+name: Pesquisa — setup HiLo + Fibonacci
+
+# Setup da live "O Poder das Opções" (B.Trader, 09/11/2026): HiLo, candle de força e projeção de Fibonacci, com a
+# compra da opção nos preços reais (pesquisa/hilo.py). Só leitura: não grava nada no repositório.
+on:
+  workflow_dispatch:
+  push:
+    branches: [hilo]
+    paths:
+      - "pesquisa/hilo.py"
+      - ".github/workflows/hilo.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pesquisa-hilo
+  cancel-in-progress: true
+
+jobs:
+  hilo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Dependências (versão fixa)
+        run: pip install --quiet numpy==2.1.3
+
+      # Anos fechados em cache (mesma chave das outras pesquisas); o ano corrente vem sempre do site.
+      - name: Anos fechados em cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/anos
+          key: cotahist-anuais-2015-ate-ano-passado-v1
+
+      - name: Baixar os COTAHIST anuais da B3
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/anos" "$RUNNER_TEMP/cotahist"
+          baixa() { curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 10 -A "Mozilla/5.0" -o "$2" \
+            "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_A$1.ZIP" && unzip -tq "$2" >/dev/null; }
+          ano=$(date -u +%Y)
+          for a in $(seq 2015 $((ano - 1))); do
+            f="$RUNNER_TEMP/anos/COTAHIST_A$a.ZIP"
+            if [ -s "$f" ] && unzip -tq "$f" >/dev/null; then echo "COTAHIST_A$a.ZIP: do cache"; else baixa "$a" "$f"; fi
+            ln -sf "$f" "$RUNNER_TEMP/cotahist/"
+          done
+          baixa "$ano" "$RUNNER_TEMP/cotahist/COTAHIST_A$ano.ZIP"
+          ls -lL "$RUNNER_TEMP/cotahist"
+
+      - name: Setup HiLo (exploração 2015–2021)
+        run: python pesquisa/hilo.py --zips "$RUNNER_TEMP/cotahist" --saida "$RUNNER_TEMP/hilo.txt" --fase explorar
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: pesquisa-hilo
+          path: ${{ runner.temp }}/hilo.txt
+          retention-days: 30
