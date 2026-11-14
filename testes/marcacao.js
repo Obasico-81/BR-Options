@@ -26,7 +26,8 @@ confere("resultadoNoDia: perna sem preço no dia -> null", M.resultadoNoDia(m, {
 const venc = "2026-12-18";
 confere("regraDeSaida: alvo", JSON.stringify(M.regraDeSaida(m, [{ d: "2026-10-01", r: 50 }, { d: "2026-10-02", r: null }, { d: "2026-10-05", r: m.alvo + 1 }], venc)) === JSON.stringify({ regra: "alvo", d: "2026-10-05", r: m.alvo + 1 }));
 confere("regraDeSaida: trava não sai por perda grande (sem limite); sai no alvo depois", M.regraDeSaida(m, [{ d: "2026-10-01", r: -m.perdaMax }, { d: "2026-10-05", r: m.alvo + 1 }], venc)?.regra === "alvo");
-const pv = M.montar("alta_com_caixa", a.S, a.chain, a.iv, 1e6, { caixa: 1e6 });
+// put vendida: a de PETR4 pode estar sem liquidez no dia (ex.: 13/11/2026); procura em outros prazos e ativos
+const pv = Object.values(snap.ativos).flatMap((x) => [45, 30, 60, 15, 75, 90].map((p) => [x, p])).map(([x, p]) => M.montar("alta_com_caixa", x.S, x.chain, x.iv, 1e6, { caixa: 1e6, prazoAlvo: p })).find((x) => typeof x !== "string");
 confere("regraDeSaida: put vendida mantém o limite e sai nele antes do alvo", typeof pv !== "string" && pv.stop < 0 && M.regraDeSaida(pv, [{ d: "2026-10-01", r: pv.stop - 1 }, { d: "2026-10-05", r: pv.alvo + 1 }], venc)?.regra === "limite");
 confere("regraDeSaida: prazo (7 dias antes do vencimento)", JSON.stringify(M.regraDeSaida(m, [{ d: "2026-12-10", r: 10 }, { d: "2026-12-11", r: 20 }], venc)) === JSON.stringify({ regra: "prazo", d: "2026-12-11", r: 20 }));
 confere("regraDeSaida: dia sem preço e dias no/após o vencimento são ignorados", M.regraDeSaida(m, [{ d: "2026-10-01", r: null }, { d: venc, r: m.alvo + 1 }], venc) === null);

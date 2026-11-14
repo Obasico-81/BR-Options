@@ -76,5 +76,11 @@ jobs:
       - name: Avisos do app nativo (componente simulado)
         run: node testes/avisos.js
 
+      - name: Conta — entrar com código, cópia entre aparelhos, sair e excluir (Supabase simulado)
+        run: node testes/conta.js "$PWD/pwa/index.html"
+
+      - name: Layout de computador (menu lateral, colunas, tabelas, de 1024 a 1920px)
+        run: node testes/desktop.js
+
       - name: Snapshot publicado (só o pregão mais recente)
         run: python testes/publicado.py
