@@ -43,7 +43,7 @@ p{margin:0}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
 label.f>input,label.f>select{margin-top:auto}   /* caixas alinhadas pela base, mesmo com rótulo de 2 linhas ao lado */
 .row3>div{display:flex;flex-direction:column}.row3>div>div:last-child{margin-top:auto}   /* idem para os valores (rótulo em cima, valor na base) */
-input[type=number],input[type=text],input[type=date],select{font:inherit;font-size:16px;font-weight:600;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:44px;width:100%;min-width:0}
+input[type=number],input[type=text],input[type=tel],input[type=date],select{font:inherit;font-size:16px;font-weight:600;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:44px;width:100%;min-width:0}
 .row3{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
 .sec{padding-top:6px;display:flex;flex-direction:column;gap:10px}
 .sec p{font-size:14px;color:var(--muted)}
@@ -246,7 +246,7 @@ async function sbReq(caminho, o = {}){
 }
 function guardarSessao(j){
   sessao = {access_token: j.access_token, refresh_token: j.refresh_token, expires_at: j.expires_at || Math.floor(Date.now() / 1000) + (j.expires_in || 3600),
-    uid: j.user ? j.user.id : sessao && sessao.uid, email: j.user ? j.user.email : sessao && sessao.email};
+    uid: j.user ? j.user.id : sessao && sessao.uid, email: j.user ? j.user.email : sessao && sessao.email, fone: j.user ? (j.user.phone || "") : sessao && sessao.fone};
   try { localStorage.setItem("sessao", JSON.stringify(sessao)); } catch(e) {}
 }
 async function sbToken(){
@@ -256,8 +256,19 @@ async function sbToken(){
   catch(e) { if (e.status >= 400 && e.status < 500) sairLocal(); return null; }
 }
 function sairLocal(){ sessao = null; try { ["sessao", "apagadas", "perfil_t"].forEach(k => localStorage.removeItem(k)); } catch(e) {} }
-const contaEnviarCodigo = (email) => sbReq("/auth/v1/otp", {metodo: "POST", corpo: {email, create_user: true}, auth: false});
-async function contaVerificar(email, token){ guardarSessao(await sbReq("/auth/v1/verify", {metodo: "POST", corpo: {type: "email", email, token}, auth: false})); }
+// Celular: o Supabase manda o código pelo Twilio (provedor de telefone configurado no painel). Só celular brasileiro com
+// DDD (11 dígitos, o terceiro é 9): número fixo não recebe SMS.
+const CANAL_CEL = "sms";   // "whatsapp" se o remetente do Twilio estiver aprovado para WhatsApp
+const foneE164 = (v) => { let d = String(v || "").replace(/\D/g, ""); if (d.length === 13 && d.startsWith("55")) d = d.slice(2); return /^[1-9][1-9]9\d{8}$/.test(d) ? "+55" + d : null; };
+const foneBR = (f) => { const d = String(f || "").replace(/\D/g, "").replace(/^55(?=\d{11}$)/, ""); return d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : String(f || ""); };
+const contaNome = () => !sessao ? "" : sessao.email || (sessao.fone ? foneBR(sessao.fone) : "Conta conectada");
+const viaCel = (L) => L.modo === "cel";
+const contaEnviarCodigo = (L) => sbReq("/auth/v1/otp", {metodo: "POST", corpo: viaCel(L) ? {phone: L.fone, channel: CANAL_CEL, create_user: true} : {email: L.email, create_user: true}, auth: false});
+async function contaVerificar(L, token){ guardarSessao(await sbReq("/auth/v1/verify", {metodo: "POST", corpo: viaCel(L) ? {type: "sms", phone: L.fone, token} : {type: "email", email: L.email, token}, auth: false})); }
+// celular numa conta de e-mail: o Supabase manda um código para o número novo; confirmado, a conta entra pelos dois
+const contaPedirFone = (f) => sbReq("/auth/v1/user", {metodo: "PUT", corpo: {phone: f}});
+async function contaConfirmarFone(f, token){ const j = await sbReq("/auth/v1/verify", {metodo: "POST", corpo: {type: "phone_change", phone: f, token}});
+  if (j && j.access_token) guardarSessao(j); else { sessao.fone = f.replace(/^\+/, ""); try { localStorage.setItem("sessao", JSON.stringify(sessao)); } catch(e) {} } }
 async function contaSair(){ try { await sbReq("/auth/v1/logout", {metodo: "POST"}); } catch(e) {} sairLocal(); }
 async function contaExcluir(){ await sbReq("/rest/v1/rpc/excluir_minha_conta", {metodo: "POST", corpo: {}}); sairLocal(); }
 // O que mudou no histórico desde a última gravação: carimba _t nas operações alteradas e anota as apagadas
@@ -314,52 +325,84 @@ async function sincronizar(){
   finally { sinc.rodando = false; }
   if (redesenha && tela !== "login") render();
 }
-// tela de entrar: e-mail → código. volta: para onde ir depois ("inicio" = boas-vindas, com "Continuar sem conta")
-var login = {passo: "email", email: "", erro: "", ocupado: false, volta: "cad", reenviarEm: 0};
-const msgConta = (e) => e.status === 429 ? "Muitos pedidos de código seguidos. Espere alguns minutos e tente de novo."
-  : /otp_expired|invalid|expired/i.test((e.codigo || "") + " " + e.message) ? "Código errado ou vencido. Confira o e-mail ou peça um novo."
-  : !e.status ? "Sem conexão com a internet. Tente de novo." : "Não deu certo agora. Tente de novo em instantes.";
+// tela de entrar: celular ou e-mail → código. volta: para onde ir depois ("inicio" = boas-vindas, com "Continuar sem conta")
+const novoLogin = (volta) => ({passo: "email", modo: "cel", email: "", fone: "", foneTxt: "", erro: "", ocupado: false, volta, reenviarEm: 0});
+var login = novoLogin("cad"), vinc = {passo: "", fone: "", foneTxt: "", erro: "", ocupado: false};   // vinc: celular em Ajustes
+const msgConta = (e) => { const t = (e.codigo || "") + " " + e.message;
+  return e.status === 429 ? "Muitos pedidos de código seguidos. Espere alguns minutos e tente de novo."
+  : /phone_exists|phone.*(already|registered)/i.test(t) ? "Este celular já está em outra conta. Para usar aquela conta, entre pelo número."
+  : /phone_provider_disabled|unsupported phone provider/i.test(t) ? "Entrar pelo celular ainda não está disponível. Use o e-mail."
+  : /sms_send_failed|error sending|phone/i.test(t) && e.status >= 400 && e.status < 500 ? "Não deu para enviar o SMS para este número. Confira o número e tente de novo."
+  : /otp_expired|invalid|expired/i.test(t) ? "Código errado ou vencido. Confira e peça um novo se precisar."
+  : !e.status ? "Sem conexão com a internet. Tente de novo." : "Não deu certo agora. Tente de novo em instantes."; };
+const segBtn = (attr, k, t, on) => `<button class="seg" ${attr}="${k}" aria-pressed="${on}" style="min-height:48px;padding:8px 10px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:15px;font-weight:600;cursor:pointer">${t}</button>`;
 function vLogin(){
-  const L = login, ini = L.volta === "inicio", faltam = Math.max(0, Math.ceil((L.reenviarEm - Date.now()) / 1000));
+  const L = login, ini = L.volta === "inicio", cel = viaCel(L), faltam = Math.max(0, Math.ceil((L.reenviarEm - Date.now()) / 1000));
   const erro = L.erro ? `<p class="small" role="alert" style="color:var(--bad)">${esc(L.erro)}</p>` : "";
   if (L.passo === "email") return `${ini ? `<div class="marca"><i></i>Montador de Opções</div>` : `<div class="top"><button class="back" data-go="${L.volta}">‹ Voltar</button></div>`}
-   <div><h1 style="font-size:30px;line-height:1.15">Entre para guardar suas operações</h1><p class="muted" style="margin-top:10px;font-size:17px">Suas operações e seu perfil ficam guardados na conta: trocar de celular não apaga nada. Sem senha: você recebe um código por e-mail.</p></div>
-   <label class="f" style="font-size:14px">Seu e-mail<input id="lg-email" class="campo" type="email" inputmode="email" autocomplete="email" placeholder="voce@email.com" value="${esc(L.email)}"></label>
-   ${erro}<button class="btn" id="lg-enviar" ${L.ocupado ? "disabled" : ""}>${L.ocupado ? "Enviando…" : "Receber código por e-mail"}</button>
+   <div><h1 style="font-size:30px;line-height:1.15">Entre para guardar suas operações</h1><p class="muted" style="margin-top:10px;font-size:17px">Suas operações e seu perfil ficam guardados na conta: trocar de celular não apaga nada, e você entra também pelo computador. Sem senha: você recebe um código.</p></div>
+   <div role="group" aria-label="Entrar com" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${segBtn("data-modo", "cel", "Celular", cel)}${segBtn("data-modo", "email", "E-mail", !cel)}</div>
+   ${cel ? `<label class="f" style="font-size:14px">Seu celular, com DDD<input id="lg-fone" class="campo" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(11) 91234-5678" value="${esc(L.foneTxt)}"></label>`
+     : `<label class="f" style="font-size:14px">Seu e-mail<input id="lg-email" class="campo" type="email" inputmode="email" autocomplete="email" placeholder="voce@email.com" value="${esc(L.email)}"></label>`}
+   ${erro}<button class="btn" id="lg-enviar" ${L.ocupado ? "disabled" : ""}>${L.ocupado ? "Enviando…" : cel ? "Receber código por SMS" : "Receber código por e-mail"}</button>
    ${ini ? `<button class="btn sec2" id="lg-sem">Continuar sem conta</button>` : ""}
    <p class="small muted" style="text-align:center">Ao entrar, você concorda com os <button class="lk" data-doc="termos">Termos de uso</button> e a <button class="lk" data-doc="privacidade">Política de privacidade</button>.</p>`;
   return `<div class="top"><button class="back" id="lg-trocar">‹ Voltar</button></div>
-   <div><h1 style="font-size:30px;line-height:1.15">Digite o código</h1><p class="muted" style="margin-top:10px;font-size:17px">Enviamos um código para <strong style="color:var(--ink)">${esc(L.email)}</strong>. Ele vale por pouco tempo e só pode ser usado uma vez.</p></div>
+   <div><h1 style="font-size:30px;line-height:1.15">Digite o código</h1><p class="muted" style="margin-top:10px;font-size:17px">Enviamos um código ${cel ? `por SMS para <strong style="color:var(--ink)">${esc(foneBR(L.fone))}</strong>` : `para <strong style="color:var(--ink)">${esc(L.email)}</strong>`}. Ele vale por pouco tempo e só pode ser usado uma vez.</p></div>
    <label class="f" style="font-size:14px">Código<input id="lg-codigo" class="campo" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="000000" style="font-size:26px;letter-spacing:6px;text-align:center"></label>
    ${erro}<button class="btn" id="lg-entrar" ${L.ocupado ? "disabled" : ""}>${L.ocupado ? "Entrando…" : "Entrar"}</button>
-   <p class="small muted" style="text-align:center">Não chegou? Veja a caixa de spam ou <button class="lk" id="lg-reenviar" ${faltam ? "disabled" : ""}>reenvie o código</button><span id="lg-falta">${faltam ? ` em ${faltam} s` : ""}</span>.</p>`;
+   <p class="small muted" style="text-align:center">Não chegou? ${cel ? "" : "Veja a caixa de spam ou "}<button class="lk" id="lg-reenviar" ${faltam ? "disabled" : ""}>${cel ? "Reenvie" : "reenvie"} o código</button><span id="lg-falta">${faltam ? ` em ${faltam} s` : ""}</span>.</p>`;
+}
+// Ajustes, conta de e-mail sem celular: adicionar o número (código por SMS). Depois, a conta entra pelos dois.
+function vincHtml(){
+  const V = vinc, erro = V.erro ? `<p class="small" role="alert" style="color:var(--bad)">${esc(V.erro)}</p>` : "";
+  if (!V.passo) return `<div style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:10px"><p class="small muted">Adicione seu celular para entrar também pelo número, no app e no computador.</p><button class="btn sec" id="vc-abrir" style="min-height:48px">Adicionar celular</button></div>`;
+  if (V.passo === "num") return `<div style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:10px"><label class="f">Seu celular, com DDD<input id="vc-fone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(11) 91234-5678" value="${esc(V.foneTxt)}"></label>${erro}<button class="btn sec" id="vc-enviar" style="min-height:48px" ${V.ocupado ? "disabled" : ""}>${V.ocupado ? "Enviando…" : "Receber código por SMS"}</button><button class="lk" id="vc-cancelar" style="align-self:center">Cancelar</button></div>`;
+  return `<div style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:10px"><p class="small">Enviamos um código por SMS para <strong>${esc(foneBR(V.fone))}</strong>.</p><label class="f">Código<input id="vc-codigo" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="000000"></label>${erro}<button class="btn sec" id="vc-confirmar" style="min-height:48px" ${V.ocupado ? "disabled" : ""}>${V.ocupado ? "Confirmando…" : "Confirmar celular"}</button><button class="lk" id="vc-cancelar" style="align-self:center">Cancelar</button></div>`;
 }
 function contaCard(){
-  if (!sessao) return `<section class="card" aria-label="Sua conta"><h2 style="font-size:16px">Sua conta</h2><p class="small muted">Sem conta, as operações ficam só neste aparelho. Com conta, ficam guardadas também na nuvem e voltam se você trocar de celular.</p><button class="btn sec" id="conta-entrar" style="min-height:48px">Entrar ou criar conta</button></section>`;
+  if (!sessao) return `<section class="card" aria-label="Sua conta"><h2 style="font-size:16px">Sua conta</h2><p class="small muted">Sem conta, as operações ficam só neste aparelho. Com conta, ficam guardadas também na nuvem, voltam se você trocar de celular e aparecem no computador.</p><button class="btn sec" id="conta-entrar" style="min-height:48px">Entrar ou criar conta</button></section>`;
   const st = sinc.rodando ? "Sincronizando…" : sinc.erro ? "Não sincronizou agora; tenta de novo sozinho." : sinc.ultima ? `Sincronizado às ${sinc.ultima.toLocaleTimeString("pt-BR", {hour: "2-digit", minute: "2-digit"})}` : "Suas operações ficam guardadas na conta.";
-  return `<section class="card" aria-label="Sua conta"><h2 style="font-size:16px">Sua conta</h2><div><div style="font-weight:700;overflow-wrap:anywhere">${esc(sessao.email || "")}</div><div class="small muted">${st}</div></div>
+  const outro = sessao.email && sessao.fone ? `<div class="small muted">Celular ${esc(foneBR(sessao.fone))}</div>` : "";
+  return `<section class="card" aria-label="Sua conta"><h2 style="font-size:16px">Sua conta</h2><div><div style="font-weight:700;overflow-wrap:anywhere">${esc(contaNome())}</div>${outro}<div class="small muted">${st}</div></div>
+   ${sessao.fone ? "" : vincHtml()}
    <button class="btn sec" id="conta-sair" style="min-height:48px">Sair da conta</button><button class="btn sec2" id="conta-excluir" style="color:var(--bad)">Excluir minha conta</button>
    <p class="small muted">Excluir apaga a conta e as operações guardadas nela. As que estão neste aparelho continuam aqui até você apagar.</p></section>`;
 }
 function bindConta(q){
-  const ce = q("#conta-entrar"); if (ce) ce.onclick = () => { login = {passo: "email", email: "", erro: "", ocupado: false, volta: "cad", reenviarEm: 0}; tela = "login"; render(); };
+  const ce = q("#conta-entrar"); if (ce) ce.onclick = () => { login = novoLogin("cad"); tela = "login"; render(); };
+  document.querySelectorAll("[data-modo]").forEach(b => b.onclick = () => { login.modo = b.dataset.modo; login.erro = ""; render(); const i = q(viaCel(login) ? "#lg-fone" : "#lg-email"); if (i) i.focus(); });
   const cs = q("#conta-sair"); if (cs) cs.onclick = async () => { if (!confirm("Sair da conta? As operações continuam neste aparelho e na conta.")) return; await contaSair(); render(); };
   const cx = q("#conta-excluir"); if (cx) cx.onclick = async () => { if (!confirm("Excluir sua conta e todas as operações guardadas nela? Não dá para desfazer.")) return;
     try { await contaExcluir(); alert("Conta excluída."); } catch(e) { alert(msgConta(e)); } render(); };
+  const va = q("#vc-abrir"); if (va) va.onclick = () => { vinc = {passo: "num", fone: "", foneTxt: "", erro: "", ocupado: false}; render(); const i = q("#vc-fone"); if (i) i.focus(); };
+  const vx = q("#vc-cancelar"); if (vx) vx.onclick = () => { vinc = {passo: "", fone: "", foneTxt: "", erro: "", ocupado: false}; render(); };
+  const ve = q("#vc-enviar"); if (ve) ve.onclick = async () => { vinc.foneTxt = (q("#vc-fone").value || "").trim(); const f = foneE164(vinc.foneTxt);
+    if (!f) { vinc.erro = "Confira o número: DDD e celular, como (11) 91234-5678."; return render(); }
+    vinc.fone = f; vinc.ocupado = true; vinc.erro = ""; render();
+    try { await contaPedirFone(f); vinc.passo = "cod"; } catch(e) { vinc.erro = msgConta(e); }
+    vinc.ocupado = false; render(); const c = q("#vc-codigo"); if (c) c.focus(); };
+  const vc = q("#vc-confirmar"); if (vc) vc.onclick = async () => { const cod = (q("#vc-codigo").value || "").replace(/\D/g, "");
+    if (cod.length < 6) { vinc.erro = "Digite os números do código."; return render(); }
+    vinc.ocupado = true; vinc.erro = ""; render();
+    try { await contaConfirmarFone(vinc.fone, cod); vinc = {passo: "", fone: "", foneTxt: "", erro: "", ocupado: false}; } catch(e) { vinc.ocupado = false; vinc.erro = msgConta(e); }
+    render(); };
   const ls = q("#lg-sem"); if (ls) ls.onclick = () => { try { localStorage.setItem("semConta", "1"); } catch(e) {} tela = "obj"; render(); };
   const le = q("#lg-enviar"); if (le) le.onclick = async () => {
-    const email = (q("#lg-email").value || "").trim().toLowerCase(); login.email = email;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { login.erro = "Confira o e-mail digitado."; return render(); }
+    if (viaCel(login)) { login.foneTxt = (q("#lg-fone").value || "").trim(); const f = foneE164(login.foneTxt);
+      if (!f) { login.erro = "Confira o número: DDD e celular, como (11) 91234-5678."; return render(); } login.fone = f; }
+    else { const email = (q("#lg-email").value || "").trim().toLowerCase(); login.email = email;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { login.erro = "Confira o e-mail digitado."; return render(); } }
     login.ocupado = true; login.erro = ""; render();
-    try { await contaEnviarCodigo(email); login.passo = "codigo"; login.reenviarEm = Date.now() + 60000; } catch(e) { login.erro = msgConta(e); }
+    try { await contaEnviarCodigo(login); login.passo = "codigo"; login.reenviarEm = Date.now() + 60000; } catch(e) { login.erro = msgConta(e); }
     login.ocupado = false; render(); const c = q("#lg-codigo"); if (c) c.focus(); };
   const lt = q("#lg-trocar"); if (lt) lt.onclick = () => { login.passo = "email"; login.erro = ""; render(); };
-  const lr = q("#lg-reenviar"); if (lr) lr.onclick = async () => { login.erro = ""; try { await contaEnviarCodigo(login.email); login.reenviarEm = Date.now() + 60000; } catch(e) { login.erro = msgConta(e); } render(); };
+  const lr = q("#lg-reenviar"); if (lr) lr.onclick = async () => { login.erro = ""; try { await contaEnviarCodigo(login); login.reenviarEm = Date.now() + 60000; } catch(e) { login.erro = msgConta(e); } render(); };
   const lg = q("#lg-entrar"); if (lg) lg.onclick = async () => {
     const cod = (q("#lg-codigo").value || "").replace(/\D/g, "");
     if (cod.length < 6) { login.erro = "Digite os números do código."; return render(); }
     login.ocupado = true; login.erro = ""; render();
-    try { await contaVerificar(login.email, cod); try { localStorage.setItem("semConta", "1"); } catch(e) {} login.ocupado = false; tela = login.volta === "inicio" ? "obj" : "cad"; render(); await sincronizar(); }
+    try { await contaVerificar(login, cod); try { localStorage.setItem("semConta", "1"); } catch(e) {} login.ocupado = false; tela = login.volta === "inicio" ? "obj" : "cad"; render(); await sincronizar(); }
     catch(e) { login.ocupado = false; login.erro = msgConta(e); render(); } };
   if (tela === "login" && login.passo === "codigo") { const tick = () => { const b = q("#lg-reenviar"), s = q("#lg-falta"); if (!b) return;
     const f = Math.max(0, Math.ceil((login.reenviarEm - Date.now()) / 1000)); b.disabled = f > 0; if (s) s.textContent = f ? ` em ${f} s` : ""; if (f > 0) setTimeout(tick, 1000); }; setTimeout(tick, 1000); }
@@ -468,7 +511,7 @@ function navBar(){
   const at = tela==="acomp" || tela==="sair" ? "acomp" : tela==="desemp" ? "desemp" : tela==="cad" || tela==="doc" ? "cad" : "obj";
   const it = (k, rot, ic) => `<button data-nav="${k}" ${at===k?'aria-current="page"':""}>${svg(ic,22)}${rot}</button>`;
   // no computador, a marca em cima e, embaixo, o dia dos preços e a conta (no celular, .desk fica escondido)
-  const rodape = `<div class="rodape desk"><span>Preços de ${dBR(S.data)}</span><span>${sessao ? esc(sessao.email || "Conta conectada") : "Sem conta: dados só neste aparelho"}</span></div>`;
+  const rodape = `<div class="rodape desk"><span>Preços de ${dBR(S.data)}</span><span>${sessao ? esc(contaNome()) : "Sem conta: dados só neste aparelho"}</span></div>`;
   document.getElementById("nav").innerHTML = `<div class="marca desk"><i></i>Montador de Opções</div><div class="in">${it("obj","Início",'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>')}${it("acomp","Operações",'<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l4-5 3 3 4-6"/>')}${it("desemp","Desempenho",'<path d="M5 20V11"/><path d="M12 20V4"/><path d="M19 20v-6"/>')}${it("cad","Ajustes",'<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>')}</div>${rodape}`;
   document.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { selId = null; slider = null; tela = b.dataset.nav; render(); });
 }
