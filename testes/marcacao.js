@@ -49,7 +49,8 @@ confere("regraDeSaida: compra simples não tem regra (só vencimento)", typeof c
   const srv = spawn("python3", ["-m", "http.server", String(porta), "--bind", "127.0.0.1", "--directory", dir], { stdio: "ignore" });
   await new Promise((r) => setTimeout(r, 800));
   const { chromium } = require("playwright");
-  const b = await chromium.launch(); const p = await b.newPage(); const erros = []; p.on("pageerror", (e) => erros.push(e.message));
+  // tela de celular, como os outros testes (o layout de computador tem teste próprio: testes/desktop.js)
+  const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 390, height: 844 } }); const erros = []; p.on("pageerror", (e) => erros.push(e.message));
   try {
     await p.goto(`http://127.0.0.1:${porta}/index.html`); await p.waitForSelector("#nav");
     const dias1 = Math.round((Date.parse(venc) - Date.parse("2026-09-30")) / 864e5), dias2 = Math.round((Date.parse(venc) - Date.parse("2026-10-20")) / 864e5);
