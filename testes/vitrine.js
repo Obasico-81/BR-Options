@@ -1,5 +1,5 @@
-// Vitrine: tudo o que dá para montar hoje com o perfil, em todos os ativos, no Início ao lado de "Um ativo" (no lugar
-// do "Tenho um sinal pronto"). Confere a chave do Início e a escolha guardada, a lista contra as montagens do app
+// Vitrine: tudo o que dá para montar hoje com o perfil, em todos os ativos ("Ver vitrine" no fim do Início, no lugar
+// do "Tenho um sinal pronto"). Confere o menu e o link, a lista contra as montagens do app
 // (montagem() de cada ativo), o filtro, as ordens, a ida ao cartão e a volta, os ativos sem operação com o motivo, o
 // perfil editado na própria Vitrine e o perfil pequeno demais.
 // Uso: python3 build.py && python3 build_pwa.py && node testes/vitrine.js CAMINHO/pwa/index.html
@@ -19,13 +19,10 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
     const ini = await texto();
     const abas = await p.evaluate(() => [...document.querySelectorAll("#nav [data-nav]")].map((b) => b.innerText.trim()));
     confere("menu: quatro abas, sem a Vitrine; o Início sem o 'Tenho um sinal pronto'", abas.join() === "Início,Operações,Desempenho,Ajustes" && !/Tenho um sinal pronto/.test(ini), abas);
-    confere("Início: chave 'Um ativo' | 'Vitrine', começando em 'Um ativo'", (await p.locator('[data-inicio="ativo"][aria-pressed="true"]').count()) === 1 && (await p.locator('[data-inicio="vitrine"]').count()) === 1);
-    await p.click('[data-inicio="vitrine"]');
-    confere("Vitrine: abre no Início, com a aba Início acesa", await p.evaluate(() => tela === "vitrine" && S.inicio === "vitrine" && document.querySelector('#nav [data-nav="obj"]').getAttribute("aria-current") === "page") && /Monte sua operação/.test(await texto()));
-    await p.reload(); await p.waitForSelector("#nav");
-    confere("escolha guardada: reabre na Vitrine", await p.evaluate(() => tela === "vitrine"));
-    await p.click('#nav [data-nav="cad"]'); await p.click('#nav [data-nav="obj"]');
-    confere("aba Início: volta para a Vitrine (a última escolha)", await p.evaluate(() => tela === "vitrine"));
+    const link = await p.evaluate(() => { const L = [...document.querySelectorAll("#app > *")], v = document.querySelector('[data-go="vitrine"]'); return { ultimo: L[L.length - 1] === v, txt: v && v.innerText, classe: v && v.className }; });
+    confere("Início: 'Ver vitrine' no fim, como link de texto (o lugar do antigo sinal)", link.ultimo && link.txt === "Ver vitrine" && link.classe === "btn sec2", link);
+    await p.click('[data-go="vitrine"]');
+    confere("Vitrine: abre em tela própria, com a aba Início acesa", await p.evaluate(() => tela === "vitrine" && document.querySelector('#nav [data-nav="obj"]').getAttribute("aria-current") === "page") && /^Vitrine$/m.test(await texto()));
     // o que o app monta em cada ativo, com o perfil (as mesmas montagens do Início)
     const esperado = async () => p.evaluate((f) => { const salvo = S.ativo, L = [];
       for (const n of Object.keys(SNAP.por_data[S.data]).sort()) { S.ativo = n;
@@ -67,11 +64,9 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
     confere("'Voltar' do cartão: volta à Vitrine", await p.evaluate(() => tela === "vitrine"));
     await p.click(`[data-exp="${alvo}"]`); await p.click("text=Não agora");
     confere("'Não agora': volta à Vitrine", await p.evaluate(() => tela === "vitrine"));
-    await p.click('[data-inicio="ativo"]'); await p.click("[data-tese]:not([disabled])");
-    confere("cartão aberto por 'Um ativo': 'Voltar' volta ao Início", (await p.locator('.top [data-go="obj"]').count()) === 1);
-    await p.click('.top [data-go="obj"]');
-    confere("'Um ativo' guardado: o Início volta na tela de um ativo", await p.evaluate(() => tela === "obj" && S.inicio === "ativo"));
-    await p.click('[data-inicio="vitrine"]');
+    await p.click('#nav [data-nav="obj"]'); await p.click("[data-tese]:not([disabled])");
+    confere("cartão aberto pelo Início: 'Voltar' continua indo ao Início", (await p.locator('.top [data-go="obj"]').count()) === 1);
+    await p.click('#nav [data-nav="obj"]'); await p.click('[data-go="vitrine"]');
 
     // perfil pequeno: nada cabe, e cada ativo aparece com o motivo
     await p.evaluate(() => { S.perda = 10; save("estado", S); render(); });
