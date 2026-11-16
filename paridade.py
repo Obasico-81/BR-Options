@@ -14,12 +14,16 @@ r2 = lambda x: math.floor(x * 100 + 0.5) / 100   # mesmo arredondamento do Math.
 CORRETAGENS = (None, 5.0)
 PERFIS = (None, "maior", "eq", "freq")
 snap = json.load(open("snapshot.json"))
-# o juro da volatilidade implícita (atualizador) é o mesmo da chance e dos perfis (montador.py e montador.js)
-import re, montador as _MT
-from atualizar_dados import R as _R_IV
-_r_js = float(re.search(r"const R_BS = ([0-9.]+);", open("montador.js", encoding="utf-8").read()).group(1))
-if not (_R_IV == _MT.R_BS == _r_js):
-    sys.exit(f"FALHA juros diferentes: atualizador {_R_IV}, montador.py {_MT.R_BS}, montador.js {_r_js}")
+# Juro: a Selic do dia do snapshot (a mesma com que o atualizador tirou a volatilidade implícita), nos dois lados; sem
+# ela, o padrão. O padrão e a conversão da Selic têm de ser iguais no atualizador, no montador.py e no montador.js.
+import montador as _MT, atualizar_dados as _AD
+_js = json.loads(subprocess.run(["node", "-e", "const M=require('./montador.js');console.log(JSON.stringify([M.R_PADRAO,M.juroDaSelic(13.75),M.juroDaSelic(2)]))"], capture_output=True, text=True).stdout)
+_py = [_MT.R_PADRAO, _MT.juro_da_selic(13.75), _MT.juro_da_selic(2)]
+if not (_AD.R == _py[0] and _py == _js and _AD.juro_da_selic(13.75) == _py[1]):
+    sys.exit(f"FALHA juro: atualizador {_AD.R}/{_AD.juro_da_selic(13.75)}, montador.py {_py}, montador.js {_js}")
+SELIC = (snap.get("selic") or {}).get(snap["data"])
+JURO = _MT.juro_da_selic(SELIC) if SELIC is not None else _MT.R_PADRAO
+_MT.set_juro(JURO)
 # preços do dia de cada ativo: os da própria cadeia e os mesmos 7% mais altos (montados igual no JS)
 PRECOS = {n: ({o["s"]: [o["b"], o["a"]] for o in a["chain"]}, {o["s"]: [r2(o["b"] * 1.07), r2(o["a"] * 1.07)] for o in a["chain"]})
           for n, a in snap["ativos"].items()}
@@ -137,6 +141,7 @@ def lado_python(cor):
 
 JS = """
 const M=require('./montador.js'),s=require('./snapshot.json'),cor=JSON.parse(process.argv[1]),SINT=JSON.parse(process.argv[2]),TEND=JSON.parse(process.argv[3]),out={};
+M.setJuro(JSON.parse(process.argv[4]));
 const r2=(x)=>Math.round(x*100)/100;
 const PR={}; for(const [n,a] of Object.entries(s.ativos)) PR[n]=[Object.fromEntries(a.chain.map(o=>[o.s,[o.b,o.a]])),Object.fromEntries(a.chain.map(o=>[o.s,[r2(o.b*1.07),r2(o.a*1.07)]]))];
 const FA=[0.1,-0.2,0.3,null,-0.5,0.6,-0.8,0.9,-1.0,1.2];
@@ -173,7 +178,7 @@ console.log(JSON.stringify(out));
 
 
 def lado_js(cor):
-    js = subprocess.run(["node", "-e", JS, json.dumps(cor), json.dumps(SINT), json.dumps(TEND)], capture_output=True, text=True)
+    js = subprocess.run(["node", "-e", JS, json.dumps(cor), json.dumps(SINT), json.dumps(TEND), json.dumps(JURO)], capture_output=True, text=True)
     if js.returncode:
         print(js.stderr); sys.exit(1)
     return json.loads(js.stdout)
@@ -240,5 +245,6 @@ for cor in CORRETAGENS:
         falhas += 0 if ok else 1
 print("tendência (casos por cor):", ", ".join(f"{k or 'sem dados'} {v}" for k, v in sorted(tend.items(), key=lambda kv: str(kv[0]))))
 print("regras de saída disparadas:", ", ".join(f"{k} {v}" for k, v in sorted(regras.items())))
+print(f"juro: {'Selic de ' + str(SELIC) + '% a.a.' if SELIC is not None else 'padrão'} ({JURO:.4f} contínuo)")
 print(f"{casos} casos ({montados} montados) em {len(snap['ativos'])} ativos, sem e com corretagem: {falhas} falha(s)")
 sys.exit(1 if falhas else 0)

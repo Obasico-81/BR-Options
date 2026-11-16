@@ -119,6 +119,10 @@ const CORRETORAS = ["XP Investimentos","BTG Pactual","Clear","Rico","Inter","NuI
 const DATAS = Object.keys(SNAP.por_data).sort();
 let S = load("estado", {ativo:"PETR4", data:SNAP.data, capital:12000, perda:500, prazo:45, aposta:300, pf:"eq", sinal:{entrada:null, alvo:null, prazo:20, est:"trava"}});
 S.cad = Object.assign({corretora:"", corretagem:null}, S.cad||{}); delete S.cad.nome; M.setCorretagem(S.cad.corretagem);   // o nome não era usado em lugar nenhum
+// Juro do Black-Scholes (chance implícita, perfis e theta): a Selic do dia dos preços, a mesma com que o atualizador
+// tirou a volatilidade implícita; sem ela no snapshot, a última que houver; sem nenhuma, o padrão do montador.
+const selicDe = (d) => { const s = SNAP.selic || {}, ds = Object.keys(s).filter(x => x <= d).sort(); return ds.length ? s[ds[ds.length - 1]] : null; };
+const aplicarJuro = () => { const s = selicDe(S.data); M.setJuro(s === null ? M.R_PADRAO : M.juroDaSelic(s)); };
 // Tema: escuro por padrão; o claro é escolha do usuário em Ajustes (guardada em S.tema)
 const aplicarTema = () => { const claro = S.tema === "claro", r = document.documentElement;
   if (claro) r.dataset.theme = "light"; else delete r.dataset.theme;
@@ -273,6 +277,7 @@ function navBar(){
   document.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { selId = null; slider = null; tela = b.dataset.nav; render(); });
 }
 function render(){
+  aplicarJuro();
   // o ativo salvo pode não existir no dia carregado (papel novo que ficou de fora num pregão, ou dia antigo no ?teste=1)
   { const doDia = SNAP.por_data[S.data]; if (!doDia[S.ativo]) S.ativo = doDia.PETR4 ? "PETR4" : Object.keys(doDia)[0]; }
   const el = document.getElementById("app");
@@ -387,7 +392,7 @@ function vObj(){
     <label class="f">Vencimento<select id="prazo">${(()=>{ const s = vencSel().iso; return vencs().map(v=>`<option value="${v.iso}" ${v.iso===s?"selected":""}>${dBR(v.iso)} · ${v.d} dias</option>`).join(""); })()}</select></label>
    </div>
    <p class="small muted">${S.cad.corretora?`Corretora: ${esc(S.cad.corretora)}. `:""}Risco máximo por operação: ${(S.perda/S.capital*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% do seu capital.</p>
-   <p class="small muted">Preços de ${dBR(S.data)}. Volatilidade implícita das opções: ${(a.iv*100).toFixed(0)}% ao ano.</p></section>`;
+   <p class="small muted">Preços de ${dBR(S.data)}. Volatilidade implícita das opções: ${(a.iv*100).toFixed(0)}% ao ano.${(s => s === null ? "" : ` Selic: ${s.toLocaleString("pt-BR")}% ao ano.`)(selicDe(S.data))}</p></section>`;
   } else {
     h += `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-weight:700">Vence ${dBR(vencSel().iso).slice(0,5)} · risco máx. ${brl(S.perda).replace(" ","&nbsp;")}</div><div class="small muted">Preços de ${dBR(S.data)}${S.cad.corretora?` · ${esc(S.cad.corretora)}`:""}</div></div><button class="back" data-perfil="1" style="min-height:44px">Editar</button></div></section>`;
   }

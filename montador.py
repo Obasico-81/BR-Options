@@ -4,7 +4,7 @@ Teses: alta | baixa | forte (movimento forte, direção incerta) | alta_com_caix
 Estruturas de risco ilimitado não são oferecidas."""
 from __future__ import annotations
 from dataclasses import dataclass, field, replace
-from math import log, sqrt, erf, exp, pi, floor
+from math import log, sqrt, erf, exp, pi, floor, isfinite
 from datetime import date, timedelta
 from typing import Optional
 
@@ -84,10 +84,21 @@ def _custos(spread1: float, taxas1: float, n_pernas: int, lotes: int) -> dict:
     return dict(custo_total=_r2(s + t + f), custo_spread=_r2(s), custo_taxas=_r2(t), custo_fixo=_r2(f))
 
 
-# juro livre de risco (11% a.a.): no Black-Scholes dos perfis e na chance implícita. É o mesmo com que o atualizador tira
-# a volatilidade implícita (atualizar_dados.R) e com que o replay 2015–2026 conferiu a chance (pesquisa/replay.py). Sem
-# juro, a chance ficava baixa nas operações de alta e alta nas de baixa. paridade.py confere que os três batem.
-R_BS = 0.11
+# Juro livre de risco do Black-Scholes (contínuo, ao ano): chance implícita, perfis e theta da compra simples. Quem usa
+# passa a Selic do dia dos preços (set_juro(juro_da_selic(selic))), a mesma com que o atualizador tirou a volatilidade
+# implícita daquele dia; sem ela, R_PADRAO (11%, o juro fixo de antes). Espelha o montador.js.
+R_PADRAO = 0.11
+R_BS = R_PADRAO
+
+
+def juro_da_selic(selic: float) -> float:
+    """Selic em % a.a. (capitalização anual) → taxa contínua ao ano."""
+    return log(1 + selic / 100)
+
+
+def set_juro(r) -> None:
+    global R_BS
+    R_BS = r if isinstance(r, (int, float)) and isfinite(r) and 0 <= r < 1 else R_PADRAO
 
 
 def prob_acima(S: float, K: float, dias: int, vol: float) -> float:

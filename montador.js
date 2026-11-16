@@ -16,10 +16,14 @@
     return s * y;
   };
   const N = (x) => 0.5 * (1 + erf(x / Math.SQRT2));
-  // juro livre de risco (11% a.a.): no Black-Scholes dos perfis e na chance implícita. É o mesmo com que o atualizador
-  // tira a volatilidade implícita (atualizar_dados.R) e com que o replay 2015–2026 conferiu a chance (pesquisa/replay.py).
-  // Sem juro, a chance ficava baixa nas operações de alta e alta nas de baixa. paridade.py confere que os três batem.
-  const R_BS = 0.11;
+  // Juro livre de risco do Black-Scholes (contínuo, ao ano): chance implícita, perfis e theta da compra simples. O app
+  // passa a Selic do dia dos preços (setJuro(juroDaSelic(selic))), a mesma com que o atualizador tirou a volatilidade
+  // implícita daquele dia; sem ela, R_PADRAO (11%, o juro fixo de antes). Sem juro nenhum, a chance ficava baixa nas
+  // operações de alta e alta nas de baixa (replay 2015–2026, pesquisa/replay.py).
+  const R_PADRAO = 0.11;
+  let R_BS = R_PADRAO;
+  const juroDaSelic = (selic) => Math.log(1 + selic / 100);   // Selic em % a.a. (capitalização anual) → taxa contínua
+  const setJuro = (r) => { R_BS = typeof r === "number" && isFinite(r) && r >= 0 && r < 1 ? r : R_PADRAO; };
   const probAcima = (S, K, dias, vol) => { const t = dias / 365; return N((Math.log(S / K) + (R_BS - 0.5 * vol * vol) * t) / (vol * Math.sqrt(t))); };
   const liquidas = (ch, tipo, spreadMax, volMin) => ch.filter((o) => o.t === tipo && o.b > 0 && o.a >= o.b && spread(o) <= spreadMax && o.v >= volMin);
   const perto = (L, alvo) => L.length ? L.reduce((m, o) => {
@@ -264,6 +268,6 @@
     }
     return null;
   }
-  const api = { setCorretagem, montar, montarSinal, montarAposta, execucao, probAcima, resultadoNoVencimento, volReal60, tendencia, movimentoNecessario, resultadoNoDia, resultadoComPrecos, regraDeSaida };
+  const api = { setCorretagem, setJuro, juroDaSelic, R_PADRAO, montar, montarSinal, montarAposta, execucao, probAcima, resultadoNoVencimento, volReal60, tendencia, movimentoNecessario, resultadoNoDia, resultadoComPrecos, regraDeSaida };
   if (typeof module !== "undefined") module.exports = api; else root.Montador = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -33,7 +33,10 @@ SNAPSHOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "snapshot.js
 # o app marca as operações simuladas dia a dia (valor hoje e regras de saída). Arquivo novo por dia, nunca regravado.
 PRECOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pwa", "precos")
 DIAS_DE_CADEIA = 12          # quantos pregões completos (com cadeia de opções) ficam no snapshot
-R = 0.11                     # juro livre de risco da volatilidade implícita; o mesmo R_BS do montador (chance, perfis, theta)
+R = 0.11                     # juro (contínuo, a.a.) da volatilidade implícita quando não há Selic: o R_PADRAO do montador
+# Meta Selic do Copom, % a.a., por dia (Banco Central, SGS série 432). A volatilidade implícita de cada pregão é tirada
+# com a Selic daquele dia (convertida em taxa contínua), e o app usa a mesma na chance, nos perfis e no theta.
+URL_SELIC = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados?formato=json&dataInicial={di}&dataFinal={df}"
 
 # (início 1-based, fim inclusive)
 CAMPOS = dict(tipreg=(1, 2), data=(3, 10), codneg=(13, 24), tpmerc=(25, 27),
@@ -68,12 +71,53 @@ def iv_call(p, S, K, T, r=R):
     if p <= max(S - K * math.exp(-r * T), 0) + 1e-6:
         return None
     lo, hi = 0.05, 2.0
-    if bs_call(S, K, T, hi) < p:
+    if bs_call(S, K, T, hi, r) < p:
         return None
     for _ in range(50):
         m = (lo + hi) / 2
-        lo, hi = (m, hi) if bs_call(S, K, T, m) < p else (lo, m)
+        lo, hi = (m, hi) if bs_call(S, K, T, m, r) < p else (lo, m)
     return (lo + hi) / 2
+
+
+def juro_da_selic(selic):
+    """Selic em % a.a. (capitalização anual) → taxa contínua ao ano (a mesma conta do montador)."""
+    return math.log(1 + selic / 100)
+
+
+def selic_bcb(desde, ate):
+    """Meta Selic (% a.a.) por dia, de desde a ate (ISO), do Banco Central. {} se não der (o chamador usa a última)."""
+    url = URL_SELIC.format(di=date.fromisoformat(desde).strftime("%d/%m/%Y"), df=date.fromisoformat(ate).strftime("%d/%m/%Y"))
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; opcoes-app-atualizador)", "Accept": "application/json"})
+    for i in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                dados = json.loads(r.read().decode("utf-8"))
+            return {f"{x['data'][6:10]}-{x['data'][3:5]}-{x['data'][0:2]}": float(x["valor"]) for x in dados}
+        except urllib.error.HTTPError as e:          # 4xx: não adianta repetir
+            erro = e
+            if e.code < 500:
+                break
+        except (ValueError, KeyError, TypeError) as e:   # resposta que não é a lista da série
+            erro = e; break
+        except Exception as e:                       # rede
+            erro = e
+        if i < 2:
+            time.sleep(2 * (i + 1))
+    print(f"Aviso: Selic do Banco Central indisponível ({erro}).")
+    return {}
+
+
+def selic_do_dia(snap, dia, serie):
+    """Selic valendo no pregão: a do Banco Central até o dia; sem ela, a última guardada no snapshot; senão None."""
+    for fonte, nome in ((serie, None), (snap.get("selic", {}), "guardada")):
+        antes = [d for d in fonte if d <= dia]
+        if antes:
+            d = max(antes)
+            if nome:
+                print(f"Aviso: Selic de {dia} sem o Banco Central; usada a última guardada ({fonte[d]}% em {d}).")
+            return fonte[d]
+    print(f"Aviso: sem Selic para {dia}; volatilidade implícita com o juro padrão de {R * 100:.0f}% a.a.")
+    return None
 
 
 # ---------- leitura do COTAHIST ----------
@@ -147,8 +191,8 @@ def gravar_precos(opc, dias):
     return novos
 
 
-def montar_dia(dia, S, linhas):
-    """Cadeia filtrada (mesmas regras do exportar_snapshot.py) e volatilidade implícita de um papel num dia."""
+def montar_dia(dia, S, linhas, r=R):
+    """Cadeia filtrada (mesmas regras do exportar_snapshot.py) e volatilidade implícita de um papel num dia (juro r)."""
     d0 = date.fromisoformat(dia)
     cadeia = []
     for o in linhas:
@@ -156,7 +200,7 @@ def montar_dia(dia, S, linhas):
         if o["b"] > 0 and o["a"] >= o["b"] and 5 <= dias <= 100 and o["k"] > 0:
             cadeia.append(dict(t=o["t"], k=o["k"], b=o["b"], a=o["a"], v=o["v"], d=dias, s=o["s"]))
     calls = sorted((o for o in cadeia if o["t"] == "C" and 25 <= o["d"] <= 70), key=lambda o: abs(o["k"] / S - 1))[:4]
-    ivs = [v for v in (iv_call((o["b"] + o["a"]) / 2, S, o["k"], o["d"] / 365) for o in calls) if v]
+    ivs = [v for v in (iv_call((o["b"] + o["a"]) / 2, S, o["k"], o["d"] / 365, r) for o in calls) if v]
     iv = median(ivs) if ivs else 0.30
     return dict(S=S, iv=round(iv, 4), chain=cadeia)
 
@@ -198,6 +242,8 @@ def gravar(snap):
     por = snap["por_data"]
     for d in sorted(por)[:-DIAS_DE_CADEIA]:
         del por[d]
+    if snap.get("selic"):        # a Selic dos pregões que ficaram (e a mais recente, para quando o Banco Central falhar)
+        snap["selic"] = {d: v for d, v in snap["selic"].items() if d >= min(por) or d == max(snap["selic"])}
     snap["data"] = max(por)
     snap["ativos"] = por[snap["data"]]
     snap["atualizado_em"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -207,20 +253,22 @@ def gravar(snap):
     os.replace(tmp, SNAPSHOT)
 
 
-def incorporar(snap, fech, opc, dia_cadeia=None, mm=None):
-    """Soma fechamentos (e máximas/mínimas) e, se pedido, a cadeia completa de um dia. Devolve resumo."""
+def incorporar(snap, fech, opc, dia_cadeia=None, mm=None, selic=None):
+    """Soma fechamentos (e máximas/mínimas) e, se pedido, a cadeia completa de um dia, com a volatilidade implícita
+    tirada pela Selic do dia (selic: série do Banco Central; sem ela, a última guardada). Devolve resumo."""
     for nome, serie in fech.items():
         snap["fechamentos"].setdefault(nome, {}).update(serie)
     for nome, serie in (mm or {}).items():
         if serie:
             snap.setdefault("maxmin", {}).setdefault(nome, {}).update(serie)
     if dia_cadeia:
-        por = {}
+        por, sd = {}, selic_do_dia(snap, dia_cadeia, selic or {})
+        r = juro_da_selic(sd) if sd is not None else R
         for nome in ATIVOS:
             S = fech[nome].get(dia_cadeia)
             linhas = opc.get(dia_cadeia, {}).get(nome, [])
             if S and linhas:
-                p = montar_dia(dia_cadeia, S, linhas)
+                p = montar_dia(dia_cadeia, S, linhas, r)
                 if len(p["chain"]) >= 20:          # menos que isso indica arquivo incompleto ou formato diferente
                     por[nome] = p
         faltam = [n for n in OBRIGATORIOS if n not in por]
@@ -230,7 +278,9 @@ def incorporar(snap, fech, opc, dia_cadeia=None, mm=None):
         if fora:
             print(f"Aviso: {fora} ficaram de fora em {dia_cadeia} (sem preço ou menos de 20 opções); os demais foram gravados.")
         snap["por_data"][dia_cadeia] = por
-        return {n: (p["S"], p["iv"], len(p["chain"])) for n, p in por.items()}
+        if sd is not None:
+            snap.setdefault("selic", {})[dia_cadeia] = sd
+        return {"selic": sd, **{n: (p["S"], p["iv"], len(p["chain"])) for n, p in por.items()}}
     return {}
 
 
@@ -276,8 +326,9 @@ def main():
         # refaz também as cadeias dos pregões que o snapshot já tem e que estão no arquivo (vale para correções do leitor)
         refazer = sorted(d for d in snap["por_data"] if d in opc and d != ultimo) + ([ultimo] if ultimo in opc and (recente or ultimo in snap["por_data"]) else [])
         resumo = incorporar(snap, fech, opc, None, mm)
+        selic = selic_bcb((date.fromisoformat(min(refazer)) - timedelta(days=15)).isoformat(), max(refazer)) if refazer else {}
         for d in refazer:
-            resumo = incorporar(snap, fech, opc, d)
+            resumo = incorporar(snap, fech, opc, d, selic=selic)
         gravar(snap); novos = gravar_precos(opc, opc.keys())
         print(f"Fechamentos de {a.ano} incorporados. Último dia: {ultimo}", resumo, f"| cadeias refeitas: {len(refazer)}",
               f"| preços diários: {novos} dia(s) novo(s)"); return
@@ -317,7 +368,8 @@ def main():
     dia = max(opc) if opc else None
     if not dia:
         raise SystemExit("O arquivo não tem opções dos papéis do app.")
-    resumo = incorporar(snap, fech, opc, dia, mm)
+    selic = selic_bcb((date.fromisoformat(dia) - timedelta(days=15)).isoformat(), dia)
+    resumo = incorporar(snap, fech, opc, dia, mm, selic=selic)
     gravar(snap); novos = gravar_precos(opc, opc.keys())
     print(f"Snapshot atualizado para {dia}:", resumo, f"| preços diários: {novos} dia(s) novo(s)")
 

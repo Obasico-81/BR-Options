@@ -19,18 +19,23 @@ FIXTURE = json.dumps(SNAP0, separators=(",", ":")).encode()
 
 class Servidor:
     def __init__(self):
-        self.arquivos, self.modo = {}, "normal"
+        self.arquivos, self.modo, self.selic = {}, "normal", None   # selic: resposta do "Banco Central" (None: 404)
         dono = self
 
         class H(http.server.BaseHTTPRequestHandler):
             def do_GET(self):
-                nome = self.path.rsplit("/", 1)[-1]
+                nome = self.path.split("?")[0].rsplit("/", 1)[-1]   # a consulta da Selic tem datas com barra
                 if dono.modo == "403":
                     self.send_response(403); self.end_headers(); return
                 if dono.modo == "html200":
                     corpo = b"<html><body>Arquivo nao encontrado</body></html>"
                     self.send_response(200); self.send_header("Content-Type", "text/html"); self.end_headers()
                     self.wfile.write(corpo); return
+                if nome == "selic":
+                    if dono.selic is None:
+                        self.send_response(404); self.end_headers(); return
+                    self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers()
+                    self.wfile.write(dono.selic); return
                 if nome not in dono.arquivos:
                     self.send_response(404); self.end_headers(); return
                 corpo = dono.arquivos[nome]
@@ -51,6 +56,7 @@ class Servidor:
 SRV = Servidor()
 WRAP = """import sys; sys.path.insert(0, {d!r}); import atualizar_dados as A
 A.URL_DIA = "http://127.0.0.1:{p}/COTAHIST_D{{ddmmaaaa}}.ZIP"; A.URL_ANO = "http://127.0.0.1:{p}/COTAHIST_A{{aaaa}}.ZIP"
+A.URL_SELIC = "http://127.0.0.1:{p}/selic?di={{di}}&df={{df}}"
 sys.argv = ["atualizar_dados.py"] + {args!r}; A.main()
 """
 
@@ -215,6 +221,30 @@ chave = lambda ch: {(o["s"], o["t"], o["k"], o["b"], o["a"], o["d"]) for o in ch
 ok = rc == 0 and "cadeias refeitas: 1" in out and "descartadas" in out and all(
     chave(s["por_data"][BASE][n]["chain"]) == chave(SNAP0["por_data"][BASE][n]["chain"]) for n in SNAP0["por_data"][BASE])
 confere("--ano refaz a cadeia guardada e tira a opção de outro papel-objeto", ok, out)
+
+# S. Selic do dia (Banco Central): a volatilidade implícita é tirada com ela e ela fica no snapshot; sem o Banco Central,
+# vale a última guardada; sem nenhuma, o juro padrão (e nada de Selic gravada)
+import importlib.util
+spec = importlib.util.spec_from_file_location("ad", os.path.join(PROJ, "atualizar_dados.py")); AD = importlib.util.module_from_spec(spec); spec.loader.exec_module(AD)
+def iv_esperada(a, r):
+    calls = sorted((o for o in a["chain"] if o["t"] == "C" and 25 <= o["d"] <= 70), key=lambda o: abs(o["k"] / a["S"] - 1))[:4]
+    ivs = [v for v in (AD.iv_call((o["b"] + o["a"]) / 2, a["S"], o["k"], o["d"] / 365, r) for o in calls) if v]
+    return round(AD.median(ivs), 4) if ivs else 0.30
+SRV.arquivos.clear()
+SRV.dia("2026-01-02", G.ativos_deslocados(SNAP0, BASE, "2026-01-02", 1.01)); SRV.dia("2026-01-05", G.ativos_deslocados(SNAP0, BASE, "2026-01-05", 1.02))
+SRV.selic = json.dumps([{"data": "31/12/2025", "valor": "15.00"}, {"data": "02/01/2026", "valor": "14.25"}]).encode()
+t = projeto(); rc, out = rodar(t, "--data", "2026-01-02"); s = snap(t); dia = s["por_data"].get("2026-01-02", {})
+r1 = AD.juro_da_selic(14.25)
+ok = (rc == 0 and s.get("selic", {}).get("2026-01-02") == 14.25 and dia and all(a["iv"] == iv_esperada(a, r1) for a in dia.values())
+      and any(a["iv"] != iv_esperada(a, AD.R) for a in dia.values()))
+confere("Selic do dia: guardada no snapshot e usada na volatilidade implícita", ok, out)
+SRV.selic = None
+rc, out = rodar(t, "--data", "2026-01-05"); s = snap(t); dia = s["por_data"].get("2026-01-05", {})
+ok = rc == 0 and s["selic"].get("2026-01-05") == 14.25 and "última guardada" in out and dia and all(a["iv"] == iv_esperada(a, r1) for a in dia.values())
+confere("Banco Central fora do ar: usa a última Selic guardada e avisa", ok, out)
+t = projeto(); rc, out = rodar(t, "--data", "2026-01-02"); s = snap(t); dia = s["por_data"].get("2026-01-02", {})
+ok = rc == 0 and "selic" not in s and "juro padrão" in out and dia and all(a["iv"] == iv_esperada(a, AD.R) for a in dia.values())
+confere("sem Selic nenhuma: juro padrão, com aviso, e nada de Selic gravada", ok, out)
 
 shutil.rmtree(os.path.join(AQUI, "tmp"), ignore_errors=True)
 print("\n%s" % ("todos os cenários passaram" if not falhas else "%d cenário(s) falharam" % falhas))

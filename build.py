@@ -37,6 +37,8 @@ def snapshot_publicado(caminho="snapshot.json"):
     s = json.load(open(caminho, encoding="utf-8"))
     p = {"data": s["data"], "atualizado_em": s.get("atualizado_em"), "fechamentos": s["fechamentos"],
          "por_data": {s["data"]: s["por_data"][s["data"]]}}
+    if s.get("selic", {}).get(s["data"]) is not None:
+        p["selic"] = {s["data"]: s["selic"][s["data"]]}
     if s.get("maxmin"):
         p["maxmin"] = {n: {d: v[d] for d in sorted(d for d in v if d <= s["data"])[-PREG_MAXMIN:]} for n, v in s["maxmin"].items()}
     return p

@@ -1,0 +1,64 @@
+name: Pesquisa — juro do Black-Scholes (Selic do dia × 11% fixo)
+
+# Calibração da "Chance implícita no preço" com a Selic de cada dia × o juro fixo de 11% a.a., nas operações que o
+# montador.py monta a cada 5 pregões de 2015 até hoje (pesquisa/juro.py). A Selic vem do Banco Central (SGS 432).
+# Só leitura: não grava nada no repositório.
+on:
+  workflow_dispatch:
+  push:
+    branches: [juro]
+    paths:
+      - "pesquisa/juro.py"
+      - ".github/workflows/juro.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pesquisa-juro
+  cancel-in-progress: true
+
+jobs:
+  juro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Dependências (versão fixa)
+        run: pip install --quiet numpy==2.1.3
+
+      # Anos fechados em cache (mesma chave das outras pesquisas); o ano corrente vem sempre do site.
+      - name: Anos fechados em cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/anos
+          key: cotahist-anuais-2015-ate-ano-passado-v1
+
+      - name: Baixar os COTAHIST anuais da B3
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/anos" "$RUNNER_TEMP/cotahist"
+          baixa() { curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 10 -A "Mozilla/5.0" -o "$2" \
+            "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_A$1.ZIP" && unzip -tq "$2" >/dev/null; }
+          ano=$(date -u +%Y)
+          for a in $(seq 2015 $((ano - 1))); do
+            f="$RUNNER_TEMP/anos/COTAHIST_A$a.ZIP"
+            if [ -s "$f" ] && unzip -tq "$f" >/dev/null; then echo "COTAHIST_A$a.ZIP: do cache"; else baixa "$a" "$f"; fi
+            ln -sf "$f" "$RUNNER_TEMP/cotahist/"
+          done
+          baixa "$ano" "$RUNNER_TEMP/cotahist/COTAHIST_A$ano.ZIP"
+          ls -lL "$RUNNER_TEMP/cotahist"
+
+      - name: Selic do dia × 11% fixo
+        run: python pesquisa/juro.py --zips "$RUNNER_TEMP/cotahist" --saida "$RUNNER_TEMP/juro.txt"
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: pesquisa-juro
+          path: ${{ runner.temp }}/juro.txt
+          retention-days: 30
