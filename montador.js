@@ -16,9 +16,10 @@
     return s * y;
   };
   const N = (x) => 0.5 * (1 + erf(x / Math.SQRT2));
-  // juro livre de risco (10% a.a.): no Black-Scholes dos perfis e na chance implícita. Sem ele a chance ficava baixa
-  // nas operações de alta e alta nas de baixa (replay 2015–2026, pesquisa/replay.py).
-  const R_BS = 0.10;
+  // juro livre de risco (11% a.a.): no Black-Scholes dos perfis e na chance implícita. É o mesmo com que o atualizador
+  // tira a volatilidade implícita (atualizar_dados.R) e com que o replay 2015–2026 conferiu a chance (pesquisa/replay.py).
+  // Sem juro, a chance ficava baixa nas operações de alta e alta nas de baixa. paridade.py confere que os três batem.
+  const R_BS = 0.11;
   const probAcima = (S, K, dias, vol) => { const t = dias / 365; return N((Math.log(S / K) + (R_BS - 0.5 * vol * vol) * t) / (vol * Math.sqrt(t))); };
   const liquidas = (ch, tipo, spreadMax, volMin) => ch.filter((o) => o.t === tipo && o.b > 0 && o.a >= o.b && spread(o) <= spreadMax && o.v >= volMin);
   const perto = (L, alvo) => L.length ? L.reduce((m, o) => {

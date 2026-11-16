@@ -33,7 +33,7 @@ SNAPSHOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "snapshot.js
 # o app marca as operações simuladas dia a dia (valor hoje e regras de saída). Arquivo novo por dia, nunca regravado.
 PRECOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pwa", "precos")
 DIAS_DE_CADEIA = 12          # quantos pregões completos (com cadeia de opções) ficam no snapshot
-R = 0.11                     # juro livre de risco usado na volatilidade implícita (igual ao backtest)
+R = 0.11                     # juro livre de risco da volatilidade implícita; o mesmo R_BS do montador (chance, perfis, theta)
 
 # (início 1-based, fim inclusive)
 CAMPOS = dict(tipreg=(1, 2), data=(3, 10), codneg=(13, 24), tpmerc=(25, 27),

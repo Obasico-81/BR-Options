@@ -14,6 +14,12 @@ r2 = lambda x: math.floor(x * 100 + 0.5) / 100   # mesmo arredondamento do Math.
 CORRETAGENS = (None, 5.0)
 PERFIS = (None, "maior", "eq", "freq")
 snap = json.load(open("snapshot.json"))
+# o juro da volatilidade implícita (atualizador) é o mesmo da chance e dos perfis (montador.py e montador.js)
+import re, montador as _MT
+from atualizar_dados import R as _R_IV
+_r_js = float(re.search(r"const R_BS = ([0-9.]+);", open("montador.js", encoding="utf-8").read()).group(1))
+if not (_R_IV == _MT.R_BS == _r_js):
+    sys.exit(f"FALHA juros diferentes: atualizador {_R_IV}, montador.py {_MT.R_BS}, montador.js {_r_js}")
 # preços do dia de cada ativo: os da própria cadeia e os mesmos 7% mais altos (montados igual no JS)
 PRECOS = {n: ({o["s"]: [o["b"], o["a"]] for o in a["chain"]}, {o["s"]: [r2(o["b"] * 1.07), r2(o["a"] * 1.07)] for o in a["chain"]})
           for n, a in snap["ativos"].items()}

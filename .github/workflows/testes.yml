@@ -49,7 +49,7 @@ jobs:
       - name: Paridade no snapshot original (30/12/2025)
         run: |
           d="$RUNNER_TEMP/paridade_base"; mkdir -p "$d"
-          cp montador.py montador.js paridade.py "$d/"; cp testes/snapshot_base.json "$d/snapshot.json"
+          cp montador.py montador.js paridade.py atualizar_dados.py "$d/"; cp testes/snapshot_base.json "$d/snapshot.json"
           cd "$d" && python paridade.py
 
       - name: Atualizador (servidor local que imita a B3)

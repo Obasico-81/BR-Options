@@ -84,9 +84,10 @@ def _custos(spread1: float, taxas1: float, n_pernas: int, lotes: int) -> dict:
     return dict(custo_total=_r2(s + t + f), custo_spread=_r2(s), custo_taxas=_r2(t), custo_fixo=_r2(f))
 
 
-# juro livre de risco (10% a.a.): no Black-Scholes dos perfis e na chance implícita. Sem ele a chance ficava baixa nas
-# operações de alta e alta nas de baixa (replay 2015–2026, pesquisa/replay.py).
-R_BS = 0.10
+# juro livre de risco (11% a.a.): no Black-Scholes dos perfis e na chance implícita. É o mesmo com que o atualizador tira
+# a volatilidade implícita (atualizar_dados.R) e com que o replay 2015–2026 conferiu a chance (pesquisa/replay.py). Sem
+# juro, a chance ficava baixa nas operações de alta e alta nas de baixa. paridade.py confere que os três batem.
+R_BS = 0.11
 
 
 def prob_acima(S: float, K: float, dias: int, vol: float) -> float:
