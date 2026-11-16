@@ -421,9 +421,10 @@ function vObj(){
 // --- Vitrine (aba do menu, no lugar do antigo "Tenho um sinal pronto"): tudo o que dá para montar hoje com o perfil, em todos os ativos. Mesmas montagens do
 // Início (vencimento mais perto do escolhido no perfil); a ordem padrão é por ativo, para o app não sugerir uma "melhor".
 // A pessoa escolhe o que espera do papel e a ordem; o app não sabe para onde o preço vai.
-const EXP_TESES = [["alta", "Subir"], ["baixa", "Cair"], ["forte", "Mexer muito"], ["alta_com_caixa", "Receber prêmio"]];
+// Só as operações direcionais e de volatilidade; a put vendida (renda) fica no Início (decisão de 16/11/2026).
+const EXP_TESES = [["alta", "Subir"], ["baixa", "Cair"], ["forte", "Mexer muito"]];
 const EXP_ORDENS = [["ativo", "Ativo (A a Z)"], ["risco", "Menor risco máximo"], ["chance", "Maior chance implícita"], ["mov", "Menor movimento até o equilíbrio"]];
-const EXP_ESPERA = {alta: "Acho que vai subir", baixa: "Acho que vai cair", forte: "Acho que vai se mexer muito", alta_com_caixa: "Aceito comprar por um preço menor e receber um prêmio"};
+const EXP_ESPERA = {alta: "Acho que vai subir", baixa: "Acho que vai cair", forte: "Acho que vai se mexer muito"};
 // quanto a ação precisa andar, a favor, até o equilíbrio (negativo: hoje já está do lado do lucro)
 function movEquilibrio(m, S){
   const e = m.equilibrio;
@@ -431,29 +432,28 @@ function movEquilibrio(m, S){
   return m.tese === "baixa" ? 1 - e[0] / S : e[0] / S - 1;
 }
 function varrer(){
-  const salvo = S.ativo, ok = [], sem = [];
+  const salvo = S.ativo, ok = [];
   try {
     for (const n of Object.keys(SNAP.por_data[S.data]).sort()) {
-      S.ativo = n; const a = dia(), mot = [];
+      S.ativo = n; const a = dia();
       for (const [t] of EXP_TESES) { if (expFiltro !== "tudo" && expFiltro !== t) continue;
         const m = montagem(t);
-        if (typeof m === "string") mot.push(motivo(t, m)); else ok.push({ativo: n, t, m, S: a.S, mov: movEquilibrio(m, a.S)}); }
-      if (!ok.some(x => x.ativo === n)) sem.push({ativo: n, motivo: expFiltro === "tudo" ? quantoFalta() : mot[0]});
+        if (typeof m !== "string") ok.push({ativo: n, t, m, S: a.S, mov: movEquilibrio(m, a.S)}); }
     }
   } finally { S.ativo = salvo; }
   const ordem = EXP_TESES.map(x => x[0]);
   const por = {ativo: (x, y) => x.ativo.localeCompare(y.ativo) || ordem.indexOf(x.t) - ordem.indexOf(y.t),
     risco: (x, y) => x.m.perdaMax - y.m.perdaMax, chance: (x, y) => y.m.probImplicita - x.m.probImplicita, mov: (x, y) => x.mov - y.mov}[expOrdem];
-  return {ok: ok.sort((x, y) => por(x, y) || x.ativo.localeCompare(y.ativo)), sem};
+  return ok.sort((x, y) => por(x, y) || x.ativo.localeCompare(y.ativo));
 }
 function vVitrine(){
-  const {ok, sem} = varrer(), n = Object.keys(SNAP.por_data[S.data]).length;
+  const ok = varrer(), n = Object.keys(SNAP.por_data[S.data]).length;
   let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div>
    <div><h1>Vitrine</h1><p class="muted" style="margin-top:6px">Tudo o que o app consegue montar hoje com o seu perfil, nos ${n} ativos. Preços de ${dBR(S.data)}.</p></div>
    <section class="card" style="flex-direction:row;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px"><div class="small"><strong>Risco máx. ${brl(S.perda).replace(" ", "&nbsp;")}</strong> · capital ${brl(S.capital).replace(" ", "&nbsp;")}<br><span class="muted">Vencimento mais perto de ${dm(vencSel().iso)}</span></div><button class="back" id="exp-perfil" style="min-height:44px">Mudar</button></section>
    <div><div class="small muted" style="margin-bottom:6px">O que você espera?</div><div class="chips" role="group" aria-label="O que você espera" style="margin-top:0">${[["tudo", "Tudo"], ...EXP_TESES].map(([k, t]) => `<button class="chip" data-expf="${k}" aria-pressed="${expFiltro === k}" style="${expFiltro === k ? "background:var(--ink);color:var(--bg);border-color:var(--ink)" : ""}">${t}</button>`).join("")}</div></div>
    <label class="f">Ordenar por<select id="exp-ordem">${EXP_ORDENS.map(([k, t]) => `<option value="${k}" ${k === expOrdem ? "selected" : ""}>${t}</option>`).join("")}</select></label>`;
-  h += ok.length ? `<p class="small muted">${ok.length} ${ok.length > 1 ? "operações cabem" : "operação cabe"} no seu perfil.</p>` : `<div class="note"><p>Com o seu perfil, nenhuma operação ${expFiltro === "tudo" ? "" : "deste tipo "}cabe hoje em nenhum dos ${n} ativos. O motivo de cada ativo está abaixo.</p></div>`;
+  h += ok.length ? `<p class="small muted">${ok.length} ${ok.length > 1 ? "operações cabem" : "operação cabe"} no seu perfil.</p>` : `<div class="note"><p>Com o seu perfil, nenhuma operação ${expFiltro === "tudo" ? "" : "deste tipo "}cabe hoje em nenhum dos ${n} ativos. No Início, cada ativo mostra o motivo.</p></div>`;
   const num = (l, v, c = "") => `<span><span class="l">${l}</span><span class="v ${c}" style="${c === "bad" ? "color:var(--bad)" : c === "good" ? "color:var(--good)" : ""}">${v}</span></span>`;
   for (const x of ok) { const m = x.m, venc = addDias(S.data, m.dias);
     h += `<button class="opt" data-exp="${x.ativo}|${x.t}" style="flex-direction:column;gap:8px">
@@ -461,8 +461,7 @@ function vVitrine(){
       <span class="small muted">${EXP_ESPERA[x.t]}${EMPRESAS[x.ativo] ? ` · ${EMPRESAS[x.ativo]}` : ""}</span>
       <span class="linha4">${num(m.premio < 0 ? "Recebe agora" : "Paga agora", brl(Math.abs(m.premio)))}${num("Risco máximo", brl(m.perdaMax), "bad")}${num("Ganho máximo", m.ganhoMax === null ? "Sem limite" : brl(m.ganhoMax), "good")}${num("Chance implícita", pct(m.probImplicita))}</span>
       <span class="small">${distEquilibrio(m, x.S)}</span></button>`; }
-  if (sem.length) h += `<section class="card"><h2 style="font-size:16px">${ok.length ? "Sem operação no seu perfil hoje" : "Por ativo"}</h2>${sem.map(x => `<div style="border-top:1px solid var(--line);padding-top:10px"><div style="font-weight:700">${x.ativo}</div><p class="small muted" style="margin-top:2px">${esc(x.motivo)}</p></div>`).join("")}</section>`;
-  return h + `<p class="foot">A lista mostra o que cabe no seu risco máximo e no seu capital, na ordem que você escolheu. O app não sabe para onde o preço vai: escolha pelo que você espera do papel. A chance implícita vem do preço das opções e não é vantagem sua.</p>`;
+  return h + `<p class="foot">A lista mostra o que cabe no seu risco máximo, na ordem que você escolheu. O app não sabe para onde o preço vai: escolha pelo que você espera do papel. A chance implícita vem do preço das opções e não é vantagem sua.</p>`;
 }
 
 function num2(x){ return (Math.round(x*100)/100).toFixed(2).replace(".",","); }

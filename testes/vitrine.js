@@ -1,6 +1,6 @@
 // Vitrine: tudo o que dá para montar hoje com o perfil, em todos os ativos (no lugar do "Tenho um sinal pronto").
-// Confere a lista contra as montagens do app (montagem() de cada ativo), o filtro, as ordens, a ida ao cartão e a volta,
-// os ativos sem operação com o motivo e o perfil pequeno demais.
+// Confere a lista contra as montagens do app (montagem() de cada ativo; só alta, baixa e strangle, sem a put vendida),
+// o filtro, as ordens, a ida ao cartão e a volta e o perfil pequeno demais (só o aviso, sem a lista de ativos).
 // Uso: python3 build.py && python3 build_pwa.py && node testes/vitrine.js CAMINHO/pwa/index.html
 const { chromium } = require("playwright");
 const arq = "file://" + process.argv[2];
@@ -25,7 +25,7 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
     // o que o app monta em cada ativo, com o perfil (as mesmas montagens do Início)
     const esperado = async () => p.evaluate((f) => { const salvo = S.ativo, L = [];
       for (const n of Object.keys(SNAP.por_data[S.data]).sort()) { S.ativo = n;
-        for (const t of ["alta", "baixa", "forte", "alta_com_caixa"]) { if (f !== "tudo" && f !== t) continue; const m = montagem(t);
+        for (const t of ["alta", "baixa", "forte"]) { if (f !== "tudo" && f !== t) continue; const m = montagem(t);
           if (typeof m !== "string") L.push({ k: n + "|" + t, risco: brl(m.perdaMax), chance: pct(m.probImplicita), r: m.perdaMax, c: m.probImplicita }); } }
       S.ativo = salvo; return L; }, await p.evaluate(() => expFiltro));
     const linhas = () => p.evaluate(() => [...document.querySelectorAll("[data-exp]")].map((b) => ({ k: b.dataset.exp, txt: b.innerText })));
@@ -33,9 +33,8 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
     confere("lista: as mesmas operações que o app monta em cada ativo", E.length > 0 && JSON.stringify(E.map((x) => x.k)) === JSON.stringify(L.map((x) => x.k)), { E: E.map((x) => x.k), L: L.map((x) => x.k) });
     confere("lista: risco máximo e chance implícita iguais aos da montagem", L.every((x, i) => x.txt.includes(E[i].risco) && x.txt.includes(E[i].chance)));
     confere("lista: ordem padrão por ativo (A a Z)", L.map((x) => x.k.split("|")[0]).join() === L.map((x) => x.k.split("|")[0]).sort().join());
-    const nAtivos = await p.evaluate(() => Object.keys(SNAP.por_data[S.data]).length), comOp = new Set(E.map((x) => x.k.split("|")[0])).size;
-    const semTxt = (await texto()).split("Sem operação no seu perfil hoje")[1] || "";
-    confere("ativos sem operação: listados com o motivo", nAtivos === comOp ? !/Sem operação no seu perfil hoje/.test(await texto()) : (semTxt.match(/\n[A-Z0-9]{5,6}\n/g) || []).length === nAtivos - comOp, { nAtivos, comOp, semTxt: semTxt.slice(0, 300) });
+    const tv = await texto();
+    confere("sem 'Receber prêmio' (put vendida) e sem a lista de ativos sem operação", (await p.locator('[data-expf="alta_com_caixa"]').count()) === 0 && !L.some((x) => x.k.endsWith("|alta_com_caixa")) && !/Sem operação no seu perfil hoje|Por ativo/.test(tv));
 
     // ordens
     await p.selectOption("#exp-ordem", "risco"); L = await linhas();
@@ -69,7 +68,7 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
     // perfil pequeno: nada cabe, e cada ativo aparece com o motivo
     await p.evaluate(() => { S.perda = 10; save("estado", S); }); await p.click('#nav [data-nav="vitrine"]');
     const t2 = await texto();
-    confere("perfil pequeno: nenhuma operação, aviso e o motivo de cada ativo", (await p.locator("[data-exp]").count()) === 0 && /nenhuma operação/.test(t2) && (t2.match(/risco máximo precisaria ser|Não há opções com liquidez|exige reservar/g) || []).length === nAtivos, t2.slice(0, 500));
+    confere("perfil pequeno: nenhuma operação e só o aviso (sem a lista de motivos)", (await p.locator("[data-exp]").count()) === 0 && /nenhuma operação/.test(t2) && /No Início, cada ativo mostra o motivo/.test(t2) && !/risco máximo precisaria ser|exige reservar/.test(t2), t2.slice(0, 500));
     await p.click("#exp-perfil");
     confere("'Mudar': vai ao Início com o perfil aberto", await p.evaluate(() => tela === "obj" && !!document.getElementById("perda")));
     confere("sem erros na página", erros.length === 0, erros);
