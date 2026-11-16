@@ -1,6 +1,7 @@
-// Vitrine: tudo o que dá para montar hoje com o perfil, em todos os ativos (no lugar do "Tenho um sinal pronto").
-// Confere a lista contra as montagens do app (montagem() de cada ativo), o filtro, as ordens, a ida ao cartão e a volta,
-// os ativos sem operação com o motivo e o perfil pequeno demais.
+// Vitrine: tudo o que dá para montar hoje com o perfil, em todos os ativos, no Início ao lado de "Um ativo" (no lugar
+// do "Tenho um sinal pronto"). Confere a chave do Início e a escolha guardada, a lista contra as montagens do app
+// (montagem() de cada ativo), o filtro, as ordens, a ida ao cartão e a volta, os ativos sem operação com o motivo, o
+// perfil editado na própria Vitrine e o perfil pequeno demais.
 // Uso: python3 build.py && python3 build_pwa.py && node testes/vitrine.js CAMINHO/pwa/index.html
 const { chromium } = require("playwright");
 const arq = "file://" + process.argv[2];
@@ -17,11 +18,14 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
     await p.evaluate(() => { localStorage.clear(); S.perda = 3000; S.capital = 30000; save("estado", S); render(); });
     const ini = await texto();
     const abas = await p.evaluate(() => [...document.querySelectorAll("#nav [data-nav]")].map((b) => b.innerText.trim()));
-    confere("menu: aba Vitrine entre Início e Operações; o Início sem o 'Tenho um sinal pronto'", abas.join() === "Início,Vitrine,Operações,Desempenho,Ajustes" && !/Tenho um sinal pronto/.test(ini), abas);
-    const larg = await p.evaluate(() => [...document.querySelectorAll("#nav [data-nav]")].every((b) => b.scrollWidth <= b.clientWidth + 1));
-    confere("menu: os cinco nomes cabem sem cortar em 390px", larg);
-    await p.click('#nav [data-nav="vitrine"]');
-    confere("aba Vitrine: abre a tela e fica acesa", await p.evaluate(() => tela === "vitrine" && document.querySelector('#nav [data-nav="vitrine"]').getAttribute("aria-current") === "page"));
+    confere("menu: quatro abas, sem a Vitrine; o Início sem o 'Tenho um sinal pronto'", abas.join() === "Início,Operações,Desempenho,Ajustes" && !/Tenho um sinal pronto/.test(ini), abas);
+    confere("Início: chave 'Um ativo' | 'Vitrine', começando em 'Um ativo'", (await p.locator('[data-inicio="ativo"][aria-pressed="true"]').count()) === 1 && (await p.locator('[data-inicio="vitrine"]').count()) === 1);
+    await p.click('[data-inicio="vitrine"]');
+    confere("Vitrine: abre no Início, com a aba Início acesa", await p.evaluate(() => tela === "vitrine" && S.inicio === "vitrine" && document.querySelector('#nav [data-nav="obj"]').getAttribute("aria-current") === "page") && /Monte sua operação/.test(await texto()));
+    await p.reload(); await p.waitForSelector("#nav");
+    confere("escolha guardada: reabre na Vitrine", await p.evaluate(() => tela === "vitrine"));
+    await p.click('#nav [data-nav="cad"]'); await p.click('#nav [data-nav="obj"]');
+    confere("aba Início: volta para a Vitrine (a última escolha)", await p.evaluate(() => tela === "vitrine"));
     // o que o app monta em cada ativo, com o perfil (as mesmas montagens do Início)
     const esperado = async () => p.evaluate((f) => { const salvo = S.ativo, L = [];
       for (const n of Object.keys(SNAP.por_data[S.data]).sort()) { S.ativo = n;
@@ -58,20 +62,25 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
     const alvo = (await linhas())[0].k, [an, at] = alvo.split("|");
     await p.click(`[data-exp="${alvo}"]`);
     confere("tocar na operação: abre o cartão daquele ativo e daquela operação", await p.evaluate(([n, t]) => tela === "cartao" && S.ativo === n && tese === t, [an, at]) && /Operação montada/.test(await texto()));
-    confere("cartão aberto pela Vitrine: a aba Vitrine continua acesa", await p.evaluate(() => document.querySelector('#nav [data-nav="vitrine"]').getAttribute("aria-current") === "page"));
+    confere("cartão aberto pela Vitrine: a aba Início continua acesa", await p.evaluate(() => document.querySelector('#nav [data-nav="obj"]').getAttribute("aria-current") === "page"));
     await p.click('.top [data-go="vitrine"]');
     confere("'Voltar' do cartão: volta à Vitrine", await p.evaluate(() => tela === "vitrine"));
     await p.click(`[data-exp="${alvo}"]`); await p.click("text=Não agora");
     confere("'Não agora': volta à Vitrine", await p.evaluate(() => tela === "vitrine"));
-    await p.click('#nav [data-nav="obj"]'); await p.click("[data-tese]:not([disabled])");
-    confere("cartão aberto pelo Início: 'Voltar' continua indo ao Início", (await p.locator('.top [data-go="obj"]').count()) === 1);
+    await p.click('[data-inicio="ativo"]'); await p.click("[data-tese]:not([disabled])");
+    confere("cartão aberto por 'Um ativo': 'Voltar' volta ao Início", (await p.locator('.top [data-go="obj"]').count()) === 1);
+    await p.click('.top [data-go="obj"]');
+    confere("'Um ativo' guardado: o Início volta na tela de um ativo", await p.evaluate(() => tela === "obj" && S.inicio === "ativo"));
+    await p.click('[data-inicio="vitrine"]');
 
     // perfil pequeno: nada cabe, e cada ativo aparece com o motivo
-    await p.evaluate(() => { S.perda = 10; save("estado", S); }); await p.click('#nav [data-nav="vitrine"]');
+    await p.evaluate(() => { S.perda = 10; save("estado", S); render(); });
     const t2 = await texto();
     confere("perfil pequeno: nenhuma operação, aviso e o motivo de cada ativo", (await p.locator("[data-exp]").count()) === 0 && /nenhuma operação/.test(t2) && (t2.match(/risco máximo precisaria ser|Não há opções com liquidez|exige reservar/g) || []).length === nAtivos, t2.slice(0, 500));
-    await p.click("#exp-perfil");
-    confere("'Mudar': vai ao Início com o perfil aberto", await p.evaluate(() => tela === "obj" && !!document.getElementById("perda")));
+    await p.click('[data-perfil="1"]');
+    confere("'Editar' o perfil: abre ali mesmo, na Vitrine", await p.evaluate(() => tela === "vitrine" && !!document.getElementById("perda")));
+    await p.fill("#perda", "3000"); await p.dispatchEvent("#perda", "change");
+    confere("perfil mudado na Vitrine: a lista refaz na hora", await p.evaluate(() => tela === "vitrine" && S.perda === 3000) && (await p.locator("[data-exp]").count()) > 0);
     confere("sem erros na página", erros.length === 0, erros);
   } finally { await b.close(); }
   console.log(falhas ? `\n${falhas} falha(s)` : "\ntodos os casos passaram"); process.exit(falhas ? 1 : 0);

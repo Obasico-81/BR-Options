@@ -90,10 +90,8 @@ input[type=range]{width:100%;min-height:44px;accent-color:var(--accent-text)}
 .linha4>span{display:flex;flex-direction:column;min-width:0}.linha4 .l{font-size:11px;color:var(--muted);line-height:1.2}.linha4 .v{font-size:15px;font-weight:700;white-space:nowrap}
 @media (prefers-reduced-motion:no-preference){.card,.stat,.opt{transition:border-color .15s}}
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-top:1px solid var(--line);padding:6px 8px calc(8px + env(safe-area-inset-bottom))}
-.nav .in{max-width:460px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+.nav .in{max-width:460px;margin:0 auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
 .nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:52px;min-width:0;padding:0 2px;border:0;background:none;font:inherit;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
-@media (max-width:370px){.nav button{font-size:11px}}
-@media (max-width:340px){.nav button{font-size:10px;letter-spacing:-.01em}}
 .nav button[aria-current="page"]{color:var(--accent-text);font-weight:700}
 </style>
 
@@ -141,7 +139,7 @@ const fmtBR = (n, dec) => n === null || n === undefined || n === "" ? "" : Numbe
 const TESTE = /[?&]teste=1/.test(location.search);   // modo teste: deixa escolher o dia dos preços
 if (!TESTE || !SNAP.por_data[S.data]) S.data = SNAP.data;
 const DIAS_VELHOS = Math.floor((Date.now() - new Date(SNAP.data + "T12:00:00Z")) / 86400000), DEFASADO = DIAS_VELHOS > 5 && !TESTE;
-let tela = "obj", tese = null, ciente = false, slider = null, per = "90", pDe = "", pAte = "", selId = null, perfilAberto = false, ativoAberto = false, realF = null, saidaF = null, desTipo = null, doc = "termos";
+let tela = S.inicio === "vitrine" ? "vitrine" : "obj", tese = null, ciente = false, slider = null, per = "90", pDe = "", pAte = "", selId = null, perfilAberto = false, ativoAberto = false, realF = null, saidaF = null, desTipo = null, doc = "termos";
 let expFiltro = "tudo", expOrdem = "ativo", voltaCartao = "obj";   // Vitrine: filtro, ordem; para onde o "Voltar" do cartão leva
 const opSel = () => load("historico", []).find(o => o.id === selId) || null;
 // Em aberto: a simulada sai na primeira regra atingida; a real só quando o usuário registra o encerramento (ou vence).
@@ -276,10 +274,10 @@ function fechamentoNoVenc(ativo, iso, dias){
 
 function navBar(){
   const at = tela==="acomp" || tela==="sair" ? "acomp" : tela==="desemp" ? "desemp" : tela==="cad" || tela==="doc" ? "cad"
-    : tela==="vitrine" || (voltaCartao==="vitrine" && (tela==="cartao" || tela==="cen" || tela==="real")) ? "vitrine" : "obj";
+ : "obj";
   const it = (k, rot, ic) => `<button data-nav="${k}" ${at===k?'aria-current="page"':""}>${svg(ic,22)}${rot}</button>`;
-  document.getElementById("nav").innerHTML = `<div class="in">${it("obj","Início",'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>')}${it("vitrine","Vitrine",'<path d="M4 4h16l1 5H3l1-5z"/><path d="M3 9a3 3 0 0 0 6 0a3 3 0 0 0 6 0a3 3 0 0 0 6 0"/><path d="M5 12v8h14v-8"/><path d="M10 20v-5h4v5"/>')}${it("acomp","Operações",'<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l4-5 3 3 4-6"/>')}${it("desemp","Desempenho",'<path d="M5 20V11"/><path d="M12 20V4"/><path d="M19 20v-6"/>')}${it("cad","Ajustes",'<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>')}</div>`;
-  document.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { selId = null; slider = null; tela = b.dataset.nav; render(); });
+  document.getElementById("nav").innerHTML = `<div class="in">${it("obj","Início",'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>')}${it("acomp","Operações",'<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l4-5 3 3 4-6"/>')}${it("desemp","Desempenho",'<path d="M5 20V11"/><path d="M12 20V4"/><path d="M19 20v-6"/>')}${it("cad","Ajustes",'<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>')}</div>`;
+  document.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { selId = null; slider = null; tela = b.dataset.nav === "obj" ? inicio() : b.dataset.nav; render(); });
 }
 function render(){
   aplicarJuro();
@@ -379,28 +377,40 @@ const EMPRESAS = {BOVA11: "ETF Ibovespa", PETR4: "Petrobras", VALE3: "Vale", BBD
 function listaAtivos(q){ q = (q||"").trim().toUpperCase(); const d = SNAP.por_data[S.data];
   const L = Object.keys(d).filter(n => n.includes(q)).sort();
   return L.length ? L.map(n => { const g = miniGrafico(n, 56, 22); return `<button class="opt" role="option" data-ativo="${n}" aria-selected="${n===S.ativo}" style="border:0;border-top:1px solid var(--line);border-radius:0;justify-content:space-between;align-items:center;padding:12px 6px;${n===S.ativo?"font-weight:700":""}"><span style="display:flex;flex-direction:column;text-align:left;flex:1;min-width:0"><span style="white-space:nowrap">${n} <span class="muted" style="font-weight:500">· ${brl(d[n].S,2)}</span></span>${EMPRESAS[n] ? `<span class="muted emp">${EMPRESAS[n]}</span>` : ""}</span>${g ? `<span style="flex-shrink:0;display:flex">${g.svg}</span>` : ""}</button>`; }).join("") : `<p class="small muted" style="padding:12px 6px">Nenhum ativo encontrado.</p>`; }
-function vObj(){
-  const a = dia();
-  let h = topo(null,"",1) + `<h1>Monte sua operação</h1>`;
-  if (DEFASADO) h += `<div class="note" role="alert"><p class="small"><strong>Preços desatualizados.</strong> O último fechamento carregado é de ${dBR(SNAP.data)}. As operações abaixo são só simulação, e a cópia dos parâmetros fica bloqueada até os preços serem atualizados.</p></div>`;
-  { const nomes = Object.keys(SNAP.por_data[S.data]);
-    h += `<section class="card" aria-label="Ativo"><button class="opt" id="atvBtn" aria-expanded="${ativoAberto}" style="justify-content:space-between;align-items:center;padding:12px 14px"><span style="display:flex;flex-direction:column"><span class="small muted">Ativo</span><span style="font-weight:700;font-size:18px;white-space:nowrap">${S.ativo} <span class="muted" style="font-weight:500;font-size:15px">· ${brl(SNAP.por_data[S.data][S.ativo].S,2)}</span> <span class="muted" style="font-weight:500;font-size:15px" aria-hidden="true">${ativoAberto?"▴":"▾"}</span></span>${EMPRESAS[S.ativo] ? `<span class="small muted">${EMPRESAS[S.ativo]}</span>` : ""}</span>${(g => g ? g.svg : "")(miniGrafico(S.ativo))}</button>`;
-    if (ativoAberto) h += `<input id="atvQ" type="search" placeholder="Buscar ativo (${nomes.length} disponíveis)" autocomplete="off" style="font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:44px;width:100%"><div id="atvL" role="listbox" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column">${listaAtivos("")}</div>`;
-    h += `</section>`; }
+// Cartão do perfil (capital, risco máximo, vencimento), aberto ou resumido. No Início e na Vitrine; na Vitrine sem a
+// volatilidade, que é de um ativo só.
+function perfilHtml(a, vitrine){
+  let h = "";
   if (perfilAberto) {
-  h += `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="font-size:14px;color:var(--muted)">Seu perfil e o dia simulado</h2><button class="back" data-perfil="0" style="min-height:44px">Fechar</button></div>
+  h = `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="font-size:14px;color:var(--muted)">Seu perfil e o dia simulado</h2><button class="back" data-perfil="0" style="min-height:44px">Fechar</button></div>
    <div class="row3">
     <label class="f">Capital disponível (R$)<input id="capital" type="text" inputmode="numeric" autocomplete="off" value="${fmtBR(S.capital,0)}"></label>
     <label class="f">Risco máximo por operação (R$)<input id="perda" type="text" inputmode="numeric" autocomplete="off" value="${fmtBR(S.perda,0)}"></label>
    </div><div class="row3">
     ${TESTE?`<label class="f">Dia dos preços<select id="data">${DATAS.map(d=>`<option value="${d}" ${d===S.data?"selected":""}>${dBR(d)}</option>`).join("")}</select></label>`:""}
-    <label class="f">Vencimento<select id="prazo">${(()=>{ const s = vencSel().iso; return vencs().map(v=>`<option value="${v.iso}" ${v.iso===s?"selected":""}>${dBR(v.iso)} · ${v.d} dias</option>`).join(""); })()}</select></label>
+    <label class="f">${vitrine ? "Vencimento (cada ativo usa o mais perto)" : "Vencimento"}<select id="prazo">${(()=>{ const s = vencSel().iso; return vencs().map(v=>`<option value="${v.iso}" ${v.iso===s?"selected":""}>${dBR(v.iso)} · ${v.d} dias</option>`).join(""); })()}</select></label>
    </div>
    <p class="small muted">${S.cad.corretora?`Corretora: ${esc(S.cad.corretora)}. `:""}Risco máximo por operação: ${(S.perda/S.capital*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% do seu capital.</p>
-   <p class="small muted">Preços de ${dBR(S.data)}. Volatilidade implícita das opções: ${(a.iv*100).toFixed(0)}% ao ano.${(s => s === null ? "" : ` Selic: ${s.toLocaleString("pt-BR")}% ao ano.`)(selicDe(S.data))}</p></section>`;
+   <p class="small muted">Preços de ${dBR(S.data)}.${vitrine ? "" : ` Volatilidade implícita das opções: ${(a.iv*100).toFixed(0)}% ao ano.`}${(s => s === null ? "" : ` Selic: ${s.toLocaleString("pt-BR")}% ao ano.`)(selicDe(S.data))}</p></section>`;
   } else {
-    h += `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-weight:700">Vence ${dBR(vencSel().iso).slice(0,5)} · risco máx. ${brl(S.perda).replace(" ","&nbsp;")}</div><div class="small muted">Preços de ${dBR(S.data)}${S.cad.corretora?` · ${esc(S.cad.corretora)}`:""}</div></div><button class="back" data-perfil="1" style="min-height:44px">Editar</button></div></section>`;
+    h = `<section class="card" aria-label="Seu perfil"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-weight:700">${vitrine ? `Vence em ~${vencSel().d} dias` : `Vence ${dBR(vencSel().iso).slice(0,5)}`} · risco máx. ${brl(S.perda).replace(" ","&nbsp;")}</div><div class="small muted">Preços de ${dBR(S.data)}${S.cad.corretora?` · ${esc(S.cad.corretora)}`:""}</div></div><button class="back" data-perfil="1" style="min-height:44px">Editar</button></div></section>`;
   }
+  return h;
+}
+// Início: duas formas de começar a mesma coisa. "Um ativo" (escolhe o papel e vê as quatro operações) ou "Vitrine" (as
+// operações que cabem no perfil em todos os ativos). A escolha fica guardada (S.inicio) e a aba Início abre nela.
+const inicio = () => S.inicio === "vitrine" ? "vitrine" : "obj";
+const chaveInicio = () => `<div role="group" aria-label="Como escolher" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${[["ativo", "Um ativo"], ["vitrine", "Vitrine"]].map(([k, t]) => { const on = (S.inicio === "vitrine" ? "vitrine" : "ativo") === k;
+  return `<button class="seg" data-inicio="${k}" aria-pressed="${on}" style="min-height:44px;padding:8px 10px;border-radius:12px;border:1.5px solid ${on ? "var(--ink)" : "var(--line)"};background:${on ? "var(--ink)" : "transparent"};color:${on ? "var(--bg)" : "inherit"};font:inherit;font-size:15px;font-weight:600;cursor:pointer">${t}</button>`; }).join("")}</div>`;
+function vObj(){
+  const a = dia();
+  let h = topo(null,"",1) + `<h1>Monte sua operação</h1>` + chaveInicio();
+  if (DEFASADO) h += `<div class="note" role="alert"><p class="small"><strong>Preços desatualizados.</strong> O último fechamento carregado é de ${dBR(SNAP.data)}. As operações abaixo são só simulação, e a cópia dos parâmetros fica bloqueada até os preços serem atualizados.</p></div>`;
+  { const nomes = Object.keys(SNAP.por_data[S.data]);
+    h += `<section class="card" aria-label="Ativo"><button class="opt" id="atvBtn" aria-expanded="${ativoAberto}" style="justify-content:space-between;align-items:center;padding:12px 14px"><span style="display:flex;flex-direction:column"><span class="small muted">Ativo</span><span style="font-weight:700;font-size:18px;white-space:nowrap">${S.ativo} <span class="muted" style="font-weight:500;font-size:15px">· ${brl(SNAP.por_data[S.data][S.ativo].S,2)}</span> <span class="muted" style="font-weight:500;font-size:15px" aria-hidden="true">${ativoAberto?"▴":"▾"}</span></span>${EMPRESAS[S.ativo] ? `<span class="small muted">${EMPRESAS[S.ativo]}</span>` : ""}</span>${(g => g ? g.svg : "")(miniGrafico(S.ativo))}</button>`;
+    if (ativoAberto) h += `<input id="atvQ" type="search" placeholder="Buscar ativo (${nomes.length} disponíveis)" autocomplete="off" style="font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:44px;width:100%"><div id="atvL" role="listbox" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column">${listaAtivos("")}</div>`;
+    h += `</section>`; }
+  h += perfilHtml(a, false);
   const MS = TESES.map(t => montagem(t.k)), nada = MS.every(m => typeof m === "string");
   const MOT = MS.map((m, i) => typeof m === "string" ? motivo(TESES[i].k, m) : null), iguais = nada && new Set(MOT).size === 1;
   // nada disponível: o aviso no lugar do convite a escolher; com o mesmo motivo nos quatro cartões, eles vêm recolhidos
@@ -418,7 +428,7 @@ function vObj(){
   return h;
 }
 
-// --- Vitrine (aba do menu, no lugar do antigo "Tenho um sinal pronto"): tudo o que dá para montar hoje com o perfil, em todos os ativos. Mesmas montagens do
+// --- Vitrine (no Início, ao lado de "Um ativo"; no lugar do antigo "Tenho um sinal pronto"): tudo o que dá para montar hoje com o perfil, em todos os ativos. Mesmas montagens do
 // Início (vencimento mais perto do escolhido no perfil); a ordem padrão é por ativo, para o app não sugerir uma "melhor".
 // A pessoa escolhe o que espera do papel e a ordem; o app não sabe para onde o preço vai.
 const EXP_TESES = [["alta", "Subir"], ["baixa", "Cair"], ["forte", "Mexer muito"], ["alta_com_caixa", "Receber prêmio"]];
@@ -448,9 +458,7 @@ function varrer(){
 }
 function vVitrine(){
   const {ok, sem} = varrer(), n = Object.keys(SNAP.por_data[S.data]).length;
-  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div>
-   <div><h1>Vitrine</h1><p class="muted" style="margin-top:6px">Tudo o que o app consegue montar hoje com o seu perfil, nos ${n} ativos. Preços de ${dBR(S.data)}.</p></div>
-   <section class="card" style="flex-direction:row;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px"><div class="small"><strong>Risco máx. ${brl(S.perda).replace(" ", "&nbsp;")}</strong> · capital ${brl(S.capital).replace(" ", "&nbsp;")}<br><span class="muted">Vencimento mais perto de ${dm(vencSel().iso)}</span></div><button class="back" id="exp-perfil" style="min-height:44px">Mudar</button></section>
+  let h = topo(null, "", 1) + `<h1>Monte sua operação</h1>` + chaveInicio() + `<p class="muted">Tudo o que o app consegue montar hoje com o seu perfil, nos ${n} ativos.</p>` + perfilHtml(dia(), true) + `
    <div><div class="small muted" style="margin-bottom:6px">O que você espera?</div><div class="chips" role="group" aria-label="O que você espera" style="margin-top:0">${[["tudo", "Tudo"], ...EXP_TESES].map(([k, t]) => `<button class="chip" data-expf="${k}" aria-pressed="${expFiltro === k}" style="${expFiltro === k ? "background:var(--ink);color:var(--bg);border-color:var(--ink)" : ""}">${t}</button>`).join("")}</div></div>
    <label class="f">Ordenar por<select id="exp-ordem">${EXP_ORDENS.map(([k, t]) => `<option value="${k}" ${k === expOrdem ? "selected" : ""}>${t}</option>`).join("")}</select></label>`;
   h += ok.length ? `<p class="small muted">${ok.length} ${ok.length > 1 ? "operações cabem" : "operação cabe"} no seu perfil.</p>` : `<div class="note"><p>Com o seu perfil, nenhuma operação ${expFiltro === "tudo" ? "" : "deste tipo "}cabe hoje em nenhum dos ${n} ativos. O motivo de cada ativo está abaixo.</p></div>`;
@@ -774,14 +782,15 @@ function vAcomp(){
 
 function bind(){
   const q = (s) => document.querySelector(s);
-  document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { tela = b.dataset.go; render(); });
+  document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { tela = b.dataset.go === "obj" ? inicio() : b.dataset.go; render(); });
+  document.querySelectorAll("[data-inicio]").forEach(b => b.onclick = () => { S.inicio = b.dataset.inicio; save("estado", S); tela = inicio(); render(); });
   document.querySelectorAll("[data-op]").forEach(b => { const prev = b.onclick; b.onclick = () => { selId = b.dataset.op ? +b.dataset.op : null; slider = null; tela = "acomp"; render(); }; });
   document.querySelectorAll("[data-tese]").forEach(b => b.onclick = () => { tese = b.dataset.tese; ciente = false; voltaCartao = "obj"; tela = "cartao"; render(); });
   // Vitrine: filtro, ordem e a operação escolhida (abre o cartão daquele ativo; "Voltar" volta à lista)
   document.querySelectorAll("[data-expf]").forEach(b => b.onclick = () => { expFiltro = b.dataset.expf; render(); });
   const eo = q("#exp-ordem"); if (eo) eo.onchange = () => { expOrdem = eo.value; render(); };
   document.querySelectorAll("[data-exp]").forEach(b => b.onclick = () => { const [n, t] = b.dataset.exp.split("|"); S.ativo = n; save("estado", S); tese = t; ciente = false; voltaCartao = "vitrine"; tela = "cartao"; render(); });
-  const ep = q("#exp-perfil"); if (ep) ep.onclick = () => { perfilAberto = true; tela = "obj"; render(); };
+
   const set = (id, key, num) => { const e = q("#"+id); if (e) e.onchange = () => { if (num) { const n = numBR(e.value); if (n > 0) S[key] = Math.round(n); } else S[key] = e.value; save("estado", S); render(); }; };
   set("capital","capital",true); set("perda","perda",true); set("data","data");
   const p = q("#prazo"); if (p) p.onchange = () => { S.venc = p.value; S.prazo = vencSel().d; save("estado", S); render(); };
