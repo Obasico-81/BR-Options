@@ -45,8 +45,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/anos" "$RUNNER_TEMP/cotahist"
-          baixa() { curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 10 -A "Mozilla/5.0" -o "$2" \
-            "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_A$1.ZIP" && unzip -tq "$2" >/dev/null; }
+          # arquivo do ano corrente às vezes chega cortado: baixa de novo até 4 vezes se o zip não passar no teste
+          baixa() { for t in 1 2 3 4; do curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 10 -A "Mozilla/5.0" -o "$2" \
+            "https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_A$1.ZIP" && unzip -tq "$2" >/dev/null && return 0; sleep 30; done; return 1; }
           ano=$(date -u +%Y)
           for a in $(seq 2015 $((ano - 1))); do
             f="$RUNNER_TEMP/anos/COTAHIST_A$a.ZIP"
