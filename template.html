@@ -86,6 +86,8 @@ input[type=range]{width:100%;min-height:44px;accent-color:var(--accent-text)}
 .hide{display:none}
 .empty{text-align:center;padding:24px 8px;color:var(--muted)}
 .leg{display:flex;flex-direction:column;gap:2px}
+.linha4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;width:100%;border-top:1px solid var(--line);padding-top:10px}
+.linha4>span{display:flex;flex-direction:column;min-width:0}.linha4 .l{font-size:11px;color:var(--muted);line-height:1.2}.linha4 .v{font-size:15px;font-weight:700;white-space:nowrap}
 @media (prefers-reduced-motion:no-preference){.card,.stat,.opt{transition:border-color .15s}}
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-top:1px solid var(--line);padding:6px 8px calc(8px + env(safe-area-inset-bottom))}
 .nav .in{max-width:460px;margin:0 auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -117,8 +119,8 @@ const TESES = [
 ];
 const CORRETORAS = ["XP Investimentos","BTG Pactual","Clear","Rico","Inter","NuInvest","Genial","Itaú (Íon)","Bradesco","Safra","Toro","Outra"];
 const DATAS = Object.keys(SNAP.por_data).sort();
-let S = load("estado", {ativo:"PETR4", data:SNAP.data, capital:12000, perda:500, prazo:45, aposta:300, pf:"eq", sinal:{entrada:null, alvo:null, prazo:20, est:"trava"}});
-S.cad = Object.assign({corretora:"", corretagem:null}, S.cad||{}); delete S.cad.nome; M.setCorretagem(S.cad.corretagem);   // o nome não era usado em lugar nenhum
+let S = load("estado", {ativo:"PETR4", data:SNAP.data, capital:12000, perda:500, prazo:45, aposta:300, pf:"eq"});
+S.cad = Object.assign({corretora:"", corretagem:null}, S.cad||{}); delete S.cad.nome; delete S.sinal;   // "Tenho um sinal pronto" saiu em 16/11/2026 M.setCorretagem(S.cad.corretagem);   // o nome não era usado em lugar nenhum
 // Juro do Black-Scholes (chance implícita, perfis e theta): a Selic do dia dos preços, a mesma com que o atualizador
 // tirou a volatilidade implícita; sem ela no snapshot, a última que houver; sem nenhuma, o padrão do montador.
 const selicDe = (d) => { const s = SNAP.selic || {}, ds = Object.keys(s).filter(x => x <= d).sort(); return ds.length ? s[ds[ds.length - 1]] : null; };
@@ -138,6 +140,7 @@ const TESTE = /[?&]teste=1/.test(location.search);   // modo teste: deixa escolh
 if (!TESTE || !SNAP.por_data[S.data]) S.data = SNAP.data;
 const DIAS_VELHOS = Math.floor((Date.now() - new Date(SNAP.data + "T12:00:00Z")) / 86400000), DEFASADO = DIAS_VELHOS > 5 && !TESTE;
 let tela = "obj", tese = null, ciente = false, slider = null, per = "90", pDe = "", pAte = "", selId = null, perfilAberto = false, ativoAberto = false, realF = null, saidaF = null, desTipo = null, doc = "termos";
+let expFiltro = "tudo", expOrdem = "ativo", voltaCartao = "obj";   // Explorar: filtro, ordem; para onde o "Voltar" do cartão leva
 const opSel = () => load("historico", []).find(o => o.id === selId) || null;
 // Em aberto: a simulada sai na primeira regra atingida; a real só quando o usuário registra o encerramento (ou vence).
 const abertas = () => { const hoje = S.data; return load("historico", []).filter(o => { const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); return !(rep && rep.venc <= hoje) && (o.real ? !o.real.saida : !STATUS.get(o.id)?.saida); }); };
@@ -179,14 +182,13 @@ const addDias = (iso, n) => { const d = new Date(iso+"T12:00:00Z"); d.setUTCDate
 const dia = () => SNAP.por_data[S.data][S.ativo];
 const vencs = () => [...new Set(dia().chain.filter(x=>x.d>=10 && x.d<=150).map(x=>x.d))].sort((a,b)=>a-b).map(d=>({d, iso:addDias(S.data,d)}));
 const vencSel = () => { const L = vencs(); if (!L.length) return {d:S.prazo||45, iso:addDias(S.data,S.prazo||45)}; return L.find(v=>v.iso===S.venc) || L.slice().sort((a,b)=>Math.abs(a.d-(S.prazo||45))-Math.abs(b.d-(S.prazo||45)))[0]; };
-const sinalVals = () => { const a = dia(), g = S.sinal || (S.sinal = {entrada:null, alvo:null, prazo:20, est:"trava"}); return {entrada: g.entrada ?? Math.round(a.S*100)/100, alvo: g.alvo ?? Math.round(a.S*1.06*100)/100, prazo: g.prazo || 20, est: g.est || "trava"}; };
 const PFS = ["eq","maior","freq"];
 const pfMont = (t, p) => { const a = dia(); return M.montarAposta(t==="aposta_alta"?"alta":"baixa", a.S, a.chain, a.iv, S.perda || 300, {perfil: p}); };
 const pfDisp = (t, p) => typeof pfMont(t, p) !== "string";
 const pfAtual = (t) => { const p = S.pf || "eq"; if (pfDisp(t, p)) return p; return PFS.find(x => pfDisp(t, x)) || p; };
 const montagem = (t) => { const a = dia();
   if (t === "aposta_alta" || t === "aposta_baixa") return limiteRisco(M.montarAposta(t==="aposta_alta"?"alta":"baixa", a.S, a.chain, a.iv, S.perda || 300, {perfil: pfAtual(t)}));
-  if (t === "sinal_alta" || t === "sinal_put") { const g = sinalVals(), f = (caixa) => M.montarSinal(a.S, a.chain, a.iv, S.perda, g.entrada, g.alvo, g.prazo, {estrutura: t==="sinal_put"?"put":"trava", caixa}); return limiteRisco(f(S.capital), f); }
+  if (t === "sinal_alta" || t === "sinal_put") return "O app não monta mais a operação de sinal.";   // registros antigos continuam abertos
   const f = (caixa) => M.montar(t, a.S, a.chain, a.iv, S.perda, {prazoAlvo:vencSel().d, caixa});
   return limiteRisco(f(S.capital), f); };
 // O risco máximo por operação do perfil vale para toda operação. A put vendida é dimensionada pelo caixa no montador;
@@ -281,7 +283,7 @@ function render(){
   // o ativo salvo pode não existir no dia carregado (papel novo que ficou de fora num pregão, ou dia antigo no ?teste=1)
   { const doDia = SNAP.por_data[S.data]; if (!doDia[S.ativo]) S.ativo = doDia.PETR4 ? "PETR4" : Object.keys(doDia)[0]; }
   const el = document.getElementById("app");
-  el.innerHTML = tela==="obj" ? vObj() : tela==="cartao" ? vCartao() : tela==="cen" ? vCen() : tela==="desemp" ? vDesemp() : tela==="cad" ? vCad() : tela==="sinal" ? vSinal() : tela==="real" ? vReal() : tela==="sair" ? vSair() : tela==="doc" ? vDoc() : vAcomp();
+  el.innerHTML = tela==="obj" ? vObj() : tela==="cartao" ? vCartao() : tela==="cen" ? vCen() : tela==="desemp" ? vDesemp() : tela==="cad" ? vCad() : tela==="explorar" ? vExplorar() : tela==="real" ? vReal() : tela==="sair" ? vSair() : tela==="doc" ? vDoc() : vAcomp();
   window.scrollTo(0,0);
   navBar();
   bind();
@@ -410,23 +412,56 @@ function vObj(){
       <span class="st"><span class="pill ${ok?"ok":"no"}">${ok?"Disponível":"Indisponível"}</span>${ok||iguais?"":`<span>${esc(MOT[i])}</span>`}</span></span></button>`;
   });
   if (iguais) h += `</div></details>`;
-  h += `<button class="btn sec2" data-go="sinal">Tenho um sinal pronto</button>`;
+  // tudo o que dá para montar hoje, em todos os ativos (no lugar do antigo "Tenho um sinal pronto")
+  h += `<button class="opt" data-go="explorar" style="align-items:center"><span class="ic">${svg('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>')}</span><span class="tx"><span class="t">Ver tudo o que dá para montar hoje</span><span class="st">Em todos os ativos, com o seu perfil</span></span></button>`;
   return h;
 }
 
-function vSinal(){
-  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Tenho um sinal pronto</h1><p class="muted">Você informa entrada, alvo e prazo. O app monta a operação que respeita o alvo, ou diz por que não dá.</p>`;
-{ const g = sinalVals(), t = g.est==="put" ? "sinal_put" : "sinal_alta", m = montagem(t), ok = typeof m !== "string";
-    h += `<section class="card" aria-label="Sinal recebido"><div class="row3">
-     <label class="f">Preço de entrada (R$)<input id="sentrada" type="text" inputmode="decimal" autocomplete="off" value="${fmtBR(g.entrada,2)}"></label>
-     <label class="f">Preço-alvo (R$)<input id="salvo" type="text" inputmode="decimal" autocomplete="off" value="${fmtBR(g.alvo,2)}"></label>
-     <label class="f">Prazo até o alvo (dias)<input id="sprazo" type="number" inputmode="numeric" min="5" step="1" value="${g.prazo}"></label>
-     <label class="f">Estrutura<select id="sest"><option value="trava" ${g.est==="trava"?"selected":""}>Trava de alta (sem caixa)</option><option value="put" ${g.est==="put"?"selected":""}>Put vendida (com caixa)</option></select></label>
-    </div>
-    <p class="small muted">No uso real, estes dados chegam prontos. O app não avalia o sinal: só monta a operação.</p></section>
-    <button class="opt" data-tese="${t}" ${ok?"":"disabled"}><span class="ic">${svg('<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>')}</span><span class="tx"><span class="t">Montar a operação do sinal</span>
-      <span class="st"><span class="pill ${ok?"ok":"no"}">${ok?"Disponível":"Sem operação"}</span><span>${ok?`${esc(m.estrutura)} · ${m.dias} dias`:esc(m)}</span></span></span></button>`; }
-  return h;
+// --- Explorar (nome provisório): tudo o que dá para montar hoje com o perfil, em todos os ativos. Mesmas montagens do
+// Início (vencimento mais perto do escolhido no perfil); a ordem padrão é por ativo, para o app não sugerir uma "melhor".
+// A pessoa escolhe o que espera do papel e a ordem; o app não sabe para onde o preço vai.
+const EXP_TESES = [["alta", "Subir"], ["baixa", "Cair"], ["forte", "Mexer muito"], ["alta_com_caixa", "Receber prêmio"]];
+const EXP_ORDENS = [["ativo", "Ativo (A a Z)"], ["risco", "Menor risco máximo"], ["chance", "Maior chance implícita"], ["mov", "Menor movimento até o equilíbrio"]];
+const EXP_ESPERA = {alta: "Acho que vai subir", baixa: "Acho que vai cair", forte: "Acho que vai se mexer muito", alta_com_caixa: "Aceito comprar por um preço menor e receber um prêmio"};
+// quanto a ação precisa andar, a favor, até o equilíbrio (negativo: hoje já está do lado do lucro)
+function movEquilibrio(m, S){
+  const e = m.equilibrio;
+  if (m.tese === "forte") return Math.min(1 - e[0] / S, e[1] / S - 1);
+  return m.tese === "baixa" ? 1 - e[0] / S : e[0] / S - 1;
+}
+function varrer(){
+  const salvo = S.ativo, ok = [], sem = [];
+  try {
+    for (const n of Object.keys(SNAP.por_data[S.data]).sort()) {
+      S.ativo = n; const a = dia(), mot = [];
+      for (const [t] of EXP_TESES) { if (expFiltro !== "tudo" && expFiltro !== t) continue;
+        const m = montagem(t);
+        if (typeof m === "string") mot.push(motivo(t, m)); else ok.push({ativo: n, t, m, S: a.S, mov: movEquilibrio(m, a.S)}); }
+      if (!ok.some(x => x.ativo === n)) sem.push({ativo: n, motivo: expFiltro === "tudo" ? quantoFalta() : mot[0]});
+    }
+  } finally { S.ativo = salvo; }
+  const ordem = EXP_TESES.map(x => x[0]);
+  const por = {ativo: (x, y) => x.ativo.localeCompare(y.ativo) || ordem.indexOf(x.t) - ordem.indexOf(y.t),
+    risco: (x, y) => x.m.perdaMax - y.m.perdaMax, chance: (x, y) => y.m.probImplicita - x.m.probImplicita, mov: (x, y) => x.mov - y.mov}[expOrdem];
+  return {ok: ok.sort((x, y) => por(x, y) || x.ativo.localeCompare(y.ativo)), sem};
+}
+function vExplorar(){
+  const {ok, sem} = varrer(), n = Object.keys(SNAP.por_data[S.data]).length;
+  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div>
+   <div><h1>Explorar</h1><p class="muted" style="margin-top:6px">Tudo o que o app consegue montar hoje com o seu perfil, nos ${n} ativos. Preços de ${dBR(S.data)}.</p></div>
+   <section class="card" style="flex-direction:row;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px"><div class="small"><strong>Risco máx. ${brl(S.perda).replace(" ", "&nbsp;")}</strong> · capital ${brl(S.capital).replace(" ", "&nbsp;")}<br><span class="muted">Vencimento mais perto de ${dm(vencSel().iso)}</span></div><button class="back" id="exp-perfil" style="min-height:44px">Mudar</button></section>
+   <div><div class="small muted" style="margin-bottom:6px">O que você espera?</div><div class="chips" role="group" aria-label="O que você espera" style="margin-top:0">${[["tudo", "Tudo"], ...EXP_TESES].map(([k, t]) => `<button class="chip" data-expf="${k}" aria-pressed="${expFiltro === k}" style="${expFiltro === k ? "background:var(--ink);color:var(--bg);border-color:var(--ink)" : ""}">${t}</button>`).join("")}</div></div>
+   <label class="f">Ordenar por<select id="exp-ordem">${EXP_ORDENS.map(([k, t]) => `<option value="${k}" ${k === expOrdem ? "selected" : ""}>${t}</option>`).join("")}</select></label>`;
+  h += ok.length ? `<p class="small muted">${ok.length} ${ok.length > 1 ? "operações cabem" : "operação cabe"} no seu perfil.</p>` : `<div class="note"><p>Com o seu perfil, nenhuma operação ${expFiltro === "tudo" ? "" : "deste tipo "}cabe hoje em nenhum dos ${n} ativos. O motivo de cada ativo está abaixo.</p></div>`;
+  const num = (l, v, c = "") => `<span><span class="l">${l}</span><span class="v ${c}" style="${c === "bad" ? "color:var(--bad)" : c === "good" ? "color:var(--good)" : ""}">${v}</span></span>`;
+  for (const x of ok) { const m = x.m, venc = addDias(S.data, m.dias);
+    h += `<button class="opt" data-exp="${x.ativo}|${x.t}" style="flex-direction:column;gap:8px">
+      <span style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;width:100%"><span class="t">${x.ativo} · ${esc(m.estrutura)}</span><span class="small muted" style="white-space:nowrap">vence ${dm(venc)}</span></span>
+      <span class="small muted">${EXP_ESPERA[x.t]}${EMPRESAS[x.ativo] ? ` · ${EMPRESAS[x.ativo]}` : ""}</span>
+      <span class="linha4">${num(m.premio < 0 ? "Recebe agora" : "Paga agora", brl(Math.abs(m.premio)))}${num("Risco máximo", brl(m.perdaMax), "bad")}${num("Ganho máximo", m.ganhoMax === null ? "Sem limite" : brl(m.ganhoMax), "good")}${num("Chance implícita", pct(m.probImplicita))}</span>
+      <span class="small">${distEquilibrio(m, x.S)}</span></button>`; }
+  if (sem.length) h += `<section class="card"><h2 style="font-size:16px">${ok.length ? "Sem operação no seu perfil hoje" : "Por ativo"}</h2>${sem.map(x => `<div style="border-top:1px solid var(--line);padding-top:10px"><div style="font-weight:700">${x.ativo}</div><p class="small muted" style="margin-top:2px">${esc(x.motivo)}</p></div>`).join("")}</section>`;
+  return h + `<p class="foot">A lista mostra o que cabe no seu risco máximo e no seu capital, na ordem que você escolheu. O app não sabe para onde o preço vai: escolha pelo que você espera do papel. A chance implícita vem do preço das opções e não é vantagem sua.</p>`;
 }
 
 function num2(x){ return (Math.round(x*100)/100).toFixed(2).replace(".",","); }
@@ -470,7 +505,7 @@ function vCartao(){
   const m = montagem(tese), T = TESES.find(t=>t.k===tese);
   if (typeof m === "string") { tela="obj"; return vObj(); }
   const credito = m.premio < 0, a = dia();
-  let h = topo(tese.startsWith("sinal")?"sinal":"obj","Voltar",2) + `<div><h1>Operação montada</h1><p class="muted" style="margin-top:6px">${S.ativo} ${brl(a.S,2)} em ${dBR(S.data)} · vence em ${m.dias} dias (${dBR(addDias(S.data,m.dias))})</p></div>`;
+  let h = topo(voltaCartao,"Voltar",2) + `<div><h1>Operação montada</h1><p class="muted" style="margin-top:6px">${S.ativo} ${brl(a.S,2)} em ${dBR(S.data)} · vence em ${m.dias} dias (${dBR(addDias(S.data,m.dias))})</p></div>`;
 
   { const par = {alta:"aposta_alta", aposta_alta:"alta", baixa:"aposta_baixa", aposta_baixa:"baixa"};
     if (par[tese]) { const ks = tese.endsWith("alta") ? ["alta","aposta_alta"] : ["baixa","aposta_baixa"];
@@ -496,7 +531,7 @@ function vCartao(){
      ${m.thetaDia==null?"":`<p class="small">Custo do tempo: se nada mudar, a operação desvaloriza cerca de ${brl(m.thetaDia)} por dia.</p>`}</section>`; }
   { const o = obsOperacao(tese, m); if (o) h += `<div class="note"><p>${o}</p></div>`; }
   h += custosHtml(m, S.cad.corretagem);
-  h += `<button class="btn" data-go="cen">Ver cenários</button><button class="btn sec2" data-go="obj">Não agora</button>`;
+  h += `<button class="btn" data-go="cen">Ver cenários</button><button class="btn sec2" data-go="${voltaCartao}">Não agora</button>`;
   return h;
 }
 // Uma linha só, e só quando traz o que não está nos números da tela (compra obrigatória, caixa reservado, sinal não avaliado).
@@ -740,12 +775,14 @@ function bind(){
   const q = (s) => document.querySelector(s);
   document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { tela = b.dataset.go; render(); });
   document.querySelectorAll("[data-op]").forEach(b => { const prev = b.onclick; b.onclick = () => { selId = b.dataset.op ? +b.dataset.op : null; slider = null; tela = "acomp"; render(); }; });
-  document.querySelectorAll("[data-tese]").forEach(b => b.onclick = () => { tese = b.dataset.tese; ciente = false; tela = "cartao"; render(); });
+  document.querySelectorAll("[data-tese]").forEach(b => b.onclick = () => { tese = b.dataset.tese; ciente = false; voltaCartao = "obj"; tela = "cartao"; render(); });
+  // Explorar: filtro, ordem e a operação escolhida (abre o cartão daquele ativo; "Voltar" volta à lista)
+  document.querySelectorAll("[data-expf]").forEach(b => b.onclick = () => { expFiltro = b.dataset.expf; render(); });
+  const eo = q("#exp-ordem"); if (eo) eo.onchange = () => { expOrdem = eo.value; render(); };
+  document.querySelectorAll("[data-exp]").forEach(b => b.onclick = () => { const [n, t] = b.dataset.exp.split("|"); S.ativo = n; save("estado", S); tese = t; ciente = false; voltaCartao = "explorar"; tela = "cartao"; render(); });
+  const ep = q("#exp-perfil"); if (ep) ep.onclick = () => { perfilAberto = true; tela = "obj"; render(); };
   const set = (id, key, num) => { const e = q("#"+id); if (e) e.onchange = () => { if (num) { const n = numBR(e.value); if (n > 0) S[key] = Math.round(n); } else S[key] = e.value; save("estado", S); render(); }; };
   set("capital","capital",true); set("perda","perda",true); set("data","data");
-  ["data"].forEach(id => { const e = q("#"+id); if (e){ const f = e.onchange; e.onchange = () => { S.sinal = Object.assign(S.sinal||{}, {entrada:null, alvo:null}); f(); }; } }); 
-  const sg = (id, key, f) => { const e = q("#"+id); if (e) e.onchange = () => { S.sinal = S.sinal || {}; S.sinal[key] = f(e.value); save("estado", S); render(); }; };
-  sg("sentrada","entrada",v=>numBR(v)>0?numBR(v):null); sg("salvo","alvo",v=>numBR(v)>0?numBR(v):null); sg("sprazo","prazo",v=>Math.max(5,+v||20)); sg("sest","est",v=>v);
   const p = q("#prazo"); if (p) p.onchange = () => { S.venc = p.value; S.prazo = vencSel().d; save("estado", S); render(); };
   document.querySelectorAll("[data-venc]").forEach(b => b.onclick = () => { S.venc = b.dataset.venc; S.prazo = vencSel().d; save("estado", S); render(); });
   const c = q("#ciente"); if (c) c.onchange = () => { ciente = c.checked; q("#confirmar").disabled = !ciente; };
@@ -775,7 +812,7 @@ function bind(){
   document.querySelectorAll("[id^=spreco]").forEach(e => e.onchange = () => { const n = numBR(e.value); saidaF.precos[+e.id.slice(6)] = n > 0 ? n : null; render(); });
   const rs = q("#registrar-saida"); if (rs) rs.onclick = () => { const hs = load("historico", []), o = hs.find(x => x.id === selId); if (!o || !o.real) return;
     o.real.saida = {data: saidaF.data, precos: saidaF.precos.slice(), custos: saidaF.custos, res: resultadoSaida(o, saidaF)}; save("historico", hs); saidaF = null; tela = "acomp"; render(); sincronizarAvisos(false); };
-  const pickAtv = (b) => b.onclick = () => { S.ativo = b.dataset.ativo; S.sinal = Object.assign(S.sinal||{}, {entrada:null, alvo:null}); ativoAberto = false; save("estado", S); render(); };
+  const pickAtv = (b) => b.onclick = () => { S.ativo = b.dataset.ativo; ativoAberto = false; save("estado", S); render(); };
   document.querySelectorAll("[data-ativo]").forEach(pickAtv);
   const ab = q("#atvBtn"); if (ab) ab.onclick = () => { ativoAberto = !ativoAberto; render(); const i = q("#atvQ"); if (i) i.focus(); };
   const aq = q("#atvQ"); if (aq) aq.oninput = () => { q("#atvL").innerHTML = listaAtivos(aq.value); document.querySelectorAll("#atvL [data-ativo]").forEach(pickAtv); };

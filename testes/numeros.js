@@ -16,9 +16,6 @@ const { chromium } = require('playwright');
   }
   casos.push(['capital mostra', await p.inputValue('#capital'), '15.000']);
   if (process.argv[3]) await p.screenshot({ path: process.argv[3] + '/perfil.png' });
-  await p.evaluate(() => { tela = 'sinal'; render(); }); await p.waitForTimeout(150);
-  await digita('#sentrada', '50,10'); casos.push(['sinal entrada "50,10"', await p.evaluate(() => S.sinal.entrada), 50.1]);
-  await digita('#salvo', '58.5'); casos.push(['sinal alvo "58.5"', await p.evaluate(() => S.sinal.alvo), 58.5]);
   let falhas = 0; for (const [n, v, e] of casos) { const ok = v === e; if (!ok) falhas++; console.log((ok ? 'OK    ' : 'FALHA ') + n + ' -> ' + JSON.stringify(v) + (ok ? '' : ' (esperado ' + JSON.stringify(e) + ')')); }
   console.log(erros.length ? 'ERROS ' + erros.join(' | ') : 'sem erros na página', '|', falhas ? falhas + ' falha(s)' : 'todos passaram'); await b.close(); process.exit(falhas || erros.length ? 1 : 0);
 })();
