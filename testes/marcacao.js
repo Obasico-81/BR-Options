@@ -59,14 +59,14 @@ confere("regraDeSaida: compra simples não tem regra (só vencimento)", typeof c
       localStorage.setItem("historico", JSON.stringify([{ m: { ...m, dias: d1 }, ativo: "PETR4", data: "2026-09-30", id: 1 }, { m: { ...m, dias: d2 }, ativo: "PETR4", data: "2026-10-20", id: 2 }]));
     }, [m, dias1, dias2]);
     await p.reload(); await p.waitForSelector("#nav"); await p.waitForTimeout(800);   // marcação em segundo plano
-    await p.click('#nav [data-nav="desemp"]'); await p.click('[data-per="tudo"]'); await p.waitForTimeout(300);
+    // Operações: desempenho no topo (a 1, encerrada no alvo), as em aberto na sequência (só a 2)
+    await p.click('#nav [data-nav="acomp"]'); await p.click('[data-per="tudo"]'); await p.waitForTimeout(300);
+    const lista = await p.innerText("#abertas");
+    confere("Operações, em aberto: só a operação 2", /\b1 simulada\b/.test(lista) && (lista.match(/Trava de alta/g) || []).length === 1, lista.slice(0, 300));
+    await p.click('summary:has-text("Encerradas no período")'); await p.waitForTimeout(150);
     const desemp = await p.innerText("#app");
     const dBR = (iso) => iso.split("-").reverse().join("/");
-    confere(`Desempenho: a operação 1 sai no alvo no dia certo, com ${fmt(rAlvo)}`, desemp.includes(`saiu no alvo em ${dBR(dAlvo)}`) && desemp.includes(fmt(rAlvo)), desemp.slice(0, 600));
-    confere("Desempenho: a operação 2 (em aberto) fica fora do resultado", /1 operação ainda está em aberto/.test(desemp));
-    await p.click('#nav [data-nav="acomp"]'); await p.waitForTimeout(200);
-    const lista = await p.innerText("#app");
-    confere("Minhas operações: só a operação 2 continua aberta", /\b1 simulada\b/.test(lista) && (lista.match(/Trava de alta/g) || []).length === 1, lista.slice(0, 300));
+    confere(`Desempenho (topo de Operações): a operação 1 sai no alvo no dia certo, com ${fmt(rAlvo)}`, desemp.includes(`saiu no alvo em ${dBR(dAlvo)}`) && desemp.includes(fmt(rAlvo)) && /Encerradas no período \(1\)/.test(desemp), desemp.slice(0, 600));
     await p.click('[data-op="2"]'); await p.waitForTimeout(300);
     const sua = await p.innerText("#app");
     confere(`Sua operação: "Se encerrar hoje" com ${fmt(rHoje)} no fechamento do último dia`, sua.includes("Se encerrar hoje") && sua.includes(fmt(rHoje)) && sua.includes(dBR(dFim)), sua.slice(0, 400));

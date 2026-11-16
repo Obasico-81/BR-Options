@@ -13,7 +13,7 @@ const arq = 'file://' + process.argv[2];
   const passo = async (nome, fn) => { const n = erros.length; try { await fn(); } catch (e) { erros.push(nome + ': ' + e.message.split('\n')[0]); } console.log((erros.length === n ? 'OK   ' : 'ERRO ') + nome + (erros.length > n ? ' -> ' + erros.slice(n).join(' | ') : '')); };
   await passo('carregar', async () => { await p.waitForSelector('#nav'); });
   console.log('     banner defasado:', await p.locator('text=Preços desatualizados').count() > 0);
-  for (const t of ['acomp', 'desemp', 'cad', 'obj']) await passo('tela ' + t, async () => { await p.click(`#nav [data-nav="${t}"]`); await p.waitForTimeout(150); });
+  for (const t of ['acomp', 'vitrine', 'cad', 'obj']) await passo('tela ' + t, async () => { await p.click(`#nav [data-nav="${t}"]`); await p.waitForTimeout(150); });
   // operação salva num dia que existe em fechamentos, mas não em por_data (é o que acontece depois de 12 pregões)
   await passo('injetar operação antiga', async () => {
     await p.evaluate(() => {
@@ -33,7 +33,7 @@ const arq = 'file://' + process.argv[2];
   });
   await passo('Operações: lista', async () => { await p.click('#nav [data-nav="acomp"]'); await p.waitForTimeout(150); });
   await passo('Operações: abrir a operação antiga', async () => { await p.click('[data-op="1"]', { timeout: 3000 }); await p.waitForTimeout(200); if (!(await p.locator('text=Sua operação').count())) throw new Error('tela "Sua operação" não abriu'); });
-  await passo('Desempenho com a operação', async () => { await p.click('#nav [data-nav="desemp"]'); await p.waitForTimeout(150); });
+  await passo('Desempenho (topo de Operações) com a operação', async () => { await p.click('#nav [data-nav="acomp"]'); await p.waitForTimeout(150); if (!(await p.locator('text=Desempenho').count())) throw new Error('Operações sem o Desempenho no topo'); });
   // custos em "Detalhes da operação": fechado por padrão; sem corretagem cadastrada, nada de corretagem; com ela, por ordem
   // (não cresce com os lotes); operação antiga sem os campos novos não mostra o bloco nem quebra
   await passo('Detalhes da operação (custos)', async () => {
@@ -82,7 +82,7 @@ const arq = 'file://' + process.argv[2];
     const at = await p.evaluate(() => S.ativo); if (at === sai) throw new Error('ativo salvo fora da lista continuou selecionado: ' + at);
     await p.click('#nav [data-nav="acomp"]'); await p.click('[data-op="7"]', { timeout: 3000 }); await p.waitForTimeout(200);
     if (!(await p.locator('text=Sua operação').count())) throw new Error('"Sua operação" não abriu para ' + sai);
-    await p.click('#nav [data-nav="desemp"]'); await p.waitForTimeout(150);
+    await p.click('#nav [data-nav="acomp"]'); await p.waitForTimeout(150);
     await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('#nav');
   });
   // perfil padrão de quem abre o app pela primeira vez

@@ -78,12 +78,11 @@ const r2 = (x) => Math.round(x * 100) / 100, br = (n) => n.toFixed(2).replace(".
     const fech = await p.evaluate((id) => load("historico", []).find((x) => x.id === id).real.saida, o.id);
     confere("encerramento: resultado = preços de saída − prêmio − custos de entrada e saída", fech && fech.res === resEsp, { fech, resEsp });
     await p.click('#nav [data-nav="acomp"]'); await p.waitForTimeout(300);
-    const lista2 = await p.innerText("#app");
+    const lista2 = await p.innerText("#abertas");
     confere("Minhas operações: a real encerrada sai da lista; a simulada continua", !lista2.includes("Reais") && /1 simulada/.test(lista2), lista2.slice(0, 200));
-    await p.click('#nav [data-nav="desemp"]'); await p.waitForTimeout(300);
-    const des = await p.innerText("#app");
+    const des = await p.innerText("#app");   // o desempenho fica no topo de Operações
     const fmt = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + "R$ " + Math.abs(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    confere("Desempenho: abre nas reais, com o resultado registrado", des.includes("Operações reais") && des.includes(fmt(resEsp)), { esperado: fmt(resEsp), trecho: des.slice(0, 400) });
+    confere("Desempenho (topo de Operações): abre nas reais, com o resultado registrado", des.includes("Operações reais") && des.includes(fmt(resEsp)), { esperado: fmt(resEsp), trecho: des.slice(0, 400) });
     // apagar o histórico simulado não apaga a real
     await p.click('[data-tipo="sim"]'); p.once("dialog", (d) => d.accept()); await p.click("#limpar-hist"); await p.waitForTimeout(200);
     const resto = await p.evaluate(() => load("historico", []).map((x) => !!x.real));

@@ -17,9 +17,9 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
     await p.evaluate(() => { localStorage.clear(); S.perda = 3000; S.capital = 30000; save("estado", S); render(); });
     const ini = await texto();
     const abas = await p.evaluate(() => [...document.querySelectorAll("#nav [data-nav]")].map((b) => b.innerText.trim()));
-    confere("menu: aba Vitrine entre Início e Operações; o Início sem o 'Tenho um sinal pronto'", abas.join() === "Início,Vitrine,Operações,Desempenho,Ajustes" && !/Tenho um sinal pronto/.test(ini), abas);
+    confere("menu: aba Vitrine entre Início e Operações; o Início sem o 'Tenho um sinal pronto'", abas.join() === "Início,Vitrine,Operações,Ajustes" && !/Tenho um sinal pronto/.test(ini), abas);
     const larg = await p.evaluate(() => [...document.querySelectorAll("#nav [data-nav]")].every((b) => b.scrollWidth <= b.clientWidth + 1));
-    confere("menu: os cinco nomes cabem sem cortar em 390px", larg);
+    confere("menu: os quatro nomes cabem sem cortar em 390px", larg);
     await p.click('#nav [data-nav="vitrine"]');
     confere("aba Vitrine: abre a tela e fica acesa", await p.evaluate(() => tela === "vitrine" && document.querySelector('#nav [data-nav="vitrine"]').getAttribute("aria-current") === "page"));
     // o que o app monta em cada ativo, com o perfil (as mesmas montagens do Início)
