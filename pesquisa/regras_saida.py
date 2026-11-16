@@ -46,7 +46,14 @@ def main():
     zips = sorted(glob.glob(os.path.join(a.zips, "COTAHIST_A*.ZIP")))
     if not zips:
         raise SystemExit(f"Nenhum COTAHIST_A*.ZIP em {a.zips}")
-    selic = serie_selic(a.selic); ords = sorted(selic)
+    import time
+    for tentativa in range(4):   # a API do Banco Central às vezes devolve vazio num pedaço da série: tenta de novo
+        selic = serie_selic(a.selic); ords = sorted(selic)
+        if ords and ords[0] <= "2015-01-31":
+            break
+        time.sleep(30)
+    else:
+        raise SystemExit("Série da Selic incompleta (não cobre 2015): resultado não seria comparável.")
     fech, isin = RP.ler_spot(zips)
     datas = sorted(set().union(*(set(f) for f in fech.values())))
     opc = RP.ler_cadeias(zips, datas[::a.passo], isin)
