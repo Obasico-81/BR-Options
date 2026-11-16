@@ -188,7 +188,17 @@ const PFS = ["eq","maior","freq"];
 const pfMont = (t, p) => { const a = dia(); return M.montarAposta(t==="aposta_alta"?"alta":"baixa", a.S, a.chain, a.iv, S.perda || 300, {perfil: p}); };
 const pfDisp = (t, p) => typeof pfMont(t, p) !== "string";
 const pfAtual = (t) => { const p = S.pf || "eq"; if (pfDisp(t, p)) return p; return PFS.find(x => pfDisp(t, x)) || p; };
+// Perfis da trava (alta e baixa), escolhidos no cartão e guardados em S.pfTrava: "eq" é a trava de sempre; "maior" e
+// "freq" mudam onde ficam os strikes (montador: PERFIS_TRAVA). Só aparecem se a pessoa escolher; se o escolhido não
+// montar no ativo, vale a trava de sempre.
+const PFT = ["maior", "eq", "freq"], PFT_NOME = {maior: "Lucro maior", eq: "Equilibrada", freq: "Lucro frequente"};
+const travaMont = (t, p) => { const a = dia(), f = (caixa) => M.montar(t, a.S, a.chain, a.iv, S.perda, {prazoAlvo: vencSel().d, caixa, perfil: p === "eq" ? undefined : p}); return limiteRisco(f(S.capital), f); };
+// um perfil só conta como disponível se monta e não dá as mesmas séries da trava de sempre (pouca liquidez perto do alvo)
+const pernasDe = (m) => typeof m === "string" ? null : m.pernas.map(([, o]) => o.s).join("/");
+const pftDisp = (t, p) => { const m = travaMont(t, p); return typeof m !== "string" && (p === "eq" || pernasDe(m) !== pernasDe(travaMont(t, "eq"))); };
+const pftAtual = (t) => { const p = PFT.includes(S.pfTrava) ? S.pfTrava : "eq"; return p !== "eq" && !pftDisp(t, p) ? "eq" : p; };
 const montagem = (t) => { const a = dia();
+  if (t === "alta" || t === "baixa") return travaMont(t, pftAtual(t));
   if (t === "aposta_alta" || t === "aposta_baixa") return limiteRisco(M.montarAposta(t==="aposta_alta"?"alta":"baixa", a.S, a.chain, a.iv, S.perda || 300, {perfil: pfAtual(t)}));
   if (t === "sinal_alta" || t === "sinal_put") return "O app não monta mais a operação de sinal.";   // registros antigos continuam abertos
   const f = (caixa) => M.montar(t, a.S, a.chain, a.iv, S.perda, {prazoAlvo:vencSel().d, caixa});
@@ -438,7 +448,7 @@ function varrer(){
       S.ativo = n; const a = dia();
       for (const [t] of EXP_TESES) { if (expFiltro !== "tudo" && expFiltro !== t) continue;
         const m = montagem(t);
-        if (typeof m !== "string") ok.push({ativo: n, t, m, S: a.S, mov: movEquilibrio(m, a.S)}); }
+        if (typeof m !== "string") ok.push({ativo: n, t, m, S: a.S, mov: movEquilibrio(m, a.S), pf: t === "alta" || t === "baixa" ? pftAtual(t) : "eq"}); }
     }
   } finally { S.ativo = salvo; }
   const ordem = EXP_TESES.map(x => x[0]);
@@ -458,7 +468,7 @@ function vVitrine(){
   for (const x of ok) { const m = x.m, venc = addDias(S.data, m.dias);
     h += `<button class="opt" data-exp="${x.ativo}|${x.t}" style="flex-direction:column;gap:8px">
       <span style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;width:100%"><span class="t">${x.ativo} · ${esc(m.estrutura)}</span><span class="small muted" style="white-space:nowrap">vence ${dm(venc)}</span></span>
-      <span class="small muted">${EXP_ESPERA[x.t]}${EMPRESAS[x.ativo] ? ` · ${EMPRESAS[x.ativo]}` : ""}</span>
+      <span class="small muted">${EXP_ESPERA[x.t]}${x.pf !== "eq" ? ` · ${PFT_NOME[x.pf]}` : ""}${EMPRESAS[x.ativo] ? ` · ${EMPRESAS[x.ativo]}` : ""}</span>
       <span class="linha4">${num(m.premio < 0 ? "Recebe agora" : "Paga agora", brl(Math.abs(m.premio)))}${num("Risco máximo", brl(m.perdaMax), "bad")}${num("Ganho máximo", m.ganhoMax === null ? "Sem limite" : brl(m.ganhoMax), "good")}${num("Chance implícita", pct(m.probImplicita))}</span>
       <span class="small">${distEquilibrio(m, x.S)}</span></button>`; }
   return h + `<p class="foot">A lista mostra o que cabe no seu risco máximo, na ordem que você escolheu. O app não sabe para onde o preço vai: escolha pelo que você espera do papel. A chance implícita vem do preço das opções e não é vantagem sua.</p>`;
@@ -512,6 +522,8 @@ function vCartao(){
       const nome = (k) => { const x = montagem(k); return typeof x === "string" ? null : x.estrutura; };
       h += `<div role="group" aria-label="Estrutura" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">` + ks.map(k => { const n = nome(k), on = k===tese; return `<button class="seg" data-estr="${k}" ${n?"":"disabled"} ${on?'aria-pressed="true"':'aria-pressed="false"'} style="min-height:48px;padding:8px 10px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:14px;font-weight:600;cursor:pointer;opacity:${n?1:.5}">${n?esc(n):"Indisponível"}</button>`; }).join("") + `</div><p class="small muted" style="margin-top:-4px">${tese.startsWith("aposta")?"Posição simples: paga o prêmio e arrisca no máximo o valor pago.":"Trava: custa menos e limita também o ganho."}</p>`; } }
   if (!{alta:1, aposta_alta:1, baixa:1, aposta_baixa:1}[tese]) h += `<div style="min-height:48px;padding:12px 14px;border-radius:12px;background:var(--ink);color:var(--bg);font-size:14px;font-weight:600;text-align:center">${esc(m.estrutura)}</div>`;
+  if (tese === "alta" || tese === "baixa") { const cur = pftAtual(tese), DESC = {maior: "Acerta menos vezes. Quando acerta, o ganho é maior que o risco.", eq: "A trava de sempre: compra perto do preço de hoje e vende uns 5% adiante. Ganho e risco parecidos.", freq: "Acerta mais vezes, mas o ganho é bem menor que o risco: quando perde, perde mais do que costuma ganhar."};
+    h += `<div role="group" aria-label="Perfil da trava" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px">` + PFT.map((k) => { const on = k === cur, ok = pftDisp(tese, k); return `<button class="seg" data-pft="${k}" ${ok ? "" : "disabled"} aria-pressed="${on}" style="min-height:48px;padding:6px 6px;border-radius:12px;border:1.5px solid ${on ? "var(--ink)" : "var(--line)"};background:${on ? "var(--ink)" : "transparent"};color:${on ? "var(--bg)" : "inherit"};font:inherit;font-size:13px;font-weight:600;cursor:pointer;line-height:1.2;opacity:${ok ? 1 : .5}">${PFT_NOME[k]}${ok ? "" : "<br><span style='font-weight:500;font-size:11px'>indisponível hoje</span>"}</button>`; }).join("") + `</div><p class="small muted" style="margin-top:-4px">${DESC[cur]}</p>`; }
   if (tese.startsWith("aposta")) { const PF = [["maior","Lucro maior","Acerta menos vezes. Se acertar, o lucro é maior."],["eq","Equilibrada","Meio-termo entre frequência e tamanho do lucro."],["freq","Lucro frequente","Acerta mais vezes, com lucro menor. O custo para entrar e sair é um pouco maior."]], cur = pfAtual(tese);
     h += `<div role="group" aria-label="Perfil da operação" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px">` + PF.map(([k,n]) => { const on = k===cur, ok = pfDisp(tese,k); return `<button class="seg" data-pf="${k}" ${ok?"":"disabled"} aria-pressed="${on}" style="min-height:48px;padding:6px 6px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:13px;font-weight:600;cursor:pointer;line-height:1.2;opacity:${ok?1:.5}">${n}${ok?"":"<br><span style='font-weight:500;font-size:11px'>indisponível hoje</span>"}</button>`; }).join("") + `</div><p class="small muted" style="margin-top:-4px">${PF.find(p=>p[0]===cur)[2]}</p>`; }
   h += `<section class="card"><h2>O que fazer</h2>${pernasHtml(m)}</section>`;
@@ -818,6 +830,7 @@ function bind(){
   const aq = q("#atvQ"); if (aq) aq.oninput = () => { q("#atvL").innerHTML = listaAtivos(aq.value); document.querySelectorAll("#atvL [data-ativo]").forEach(pickAtv); };
   document.querySelectorAll("[data-perfil]").forEach(b => b.onclick = () => { perfilAberto = b.dataset.perfil === "1"; render(); });
   document.querySelectorAll("[data-pf]").forEach(b => b.onclick = () => { S.pf = b.dataset.pf; save("estado", S); render(); });
+  document.querySelectorAll("[data-pft]").forEach(b => b.onclick = () => { S.pfTrava = b.dataset.pft; save("estado", S); render(); });
   document.querySelectorAll("[data-estr]").forEach(b => b.onclick = () => { tese = b.dataset.estr; ciente = false; render(); });
   const sv = () => { save("estado", S); M.setCorretagem(S.cad.corretagem); };
   const cc = q("#ccorr"); if (cc) cc.onchange = () => { S.cad.corretora = cc.value; sv(); };

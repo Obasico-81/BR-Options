@@ -121,15 +121,15 @@ def _preco(o: Opcao, lado: int) -> float:       # execução no pior lado (bid/a
 
 def montar(tese: str, S: float, chain: list, vol_impl: float, perda_aceita: float,
            prazo_alvo: int = 45, caixa: float = 0.0, spread_max: float = SPREAD_MAX, vol_min: int = 500,
-           stop_frac: float = 0.70, alvo_frac: float = 0.50) -> Montagem | str:
-    """Retorna Montagem ou uma string explicando por que não há operação possível."""
+           stop_frac: float = 0.70, alvo_frac: float = 0.50, perfil: Optional[str] = None) -> Montagem | str:
+    """Retorna Montagem ou uma string explicando por que não há operação possível. perfil: só na trava (PERFIS_TRAVA)."""
     j = (max(prazo_alvo - 15, 7), prazo_alvo + 15)
     venc = incons = None
     # vencimento mais próximo do prazo alvo que tenha opções líquidas (e, na trava, preços consistentes)
     dias_disp = sorted({o.dias for o in chain if j[0] <= o.dias <= j[1]}, key=lambda d: abs(d - prazo_alvo))
     for d in dias_disp:
         ch = [o for o in chain if o.dias == d]
-        pernas = _escolher(tese, S, ch, spread_max, vol_min)
+        pernas = _escolher(tese, S, ch, spread_max, vol_min, perfil)
         if pernas:
             inc = _inconsistente(pernas) if tese in ("alta", "baixa") else None
             if inc:
@@ -183,8 +183,25 @@ def _inconsistente(pernas) -> Optional[str]:
     return None
 
 
-def _escolher(tese, S, ch, spread_max, vol_min):
+# Perfis da trava (16/11/2026): onde ficam os strikes em relação ao preço. Sem perfil (ou "eq") é a trava de sempre (compra
+# no preço, vende ~5% adiante). "maior": mais fora do dinheiro (chance menor, ganho maior em relação ao risco); "freq":
+# dentro do dinheiro (chance maior, ganho bem menor que o risco). [compra, venda] em fração do preço para a trava de alta;
+# a de baixa é o espelho (2 − f). As pernas ficam a pelo menos 2% do preço uma da outra, e cada uma a no máximo TOL_PERFIL
+# (fração do preço) do seu alvo: sem série líquida perto do alvo, o perfil não monta. Espelha o montador.js.
+PERFIS_TRAVA = {"maior": (1.025, 1.075), "freq": (0.95, 1.0)}
+TOL_PERFIL = 0.02
+
+
+def _escolher(tese, S, ch, spread_max, vol_min, perfil=None):
     C = _liquidas(ch, "C", 0, 999, spread_max, vol_min); P = _liquidas(ch, "P", 0, 999, spread_max, vol_min)
+    if tese in ("alta", "baixa") and perfil in PERFIS_TRAVA:
+        fa, fb = PERFIS_TRAVA[perfil]; alta = tese == "alta"; L = C if alta else P
+        ka, kb = (S * fa, S * fb) if alta else (S * (2 - fa), S * (2 - fb))
+        a = _perto(L, ka)
+        if not a or abs(a.strike - ka) > S * TOL_PERFIL:
+            return None
+        b = _perto([o for o in L if (o.strike >= a.strike + S * 0.02 if alta else o.strike <= a.strike - S * 0.02)], kb)
+        return [(+1, a), (-1, b)] if b and abs(b.strike - kb) <= S * TOL_PERFIL else None
     if tese == "alta":
         a, b = _perto(C, S), _perto([o for o in C if o.strike > S * 1.02], S * 1.05)
         return [(+1, a), (-1, b)] if a and b and b.strike > a.strike else None

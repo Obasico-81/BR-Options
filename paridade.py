@@ -113,6 +113,9 @@ def lado_python(cor):
         ch = [Opcao(o["t"], o["k"], o["b"], o["a"], o["v"], o["d"], o["s"]) for o in a["chain"]]
         for tese in ("alta", "baixa", "forte", "alta_com_caixa"):
             res[f"{nome}/{tese}"] = resumo(montar(tese, a["S"], ch, a["iv"], perda_aceita=300, caixa=30000), nome, a["S"])
+        for tese in ("alta", "baixa"):        # perfis da trava (o "eq" é a trava de sempre, acima)
+            for pf in ("maior", "freq"):
+                res[f"{nome}/{tese}_{pf}"] = resumo(montar(tese, a["S"], ch, a["iv"], perda_aceita=300, caixa=30000, perfil=pf), nome, a["S"])
         for est in ("trava", "put"):
             for nm, ent, al, pz in (("ok", a["S"], r2(a["S"] * 1.10), 30), ("espera", a["S"] * 0.95, r2(a["S"] * 1.10), 30), ("longo", a["S"], r2(a["S"] * 1.10), 120)):
                 res[f"{nome}/sinal_{est}_{nm}"] = resumo(montar_sinal(a["S"], ch, a["iv"], 300, ent, al, pz, estrutura=est, caixa=30000), nome, a["S"])
@@ -159,6 +162,7 @@ const res=(m,theta,n,S)=>{ if(typeof m==='string') return m;
 M.setCorretagem(cor);
 for(const [n,a] of Object.entries(s.ativos)){
   for(const t of ['alta','baixa','forte','alta_com_caixa']) out[n+'/'+t]=res(M.montar(t,a.S,a.chain,a.iv,300,{caixa:30000}),false,n,a.S);
+  for(const t of ['alta','baixa']) for(const pf of ['maior','freq']) out[n+'/'+t+'_'+pf]=res(M.montar(t,a.S,a.chain,a.iv,300,{caixa:30000,perfil:pf}),false,n,a.S);
   for(const est of ['trava','put']) for(const [nm,ent,al,pz] of [['ok',a.S,r2(a.S*1.10),30],['espera',a.S*0.95,r2(a.S*1.10),30],['longo',a.S,r2(a.S*1.10),120]])
     out[n+'/sinal_'+est+'_'+nm]=res(M.montarSinal(a.S,a.chain,a.iv,300,ent,al,pz,{estrutura:est,caixa:30000}),false,n,a.S);
   for(const lado of ['alta','baixa']) for(const pf of [null,'maior','eq','freq']) for(const [nm,val] of [['ok',1500],['pouco',20]])

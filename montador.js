@@ -30,8 +30,21 @@
     const key = (x) => [Math.abs(x.k - alvo), spread(x)];
     const a = key(o), b = key(m); return (a[0] < b[0] || (a[0] === b[0] && a[1] < b[1])) ? o : m; }) : null;
   const preco = (o, lado) => (lado > 0 ? o.a : o.b);
-  const escolher = (tese, S, ch, spreadMax, volMin) => {
+  // Perfis da trava (16/11/2026): onde ficam os strikes em relação ao preço. Sem perfil (ou "eq") é a trava de sempre
+  // (compra no preço, vende ~5% adiante). "maior": mais fora do dinheiro (chance menor, ganho maior em relação ao risco);
+  // "freq": dentro do dinheiro (chance maior, ganho bem menor que o risco). [compra, venda] em fração do preço para a
+  // trava de alta; a de baixa é o espelho (2 − f). As pernas ficam a pelo menos 2% do preço uma da outra, e cada uma a
+  // no máximo TOL_PERFIL (fração do preço) do seu alvo: sem série líquida perto do alvo, o perfil não monta (em vez de
+  // virar outro perfil).
+  const PERFIS_TRAVA = { maior: [1.025, 1.075], freq: [0.95, 1.0] }, TOL_PERFIL = 0.02;
+  const escolher = (tese, S, ch, spreadMax, volMin, perfil) => {
     const C = liquidas(ch, "C", spreadMax, volMin), P = liquidas(ch, "P", spreadMax, volMin);
+    if ((tese === "alta" || tese === "baixa") && PERFIS_TRAVA[perfil]) {
+      const [fa, fb] = PERFIS_TRAVA[perfil], alta = tese === "alta", L = alta ? C : P, ka = alta ? S * fa : S * (2 - fa), kb = alta ? S * fb : S * (2 - fb);
+      const a = perto(L, ka); if (!a || Math.abs(a.k - ka) > S * TOL_PERFIL) return null;
+      const b = perto(L.filter((o) => alta ? o.k >= a.k + S * 0.02 : o.k <= a.k - S * 0.02), kb);
+      return b && Math.abs(b.k - kb) <= S * TOL_PERFIL ? [[1, a], [-1, b]] : null;
+    }
     if (tese === "alta") { const a = perto(C, S), b = perto(C.filter((o) => o.k > S * 1.02), S * 1.05); return a && b && b.k > a.k ? [[1, a], [-1, b]] : null; }
     if (tese === "baixa") { const a = perto(P, S), b = perto(P.filter((o) => o.k < S * 0.98), S * 0.95); return a && b && b.k < a.k ? [[1, a], [-1, b]] : null; }
     if (tese === "forte") { const c = perto(C.filter((o) => o.k >= S * 1.02), S * 1.05), p = perto(P.filter((o) => o.k <= S * 0.98), S * 0.95); return c && p ? [[1, c], [1, p]] : null; }
@@ -67,7 +80,7 @@
     const dias = [...new Set(chain.filter((x) => x.d >= jmin && x.d <= jmax).map((x) => x.d))].sort((a, b) => Math.abs(a - prazoAlvo) - Math.abs(b - prazoAlvo) || a - b);
     let venc = null, pernas = null, incons = null;
     for (const d of dias) {
-      const p = escolher(tese, S, chain.filter((x) => x.d === d), spreadMax, volMin); if (!p) continue;
+      const p = escolher(tese, S, chain.filter((x) => x.d === d), spreadMax, volMin, o.perfil); if (!p) continue;
       const inc = tese === "alta" || tese === "baixa" ? inconsistente(p) : null; if (inc) { incons = incons ?? inc; continue; }   // tenta o próximo vencimento
       venc = d; pernas = p; break;
     }
