@@ -76,8 +76,8 @@ jobs:
       - name: Avisos do app nativo (componente simulado)
         run: node testes/avisos.js
 
-      - name: Explorar — tudo o que dá para montar hoje, em todos os ativos
-        run: node testes/explorar.js "$PWD/pwa/index.html"
+      - name: Vitrine — tudo o que dá para montar hoje, em todos os ativos
+        run: node testes/vitrine.js "$PWD/pwa/index.html"
 
       - name: Snapshot publicado (só o pregão mais recente)
         run: python testes/publicado.py
