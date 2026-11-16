@@ -191,6 +191,26 @@ const pfAtual = (t) => { const p = S.pf || "eq"; if (pfDisp(t, p)) return p; ret
 // Perfis da trava (alta e baixa), escolhidos no cartão e guardados em S.pfTrava: "eq" é a trava de sempre; "maior" e
 // "freq" mudam onde ficam os strikes (montador: PERFIS_TRAVA). Só aparecem se a pessoa escolher; se o escolhido não
 // montar no ativo, vale a trava de sempre.
+// Histórico das operações do app, 2015–2026 (pesquisa/historico.py, run 43969519298; pesquisa/robustez.py, run 43973520201):
+// a operação montada com os preços de cada semana nas 8 ações e segurada até o vencimento, com as taxas da B3, sem corretagem.
+// [operações, chance implícita média na tela %, terminaram com lucro %, resultado médio % do risco, IC 95% da média (de, até),
+//  desfazendo 3, 7 e 15 dias depois da entrada: [pior preço do fechamento, preço médio]]
+const PASSADO = {
+  "alta/maior": [1400, 35.2, 40.1, -2.2, -15.6, 12.4, [[-45.2, -13.1], [-45.8, -10.8], [-40.6, -10.9]]],
+  "alta/eq": [1995, 41.7, 44.8, -12.0, -22.0, -1.8, [[-58.8, -18.2], [-56.9, -17.8], [-58.1, -19.4]]],
+  "alta/freq": [780, 57.5, 59.5, -14.5, -21.8, -7.7, [[-60.4, -17.8], [-60.6, -18.4], [-57.9, -12.1]]],
+  "baixa/maior": [924, 30.8, 29.1, -12.1, -28.2, 5.0, [[-58.8, -18.7], [-63.1, -21.0], [-59.2, -20.9]]],
+  "baixa/eq": [1531, 38.4, 37.0, -11.3, -24.1, 2.0, [[-65.6, -18.9], [-67.4, -14.3], [-69.6, -21.9]]],
+  "baixa/freq": [503, 53.8, 50.1, -17.7, -29.7, -5.7, [[-65.3, -15.5], [-66.6, -20.1], [-68.4, -21.5]]],
+  "forte/eq": [1951, 32.7, 38.2, 16.3, -1.1, 37.4, [[-18.9, -4.6], [-19.0, -4.9], [-16.7, -4.2]]],
+  "alta_com_caixa/eq": [2412, 78.3, 78.9, -0.5, -1.5, 0.2, [[-0.6, -0.1], [-0.6, -0.1], [-0.4, 0.0]]],
+  "aposta_alta/maior": [2108, 15.8, 19.2, 21.3, -14.4, 62.5, [[-20.0, -4.5], [-19.1, -5.3], [-13.0, 0.5]]],
+  "aposta_alta/eq": [2519, 27.2, 31.0, 17.5, -5.9, 40.3, [[-17.2, -5.3], [-17.3, -5.3], [-13.3, -1.8]]],
+  "aposta_alta/freq": [1717, 37.9, 41.9, 5.8, -8.2, 21.8, [[-22.0, -7.4], [-22.0, -8.6], [-22.5, -8.2]]],
+  "aposta_baixa/maior": [1994, 17.2, 17.1, -5.7, -33.3, 34.4, [[-26.2, -8.6], [-27.3, -9.5], [-30.9, -14.9]]],
+  "aposta_baixa/eq": [1945, 31.5, 30.0, 0.5, -17.7, 21.4, [[-23.8, -8.3], [-24.7, -9.1], [-28.5, -13.3]]],
+  "aposta_baixa/freq": [753, 42.8, 40.8, 2.3, -15.3, 22.0, [[-26.5, -8.1], [-26.6, -9.5], [-29.2, -11.3]]],
+};
 const PFT = ["maior", "eq", "freq"], PFT_NOME = {maior: "Lucro maior", eq: "Equilibrada", freq: "Lucro frequente"};
 const travaMont = (t, p) => { const a = dia(), f = (caixa) => M.montar(t, a.S, a.chain, a.iv, S.perda, {prazoAlvo: vencSel().d, caixa, perfil: p === "eq" ? undefined : p}); return limiteRisco(f(S.capital), f); };
 // um perfil só conta como disponível se monta e não dá as mesmas séries da trava de sempre (pouca liquidez perto do alvo)
@@ -511,6 +531,26 @@ function custosHtml(m, cor){
 function pernasHtml(m){
   return m.pernas.map(([l,o],i)=>`<div class="step"><span class="n">${i+1}</span><p><strong>${l>0?"Comprar":"Vender"}</strong> ${m.lotes*100} ${o.t==="C"?"opções de compra (call)":"opções de venda (put)"} com strike ${brl(o.k,2)}, que vencem em ${m.dias} dias.<br><span class="muted small">${esc(o.s)} · ${l>0?"você paga até":"você recebe pelo menos"} ${brl(l>0?o.a:o.b,2)} por ação</span></p></div>`).join("");
 }
+// "No histórico": o que aconteceu com operações como esta. Resultado médio "incerto" quando o IC 95% vai de perda a ganho
+// (a mesma regra para positivo e negativo: não se anuncia rentabilidade que o histórico não sustenta).
+function passadoHtml(t){
+  const trava = t === "alta" || t === "baixa", perfis = trava || t.startsWith("aposta") ? PFT : null, cur = trava ? pftAtual(t) : perfis ? pfAtual(t) : "eq", x = PASSADO[t + "/" + cur];
+  if (!x) return "";
+  const r100 = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + "R$ " + Math.abs(v).toLocaleString("pt-BR", {minimumFractionDigits: v && Math.abs(v) < 1 ? 2 : 0, maximumFractionDigits: Math.abs(v) < 1 ? 2 : 0});
+  const inc = (y) => y[4] < 0 && y[5] > 0, cor = (v) => v > 0 ? "var(--good)" : v < 0 ? "var(--bad)" : "inherit";
+  const res = (y) => inc(y) ? `<span>incerto</span>` : `<span style="color:${cor(y[3])}">${r100(y[3])}</span>`, faixa = (y) => `<span class="small muted" style="font-weight:400">de ${r100(y[4])} a ${r100(y[5])}</span>`;
+  let h = `<section class="card"><h2>No histórico</h2><p class="small muted">O app simulou esta operação com os preços de cada semana, de 2015 a 2026, nas 8 ações, segurando até o vencimento: ${x[0].toLocaleString("pt-BR")} operações, com as taxas da B3 e sem corretagem.</p>`;
+  if (perfis) {
+    h += `<table style="font-size:14px"><tr><td class="small muted">Perfil</td><td class="small muted" style="text-align:right;padding-right:12px">Com lucro</td><td class="small muted" style="font-weight:400">Resultado médio<br>a cada R$ 100 de risco</td></tr>` + perfis.map((k) => { const y = PASSADO[t + "/" + k], on = k === cur; return y ? `<tr${on ? ' style="background:var(--line)"' : ""}><td style="padding-left:6px;${on ? "font-weight:700" : ""}">${PFT_NOME[k]}${on ? '<br><span class="small muted" style="font-weight:400">esta</span>' : ""}</td><td style="text-align:right;padding-right:12px;${on ? "font-weight:700" : ""}">${Math.round(y[2])}%</td><td style="padding-right:6px">${res(y)}<br>${faixa(y)}</td></tr>` : ""; }).join("") + `</table>`;
+    if (trava) h += `<p class="small"><strong>Ganhar mais vezes não é ganhar mais.</strong> O Lucro frequente terminou com lucro mais vezes que o Lucro maior e teve resultado médio menor, de 2015 a 2020 e de 2021 a 2026.</p>`;
+  } else h += `<div class="kv"><span>Terminaram com lucro</span><span>${Math.round(x[2])} de cada 100</span></div><div class="kv"><span>Resultado médio<br><span class="small muted">a cada R$ 100 de risco</span></span><span style="text-align:right">${res(x)}<br>${faixa(x)}</span></div>`;
+  h += `<p class="small">Nessas operações, a chance implícita mostrada era, em média, ${Math.round(x[1])}%, e ${Math.round(x[2])} de cada 100 terminaram com lucro.</p>`;
+  h += `<h3 style="font-size:15px;margin:6px 0 0">Se desfizer antes do vencimento</h3><table style="font-size:14px">` + [["3 dias depois da entrada", 0], ["7 dias depois", 1], ["15 dias depois", 2]].map(([l, i]) => { const [a, b] = x[6][i]; return `<tr><td>${l}</td><td>de ${r100(a)} a ${r100(b)}</td></tr>`; }).join("") + `<tr><td>No vencimento</td><td>${inc(x) ? "incerto" : r100(x[3])}</td></tr></table>`;
+  h += `<p class="small muted">Resultado médio a cada R$ 100 de risco, do pior preço de fechamento (vende pela melhor compra, recompra pela melhor venda) ao preço médio. Desfazer antes paga de novo a diferença entre compra e venda de cada opção.</p>`;
+  const algumInc = perfis ? perfis.some((k) => PASSADO[t + "/" + k] && inc(PASSADO[t + "/" + k])) : inc(x);
+  h += `<p class="small muted">${algumInc ? "“Incerto”: a média depende de poucas operações muito boas ou muito ruins e, com outros anos, poderia ter dado ganho ou perda. " : ""}Resultado passado não garante resultado futuro.</p></section>`;
+  return h;
+}
 function vCartao(){
   const m = montagem(tese), T = TESES.find(t=>t.k===tese);
   if (typeof m === "string") { tela="obj"; return vObj(); }
@@ -537,6 +577,7 @@ function vCartao(){
     <div class="stat"><div class="l">${m.equilibrio.length>1?"Lucra fora de":"Lucra "+(tese==="baixa"||tese==="aposta_baixa"?"abaixo de":"acima de")}</div><div class="v">${m.equilibrio.length>1?`${brl(m.equilibrio[0],2)} e ${brl(m.equilibrio[1],2)}`:brl(m.equilibrio[0],2)}</div><div class="s">${distEquilibrio(m, a.S)}</div></div>
    </div>`;
   h += `<div class="card" style="flex-direction:row;justify-content:space-between;align-items:center"><div><div class="small muted">Chance implícita no preço</div><div class="small muted" style="margin-top:2px">Calculada a partir do preço das opções. Não é vantagem sua.</div></div><div style="font-size:26px;font-weight:700">${pct(m.probImplicita)}</div></div>`;
+  h += passadoHtml(tese);
   if (tese.startsWith("aposta")) { const eq = m.equilibrio[0], mv = M.movimentoNecessario(m, a.S, SNAP.fechamentos[S.ativo], S.data), precisa = mv.precisa, tip = mv.oscilacao, sobe = tese==="aposta_alta";
     h += `<section class="card"><h2>Movimento e tempo</h2>
      <p class="small">Para dar lucro no vencimento, a ação precisa ${sobe?"subir":"cair"} ${(precisa*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% (até ${brl(eq,2)}).${tip===null?"":` Pela oscilação dos últimos 60 pregões, a ação costuma variar cerca de ${(tip*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}% em ${m.dias} dias.`}</p>
