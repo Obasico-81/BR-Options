@@ -281,6 +281,18 @@
     }
     return null;
   }
-  const api = { setCorretagem, setJuro, juroDaSelic, R_PADRAO, montar, montarSinal, montarAposta, execucao, probAcima, resultadoNoVencimento, volReal60, tendencia, movimentoNecessario, resultadoNoDia, resultadoComPrecos, regraDeSaida };
+  // Saída de quem segue o app: a regra é conferida no fechamento (dado do fim do dia), então a saída só acontece no
+  // pregão seguinte. O resultado é o desse pregão (preço médio, nunca abaixo do risco máximo). Sair pelo fechamento do
+  // próprio dia do disparo deixava o Desempenho melhor do que seria na corretora: o dia em que a regra dispara costuma ter
+  // um preço de fim de dia que não se repete (pesquisa/regras_saida.py, run 43979567501; trava de alta Equilibrada:
+  // +7,8% do risco no fechamento do disparo × −12,2% no pregão seguinte). Devolve {regra, d (disparo), dSaida, r};
+  // {regra, d, pendente: true} enquanto o pregão seguinte não tem preço; null se nenhuma regra disparou.
+  function saidaDaRegra(m, marcas, venc) {
+    const rg = regraDeSaida(m, marcas, venc);
+    if (!rg) return null;
+    const prox = marcas.find((x) => x.d > rg.d && x.d < venc && x.r !== null);
+    return prox ? { regra: rg.regra, d: rg.d, dSaida: prox.d, r: prox.r } : { regra: rg.regra, d: rg.d, pendente: true };
+  }
+  const api = { setCorretagem, setJuro, juroDaSelic, R_PADRAO, montar, montarSinal, montarAposta, execucao, probAcima, resultadoNoVencimento, volReal60, tendencia, movimentoNecessario, resultadoNoDia, resultadoComPrecos, regraDeSaida, saidaDaRegra };
   if (typeof module !== "undefined") module.exports = api; else root.Montador = api;
 })(typeof window !== "undefined" ? window : globalThis);
