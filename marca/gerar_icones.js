@@ -2,15 +2,15 @@
 // Uso: node marca/gerar_icones.js   (precisa do Playwright; sobrescreve os PNGs nos caminhos abaixo, nos mesmos tamanhos)
 const path = require("path"), fs = require("fs");
 const RAIZ = path.join(__dirname, "..");
-const FUNDO = "#111110", ABERTURA = "#1E1E20";   // ícone: cor da marca; abertura: a cor de fundo do app (sem piscar)
-// símbolo em branco (o traço de cima mais apagado); em tamanho pequeno, o desenho do favicon (traço e barra mais grossos)
+const FUNDO = "#111110", ABERTURA = "#1E1E20", COR = "#F5C400";   // símbolo no amarelo do app   // ícone: cor da marca; abertura: a cor de fundo do app (sem piscar)
+// símbolo em amarelo (o traço de cima mais claro); em tamanho pequeno, o desenho do favicon (traço e barra mais grossos)
 const SIMB = (p) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs><clipPath id="c"><rect x="0" y="54" width="120" height="66"/></clipPath></defs>
-  <path d="M24 22 L60 98 L96 22" fill="none" stroke="#fff" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" opacity=".38"/>
-  <g clip-path="url(#c)"><path d="M24 22 L60 98 L96 22" fill="none" stroke="#fff" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <rect x="6" y="50" width="108" height="4" rx="2" fill="#fff"/></svg>`;
+  <path d="M24 22 L60 98 L96 22" fill="none" stroke="${COR}" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/>
+  <g clip-path="url(#c)"><path d="M24 22 L60 98 L96 22" fill="none" stroke="${COR}" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <rect x="6" y="50" width="108" height="5" rx="2.5" fill="${COR}"/></svg>`;
 const PEQ = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs><clipPath id="c"><rect x="0" y="52" width="120" height="68"/></clipPath></defs>
-  <g clip-path="url(#c)"><path d="M22 20 L60 100 L98 20" fill="none" stroke="#fff" stroke-width="21" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <rect x="8" y="44" width="104" height="8" rx="4" fill="#fff"/></svg>`;
+  <g clip-path="url(#c)"><path d="M22 20 L60 100 L98 20" fill="none" stroke="${COR}" stroke-width="21" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <rect x="8" y="44" width="104" height="8" rx="4" fill="${COR}"/></svg>`;
 // [arquivo, largura, altura, fração do lado menor ocupada pelo símbolo, fundo, forma]
 const A = "nativo/android/app/src/main/res/", ALVOS = [
   ["pwa/icon-192.png", 192, 192, .64, FUNDO], ["pwa/icon-512.png", 512, 512, .64, FUNDO],

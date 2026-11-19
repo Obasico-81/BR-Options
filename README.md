@@ -1,4 +1,4 @@
-# Vaglio — operações com opções de ações na bolsa brasileira (app instalável com dados diários)
+# Vaglio — estratégias com opções na bolsa brasileira (app instalável com dados diários)
 
 Ferramenta que monta operações com opções (custo, risco máximo, equilíbrio e cenários). Modo simulado.
 Funciona no navegador do celular e pode ser instalada na tela inicial (PWA).
