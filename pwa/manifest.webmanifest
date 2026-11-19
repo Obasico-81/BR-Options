@@ -1,7 +1,7 @@
 {
-  "name": "Montador de Opções",
-  "short_name": "Opções",
-  "description": "Ferramenta para montar operações com opções: custo, risco máximo, ponto de equilíbrio e cenários. Modo simulado.",
+  "name": "Vaglio",
+  "short_name": "Vaglio",
+  "description": "Operações com opções de ações na bolsa brasileira: custo, risco máximo, ponto de equilíbrio e cenários. Modo simulado.",
   "lang": "pt-BR",
   "start_url": "./",
   "scope": "./",

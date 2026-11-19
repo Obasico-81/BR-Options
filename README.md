@@ -1,4 +1,4 @@
-# Montador de Opções — app instalável com dados diários
+# Vaglio — operações com opções de ações na bolsa brasileira (app instalável com dados diários)
 
 Ferramenta que monta operações com opções (custo, risco máximo, equilíbrio e cenários). Modo simulado.
 Funciona no navegador do celular e pode ser instalada na tela inicial (PWA).
@@ -115,7 +115,7 @@ O workflow *App nativo* gera o APK de teste do Android e compila o app de iPhone
 tela aberta (artefatos da execução). `testes/nativo.js` cobre o carregador: dados do site, cópia guardada, snapshot
 embutido, site com dados mais velhos, site lento e preços diários pelo endereço do site.
 Provisórios até a escolha do nome: `appId` `br.com.montadordeopcoes.app` (não muda depois de publicado na loja) e
-`appName` "Montador de Opções". Ainda faltam: ícone e tela de abertura próprios, assinatura e envio às lojas.
+`appName` "Vaglio". Ainda faltam: ícone e tela de abertura próprios, assinatura e envio às lojas.
 
 ## Pesquisa (reteste fora da amostra)
 
