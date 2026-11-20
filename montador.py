@@ -301,7 +301,7 @@ def montar_sinal(S: float, chain: list, vol_impl: float, perda_aceita: float, en
 
 
 # --- Black-Scholes pelo preço de mercado (juro R_BS), usado só nos perfis e no theta da compra simples ---
-PERFIS = {"maior": 0.20, "eq": 0.42, "freq": 0.72}   # delta-alvo: Lucro maior · Equilibrada · Lucro frequente
+PERFIS = {"maior": 0.20, "eq": 0.42, "freq": 0.72}   # delta-alvo: Ganho maior · Equilibrada · Chance maior
 
 
 def _bs_preco(S, K, T, v, tipo):

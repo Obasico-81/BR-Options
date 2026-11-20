@@ -1,4 +1,4 @@
-// Perfis da trava (Lucro maior, Equilibrada, Lucro frequente): no cartão da trava de alta e de baixa, com a mesma regra
+// Perfis da trava (Ganho maior, Equilibrada, Chance maior): no cartão da trava de alta e de baixa, com a mesma regra
 // da compra simples. Confere contra o montador (M.montar com perfil), a ordem da chance e do ganho em relação ao risco,
 // o perfil guardado (S.pfTrava) valendo no Início e na Vitrine, o perfil indisponível e a volta à trava de sempre.
 // Uso: python3 build.py && python3 build_pwa.py && node testes/perfis_trava.js CAMINHO/pwa/index.html
@@ -30,14 +30,14 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
       const R = {};
       for (const k of ["maior", "eq", "freq"]) { await p.click(`[data-pft="${k}"]`); R[k] = await p.evaluate(() => { const m = montagem(tese); return { prob: m.probImplicita, gr: m.ganhoMax / m.perdaMax, pernas: m.pernas.map(([, o]) => o.s).join("/") }; });
         R[k].tela = await p.innerText("#app"); }
-      confere("chance: Lucro maior < Equilibrada < Lucro frequente", R.maior.prob < R.eq.prob && R.eq.prob < R.freq.prob, { maior: R.maior.prob, eq: R.eq.prob, freq: R.freq.prob });
-      confere("ganho em relação ao risco: Lucro maior > Equilibrada > Lucro frequente", R.maior.gr > R.eq.gr && R.eq.gr > R.freq.gr, { maior: R.maior.gr, eq: R.eq.gr, freq: R.freq.gr });
+      confere("chance: Ganho maior < Equilibrada < Chance maior", R.maior.prob < R.eq.prob && R.eq.prob < R.freq.prob, { maior: R.maior.prob, eq: R.eq.prob, freq: R.freq.prob });
+      confere("ganho em relação ao risco: Ganho maior > Equilibrada > Chance maior", R.maior.gr > R.eq.gr && R.eq.gr > R.freq.gr, { maior: R.maior.gr, eq: R.eq.gr, freq: R.freq.gr });
       confere("cada perfil com séries diferentes", new Set([R.maior.pernas, R.eq.pernas, R.freq.pernas]).size === 3);
       confere("texto do perfil escolhido aparece", /quando perde, perde mais do que costuma ganhar/.test(R.freq.tela) && /o ganho é maior que o risco/.test(R.maior.tela));
       confere("perfil guardado: S.pfTrava = freq e o Início monta com ele", await p.evaluate((t) => S.pfTrava === "freq" && montagem(t).pernas.map(([, o]) => o.s).join("/") === pernasDe(travaMont(t, "freq")), t));
       await p.click('#nav [data-nav="vitrine"]');
       const linha = await p.evaluate(([at, t]) => { const b = document.querySelector(`[data-exp="${at}|${t}"]`); return b && b.innerText; }, [alvo.at, t]);
-      confere("Vitrine: a linha da trava mostra 'Lucro frequente'", !!linha && /Lucro frequente/.test(linha), linha);
+      confere("Vitrine: a linha da trava mostra 'Chance maior'", !!linha && /Chance maior/.test(linha), linha);
     }
     // perfil escolhido que não monta num ativo: vale a trava de sempre
     const volta = await p.evaluate(() => { S.pfTrava = "freq"; for (const at of Object.keys(SNAP.por_data[S.data])) { S.ativo = at; for (const t of ["alta", "baixa"]) if (pftDisp(t, "eq") && !pftDisp(t, "freq")) return { at, t, cur: pftAtual(t), igual: pernasDe(montagem(t)) === pernasDe(travaMont(t, "eq")) }; } return null; });

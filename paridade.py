@@ -1,7 +1,7 @@
 """Compara montador.py e montador.js no snapshot (snapshot.json da pasta atual), para todos os ativos.
 
 Cobre: as 4 estruturas; o sinal (trava e put, 3 cenários); a compra simples no caminho padrão e nos 3 perfis
-(Lucro maior · Equilibrada · Lucro frequente), com o theta; o movimento necessário × oscilação de 60 pregões em todo
+(Ganho maior · Equilibrada · Chance maior), com o theta; o movimento necessário × oscilação de 60 pregões em todo
 caso montado e a volatilidade de 60 pregões em 3 datas por ativo; a marcação diária ("Se encerrar hoje" com os preços
 do dia, com preços 7% mais altos e sem o preço de uma perna) e a regra de saída em duas sequências de dias; os custos separados (spread,
 taxas da B3, corretagem por ordem e total); a operação real (execucao: outra quantidade e preços executados); a tendência do minigráfico (sem e com IFR) em séries sintéticas e, se o snapshot tiver máximas e mínimas, em 3 datas por ativo; a trava com preço de fechamento impossível, em cadeias sintéticas; tudo duas vezes, sem corretagem cadastrada e com corretagem de R$ 5 por ordem. Uso: python3 paridade.py   (esperado: "0 falha(s)")

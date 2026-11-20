@@ -68,7 +68,7 @@ cada operação simulada: "Se encerrar hoje" em *Sua operação* e, no *Desempen
 (alvo, limite ou prazo) no fechamento de cada dia, ou o vencimento. `--ano` grava os dias que faltam do ano inteiro e refaz as cadeias guardadas.
 
 `paridade.py` compara `montador.py` e `montador.js` em todos os ativos do snapshot: as 4 estruturas, o sinal (trava e
-put), a compra simples no caminho padrão e nos 3 perfis (Lucro maior · Equilibrada · Lucro frequente) com o theta, tudo
+put), a compra simples no caminho padrão e nos 3 perfis (Ganho maior · Equilibrada · Chance maior) com o theta, tudo
 sem e com corretagem cadastrada, o movimento necessário × oscilação de 60 pregões (`volReal60` / `movimentoNecessario`) e a
 marcação diária: "Se encerrar hoje" e as regras de saída (`resultadoNoDia` / `regraDeSaida`), e os custos separados
 (`custoSpread`, `custoTaxas`, `custoFixo`, `custoTotal`).
