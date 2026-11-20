@@ -9,7 +9,8 @@
 // Vigia: guarda o livro (a última cotação de cada símbolo) e, a cada cotação, refaz o "se encerrar agora" das operações
 // que usam o símbolo (Montador.resultadoAgora: preço de execução, com as taxas da saída) e confere as regras de saída
 // (Montador.regraDeSaida: alvo, limite, prazo). Avisa aoMudar({id, r, hora}) a cada valor novo e aoDisparar({id, regra,
-// r, hora}) uma vez por operação, na primeira cotação que atinge uma regra.
+// r, hora, livro}) uma vez por operação, na primeira cotação que atinge uma regra. O livro vem no aviso porque a fonte pode
+// entregar cotações dentro de abrir(), antes de o vigia voltar (a simulada entrega a primeira assim).
 (function (root) {
   const M = root.Montador || (typeof require === "function" ? require("./montador.js") : null);
   const isoLocal = (h) => new Date(h.getTime() - h.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -30,7 +31,7 @@
         if (disparou.has(o.id)) continue;
         // forcar: regra que já disparou num fechamento sem pregão acompanhado: sai na primeira cotação executável
         const rg = o.forcar ? { regra: o.forcar } : M.regraDeSaida(o.m, [{ d: isoLocal(h), r }], o.venc);
-        if (rg) { disparou.add(o.id); if (ev.aoDisparar) ev.aoDisparar({ id: o.id, regra: rg.regra, r, hora: h }); }
+        if (rg) { disparou.add(o.id); if (ev.aoDisparar) ev.aoDisparar({ id: o.id, regra: rg.regra, r, hora: h, livro }); }
       }
     };
     const fechar = pedidos.length ? fonte.abrir(pedidos, receber) : () => {};
