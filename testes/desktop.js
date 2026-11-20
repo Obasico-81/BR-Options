@@ -92,7 +92,7 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
     // ---------- Ajustes: duas colunas ----------
     await p.click('#nav [data-nav="cad"]');
     const aj = await p.evaluate(() => [...document.querySelectorAll(".ajustes > .coluna")].map((c) => ({ x: c.getBoundingClientRect().x, n: c.querySelectorAll("section").length })));
-    confere("Ajustes: cartões em duas colunas", aj.length === 2 && aj[0].x < aj[1].x && aj[0].n + aj[1].n === 6, aj);
+    confere("Ajustes: cartões em duas colunas (conta, plano, corretora, aparência e os demais)", aj.length === 2 && aj[0].x < aj[1].x && aj[0].n + aj[1].n === 7, aj);
     await larguras("Ajustes");
 
     // ---------- tela de entrar: sem menu, coluna estreita no meio ----------

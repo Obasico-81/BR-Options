@@ -68,6 +68,9 @@ jobs:
       - name: Ao vivo — preço de execução, regras a cada cotação, fonte simulada e telas
         run: node testes/aovivo.js
 
+      - name: Plano grátis × Vaglio Pro (opções e tempo real só no Pro)
+        run: node testes/assinatura.js
+
       - name: Números no formato brasileiro (vírgula, ponto de milhar)
         run: node testes/numeros.js
 
