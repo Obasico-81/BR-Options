@@ -150,7 +150,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
     <b>VAGLIO</b>
   </a>
   <nav class="topo-nav" aria-label="Seções"><a href="#como">Como funciona</a><a href="#metodo">Método</a><a href="#planos">Planos</a><a href="#corretoras">Para corretoras</a><a href="#contato">Contato</a></nav>
-  <a class="btn pri peq" data-cta href="#instalar">Baixar</a>
+  <a class="btn pri peq" data-cta href="#instalar">Acessar</a>
 </div></header>
 
 <main>
@@ -159,7 +159,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
     <h1>Estratégias com opções na <em>bolsa brasileira</em>.</h1>
     <p class="lead">O Vaglio monta operações com opções de ações a partir do que você espera do papel e do risco que aceita. Antes da ordem, você vê o custo, o risco máximo, o ganho máximo, o ponto de equilíbrio e o que acontece em cada cenário. Depois, acompanha ao vivo e recebe a ordem de saída pronta.</p>
     <div class="ctas">
-      <a class="btn pri" data-cta href="#instalar">Começar grátis</a>
+      <a class="btn pri" data-cta href="#instalar">Acessar a plataforma</a>
       <a class="btn sec" href="#planos">Ver planos</a>
     </div>
     <p class="nota" data-nota>Grátis para começar. Para operar de verdade, a ordem é feita na sua corretora.</p>
@@ -259,7 +259,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
   <div class="cel"><img src="img/numeros.webp" alt="O Vaglio no celular: operação montada com o valor pago, o risco máximo, o ganho máximo e a chance implícita" loading="lazy" width="390" height="844"></div>
   <div><h2>No computador e no celular</h2>
     <p class="sub">As mesmas telas e os mesmos números nos dois. No Android, baixe o app. No iPhone, abra no Safari e adicione à tela de início.</p>
-    <div class="ctas"><a class="btn pri" data-cta href="#instalar">Baixar o app</a></div></div>
+    <div class="ctas"><a class="btn pri" data-cta href="#instalar">Acessar a plataforma</a></div></div>
 </div></section>
 
 <section id="instalar"><div class="wrap">
@@ -273,7 +273,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
       <a class="btn sec" data-web href="#" style="width:100%;margin-top:10px">Abrir no Safari</a>
       <ol><li>Abra o app no <b>Safari</b>.</li><li>Toque em <b>Compartilhar</b> (o quadrado com a seta).</li><li>Toque em <b>Adicionar à Tela de Início</b>.</li></ol></div>
     <div class="card" data-sistema="computador"><h3>Computador</h3>
-      <a class="btn sec" data-web href="#" style="width:100%;margin-top:10px">Usar no navegador</a>
+      <a class="btn sec" data-web href="#" style="width:100%;margin-top:10px">Acessar a plataforma</a>
       <div class="qr" style="margin-top:14px"><!--QR--><span style="color:var(--muted);font-size:15px">Para instalar no celular, aponte a câmera para o código.</span></div></div>
   </div>
 </div></section>
@@ -314,13 +314,20 @@ var APK = "https://github.com/Obasico-81/BR-Options/releases/download/android-te
   document.querySelectorAll("[data-apk]").forEach(function (a) { a.href = APK; });
   document.querySelector("[data-termos]").href = APP + "termos.html";
   document.querySelector("[data-privacidade]").href = APP + "privacidade.html";
-  // botão principal conforme o aparelho: Android baixa o APK; iPhone abre o app no Safari; computador vai às instruções
+  // botão principal conforme o aparelho: no computador, Acessar a plataforma (o app no navegador); no Android, Baixar o
+  // app (APK); no iPhone, Abrir o app no Safari (ainda não há app de iPhone para baixar)
+  var peq = function (a) { return a.classList.contains("peq"); };
   document.querySelectorAll("[data-cta]").forEach(function (a) {
-    if (android) { a.href = APK; a.textContent = a.classList.contains("peq") ? "Baixar" : "Baixar para Android"; }
-    else if (iphone) { a.href = APP; a.textContent = a.classList.contains("peq") ? "Abrir" : "Abrir no iPhone"; }
+    if (android) { a.href = APK; a.textContent = peq(a) ? "Baixar" : "Baixar o app"; }
+    else if (iphone) { a.href = APP; a.textContent = peq(a) ? "Abrir" : "Abrir o app"; }
+    else { a.href = APP; a.textContent = peq(a) ? "Acessar" : "Acessar a plataforma"; }
   });
-  // botões dos planos: no celular, o mesmo destino do botão principal (APK ou app), sem trocar o texto
-  document.querySelectorAll("[data-ir]").forEach(function (a) { if (android) a.href = APK; else if (iphone) a.href = APP; });
+  // botão secundário: no computador, o QR para instalar no celular; no celular, usar no navegador
+  document.querySelectorAll("[data-sec]").forEach(function (a) {
+    if (android || iphone) { a.href = APP; a.textContent = "Usar no navegador"; } else { a.href = "#instalar"; a.textContent = "Instalar no celular"; }
+  });
+  // botões dos planos: o mesmo destino do botão principal, sem trocar o texto
+  document.querySelectorAll("[data-ir]").forEach(function (a) { a.href = android ? APK : APP; });
   var nota = document.querySelector("[data-nota]");
   if (android) nota.textContent = "Grátis para começar. Instalação direta, fora da Play Store.";
   else if (iphone) nota.textContent = "Grátis para começar. No iPhone, o app abre no Safari e pode ir para a tela de início.";
