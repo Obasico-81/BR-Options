@@ -77,12 +77,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           APK=$(ls nativo/android/app/build/outputs/apk/debug/*.apk | head -1)
-          cp "$APK" "$RUNNER_TEMP/montador-de-opcoes-teste.apk"
+          cp "$APK" "$RUNNER_TEMP/vaglio.apk"
           NOTAS="APK de teste do Android, gerado da main em $(date -u +%d/%m/%Y) (${GITHUB_SHA::7}). Instalar fora da loja: permitir apps de fontes desconhecidas. Os dados do dia vêm do site publicado."
           gh release view android-teste >/dev/null 2>&1 || gh release create android-teste --prerelease --target main --title "App de teste (Android)" --notes "$NOTAS"
           gh release edit android-teste --notes "$NOTAS"
-          gh release upload android-teste "$RUNNER_TEMP/montador-de-opcoes-teste.apk" --clobber
-          echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/android-teste/montador-de-opcoes-teste.apk"
+          gh release upload android-teste "$RUNNER_TEMP/vaglio.apk" --clobber
+          echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/android-teste/vaglio.apk"
 
   iphone:
     runs-on: macos-latest
