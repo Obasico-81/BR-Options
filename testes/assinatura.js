@@ -12,7 +12,7 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
   const b = await chromium.launch();
   try {
     for (const [nome, vp] of [["celular", { width: 390, height: 844 }], ["computador", { width: 1440, height: 900 }]]) {
-      const p = await (await b.newContext({ viewport: vp, locale: "pt-BR", timezoneId: "America/Sao_Paulo" })).newPage(), erros = [];
+      const p = await (await b.newContext({ viewport: vp, locale: "pt-BR", timezoneId: "America/Sao_Paulo", serviceWorkers: "block" })).newPage(), erros = [];
       p.on("pageerror", (e) => erros.push(e.message));
       const abrir = async (q) => { await p.goto(`http://127.0.0.1:${porta}/index.html?teste=1${q || ""}`); await p.waitForSelector("#nav"); };
       await abrir(); await p.evaluate(() => localStorage.clear()); await abrir();
@@ -31,10 +31,10 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
       confere(`${nome}: grátis — "Ver as opções" abre o Vaglio Pro, e o Voltar volta à operação`, (await p.locator("h1").innerText()) === "Vaglio Pro" && /Operação/.test(await p.locator(".back").first().innerText()));
       { const txt = () => p.locator("#app").innerText();
         const t1 = await txt();
-        confere(`${nome}: Pro — R$ 49,90 por mês e R$ 479 por ano (R$ 39,92 por mês), anual marcado, 7 dias grátis`,
-          /R\$ 49,90/.test(t1) && /R\$ 479/.test(t1) && /R\$ 39,92 por mês/.test(t1) && /Começar 7 dias grátis/.test(t1) && /Depois, R\$ 479 por ano/.test(t1) && (await p.locator('[data-plano-esc="anual"]').getAttribute("aria-pressed")) === "true", t1.slice(0, 600));
+        confere(`${nome}: Pro sem conta — R$ 49,90 por mês e R$ 479 por ano (R$ 39,92 por mês), anual marcado, 7 dias grátis, "Entrar para começar"`,
+          /R\$ 49,90/.test(t1) && /R\$ 479/.test(t1) && /R\$ 39,92 por mês/.test(t1) && /Entrar para começar/.test(t1) && /7 dias grátis, depois R\$ 479 por ano/.test(t1) && (await p.locator('[data-plano-esc="anual"]').getAttribute("aria-pressed")) === "true", t1.slice(0, 600));
         await p.click('[data-plano-esc="mensal"]');
-        confere(`${nome}: Pro — escolher o mensal muda o aviso de cobrança`, /Depois, R\$ 49,90 por mês/.test(await txt())); }
+        confere(`${nome}: Pro — escolher o mensal muda o preço depois do teste`, /depois R\$ 49,90 por mês/.test(await txt())); }
       await p.evaluate(() => { tela = "cen"; render(); });
       confere(`${nome}: grátis — cenários sem strike`, (await pernas()).length === 0 && !/Strike/.test(await p.locator("#app").textContent()));
       confere(`${nome}: grátis — "Já executei" leva ao Pro`, (await p.locator("button", { hasText: "Já executei" }).getAttribute("data-go")) === "pro");
@@ -46,12 +46,38 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
       confere(`${nome}: grátis — sem tempo real mesmo com fonte (sem selo, sem "se encerrar agora")`, (await p.locator(".vivo").count()) === 0 && (await p.locator("[data-agora]").count()) === 0 && await p.evaluate(() => VIVO === null));
       confere(`${nome}: grátis — Ajustes mostra o plano e o caminho para o Pro`, await p.evaluate(() => { tela = "cad"; render(); return /Plano\s*Grátis/.test(document.getElementById("app").innerText) && !!document.querySelector('#app [data-go="pro"]'); }));
       // assinar (teste) liga o Pro: opções na tela e tempo real
-      await p.evaluate(() => { tese = "alta"; voltaPro = "cartao"; tela = "pro"; render(); }); await p.click("#assinar"); await p.waitForTimeout(300);
-      confere(`${nome}: "Assinar" no teste liga o Pro e volta à operação, agora com as opções`, await p.evaluate(() => PRO() && tela === "cartao") && (await pernas()).length === 2, await pernas());
+      await p.evaluate(() => { tese = "alta"; voltaPro = "cartao"; tela = "pro"; render(); }); await p.click("#pro-teste"); await p.waitForTimeout(300);
+      confere(`${nome}: "Liberar o Pro (teste)" liga o Pro e volta à operação, agora com as opções`, await p.evaluate(() => PRO() && tela === "cartao") && (await pernas()).length === 2, await pernas());
       await p.evaluate(() => { selId = null; tela = "acomp"; render(); }); await p.waitForSelector(".vivo", { timeout: 8000 }).catch(() => {});
       confere(`${nome}: Pro — tempo real liga`, (await p.locator(".vivo").count()) >= 1);
       await p.evaluate(() => { tela = "cad"; render(); }); await p.click("#plano-gratis");
       confere(`${nome}: voltar ao grátis desliga o tempo real`, await p.evaluate(() => !PRO() && VIVO === null));
+      // ---------- com conta: assinar pelo Asaas (Supabase e funções simulados) ----------
+      const SBU = "https://xoljwckdiedcfoygbiij.supabase.co", pedidos = []; let linha = null;
+      await p.route(SBU + "/**", async (r) => { const u = r.request().url(), m = r.request().method();
+        if (u.includes("/rest/v1/assinaturas")) return r.fulfill({ json: linha ? [linha] : [] });
+        if (u.includes("/functions/v1/assinar")) { pedidos.push(JSON.parse(r.request().postData() || "{}")); return r.fulfill({ json: { url: `http://127.0.0.1:${porta}/index.html?teste=1&assinatura=ok`, comTeste: true } }); }
+        if (u.includes("/functions/v1/cancelar-assinatura")) { linha = { ...linha, status: "cancelada" }; return r.fulfill({ json: { ok: true } }); }
+        return r.fulfill({ json: [] }); });
+      await p.evaluate(() => { delete S.plano; save("estado", S); localStorage.setItem("sessao", JSON.stringify({ access_token: "t", refresh_token: "r", expires_at: Math.floor(Date.now() / 1000) + 3600, uid: "u1", email: "a@b.com" })); });
+      await abrir(); await p.waitForTimeout(400);
+      confere(`${nome}: com conta e sem assinatura, é grátis`, await p.evaluate(() => !PRO() && ASSIN && !ASSIN.status));
+      await p.evaluate(() => { voltaPro = "obj"; tela = "pro"; render(); });
+      confere(`${nome}: com conta — Pix marcado, pede nome e CPF`, (await p.locator("#pag-nome").count()) === 1 && (await p.locator("#pag-cpf").count()) === 1 && /Começar 7 dias grátis/.test(await p.locator("#assinar").innerText()));
+      await p.fill("#pag-nome", "Maria Teste"); await p.fill("#pag-cpf", "529.982.247-24"); await p.click("#assinar");
+      confere(`${nome}: CPF inválido não chama o pagamento`, pedidos.length === 0 && /Confira o nome completo e o CPF/.test(await p.locator("#app").innerText()));
+      linha = { status: "teste", plano: "anual", forma: "PIX", pro_ate: "2099-01-01", teste_ate: "2099-01-01" };
+      await p.fill("#pag-cpf", "529.982.247-25");
+      await Promise.all([p.waitForURL(/assinatura=ok|index\.html\?teste=1$/, { timeout: 10000 }).catch(() => {}), p.click("#assinar")]);
+      confere(`${nome}: pedido ao servidor com plano anual, Pix, nome e CPF`, pedidos.length === 1 && pedidos[0].plano === "anual" && pedidos[0].forma === "PIX" && pedidos[0].nome === "Maria Teste" && pedidos[0].cpf === "529.982.247-25", pedidos);
+      await p.waitForSelector("#nav"); await p.waitForTimeout(800);
+      confere(`${nome}: de volta do pagamento, a assinatura em teste dá o Pro e a tela do Pro mostra o teste`,
+        await p.evaluate(() => PRO() && tela === "pro") && /Teste grátis até 01\/01\/2099/.test(await p.locator("#app").innerText()) && !/assinatura=/.test(p.url()));
+      await p.evaluate(() => { tela = "cad"; render(); });
+      confere(`${nome}: Ajustes mostra Vaglio Pro, o teste e "Cancelar assinatura"`, /Vaglio Pro/.test(await p.locator("#app").innerText()) && (await p.locator("#cancelar-assin").count()) === 1);
+      p.once("dialog", (d) => d.accept()); await p.click("#cancelar-assin"); await p.waitForTimeout(500);
+      confere(`${nome}: cancelar chama o servidor; o Pro continua até o fim do período`, linha.status === "cancelada" && await p.evaluate(() => PRO()) && /Cancelada\. O Pro continua até 01\/01\/2099/.test(await p.locator("#app").innerText()));
+      await p.unroute(SBU + "/**");
       confere(`${nome}: sem erros de página`, erros.length === 0, erros);
     }
   } finally { await b.close(); srv.kill(); }

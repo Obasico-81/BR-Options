@@ -198,11 +198,18 @@ const selicDe = (d) => { const s = SNAP.selic || {}, ds = Object.keys(s).filter(
 // --- Plano: grátis × Vaglio Pro (nome provisório). Grátis: os números de cada operação (custo, risco, ganho, equilíbrio,
 // chance, cenários), a Vitrine e a simulação pelos preços de fechamento. Pro: as opções da operação (quais, strike,
 // quantidade), "Já executei", "Copiar parâmetros" e o tempo real (cotação ao vivo, "se encerrar agora", avisos, ordem de
-// saída). Prévia: o plano fica em S.plano (Ajustes, no ?teste=1); depois vem da assinatura na conta. Os testes
-// automáticos começam no Pro (navigator.webdriver), como já começam sem a tela de entrar.
+// saída). O plano vem da assinatura na conta (ASSIN, lida do Supabase: Pro enquanto pro_ate não passou). Na prévia
+// local (localhost ou arquivo) e nos testes automáticos, S.plano escolhe à mão; os testes começam no Pro
+// (navigator.webdriver), como já começam sem a tela de entrar.
 // O bloqueio das opções é só de tela: a montagem roda no aparelho, com dados públicos. O do tempo real é de verdade: a
 // cotação vem do servidor, só para quem assina.
-const PRO = () => (S.plano ?? (navigator.webdriver ? "pro" : "gratis")) === "pro";
+const LOCAL = /^(localhost|127\.0\.0\.1|)$/.test(location.hostname);
+let ASSIN = null;   // a assinatura da conta: {status, plano, forma, pro_ate, teste_ate}; {} se não houver; null sem conta
+const PRO = () => {
+  if (S.plano && (LOCAL || navigator.webdriver)) return S.plano === "pro";
+  if (ASSIN) return !!ASSIN.pro_ate && ASSIN.pro_ate >= hojeISO();
+  return !!navigator.webdriver;
+};
 const aplicarJuro = () => { const s = selicDe(S.data); M.setJuro(s === null ? M.R_PADRAO : M.juroDaSelic(s)); };
 // Tema: escuro por padrão; o claro é escolha do usuário em Ajustes (guardada em S.tema)
 const aplicarTema = () => { const claro = S.tema === "claro", r = document.documentElement;
@@ -341,7 +348,7 @@ async function sbToken(){
   try { guardarSessao(await sbReq("/auth/v1/token?grant_type=refresh_token", {metodo: "POST", corpo: {refresh_token: sessao.refresh_token}, auth: false})); return sessao.access_token; }
   catch(e) { if (e.status >= 400 && e.status < 500) sairLocal(); return null; }
 }
-function sairLocal(){ sessao = null; try { ["sessao", "apagadas", "perfil_t"].forEach(k => localStorage.removeItem(k)); } catch(e) {} }
+function sairLocal(){ sessao = null; ASSIN = null; try { ["sessao", "apagadas", "perfil_t"].forEach(k => localStorage.removeItem(k)); } catch(e) {} }
 // Celular: o Supabase manda o código pelo Twilio (provedor de telefone configurado no painel). Só celular brasileiro com
 // DDD (11 dígitos, o terceiro é 9): número fixo não recebe SMS.
 const CANAL_CEL = "sms";   // "whatsapp" se o remetente do Twilio estiver aprovado para WhatsApp
@@ -356,6 +363,24 @@ const contaPedirFone = (f) => sbReq("/auth/v1/user", {metodo: "PUT", corpo: {pho
 async function contaConfirmarFone(f, token){ const j = await sbReq("/auth/v1/verify", {metodo: "POST", corpo: {type: "phone_change", phone: f, token}});
   if (j && j.access_token) guardarSessao(j); else { sessao.fone = f.replace(/^\+/, ""); try { localStorage.setItem("sessao", JSON.stringify(sessao)); } catch(e) {} } }
 async function contaSair(){ try { await sbReq("/auth/v1/logout", {metodo: "POST"}); } catch(e) {} sairLocal(); }
+// --- Assinatura do Vaglio Pro (Asaas). As Edge Functions assinar e cancelar-assinatura falam com o Asaas; o aviso de
+// pagamento chega pela asaas-webhook e muda a linha da conta em "assinaturas", que o app lê aqui.
+const sbFn = (nome, corpo) => sbReq("/functions/v1/" + nome, {metodo: "POST", corpo: corpo || {}});
+var pag = {forma: "PIX", nome: "", cpf: "", erro: "", ocupado: false}, assinVolta = new URLSearchParams(location.search).get("assinatura"), assinEspera = 0;
+async function carregarAssinatura(){
+  if (!sessao) { ASSIN = null; return; }
+  try { const r = await sbReq("/rest/v1/assinaturas?select=status,plano,forma,pro_ate,teste_ate"), antes = PRO(); ASSIN = (r && r[0]) || {};
+    if (PRO() !== antes || tela === "pro" || tela === "cad") { iniciarAoVivo(); if (tela !== "login") render(); } } catch(e) {}
+}
+// voltou do pagamento (?assinatura=ok): confere a cada 3 s, por até 1 minuto, até o aviso do Asaas chegar
+function esperarAssinatura(){ if (assinVolta !== "ok" || PRO() || assinEspera >= 20) return; assinEspera++; setTimeout(async () => { await carregarAssinatura(); esperarAssinatura(); }, 3000); }
+const cpfOk = (v) => { const c = String(v || "").replace(/\D/g, ""); if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
+  const dv = (n) => { let s = 0; for (let i = 0; i < n; i++) s += +c[i] * (n + 1 - i); const r = s * 10 % 11; return r === 10 ? 0 : r; }; return dv(9) === +c[9] && dv(10) === +c[10]; };
+const statusPro = () => { const a = ASSIN; if (!a || !a.status) return "";
+  return a.status === "teste" ? `Teste grátis até ${dBR(a.teste_ate)}. A primeira cobrança é nesse dia.`
+    : a.status === "ativa" ? `Próxima cobrança em ${dBR(addDias(a.pro_ate, -3))}.`
+    : a.status === "atrasada" ? "Pagamento em atraso. Confira no app do banco ou no cartão."
+    : a.status === "cancelada" && a.pro_ate ? `Cancelada. O Pro continua até ${dBR(a.pro_ate)}.` : ""; };
 async function contaExcluir(){ await sbReq("/rest/v1/rpc/excluir_minha_conta", {metodo: "POST", corpo: {}}); sairLocal(); }
 // O que mudou no histórico desde a última gravação: carimba _t nas operações alteradas e anota as apagadas
 function marcarMudancas(novas){
@@ -488,7 +513,7 @@ function bindConta(q){
     const cod = (q("#lg-codigo").value || "").replace(/\D/g, "");
     if (cod.length < 6) { login.erro = "Digite os números do código."; return render(); }
     login.ocupado = true; login.erro = ""; render();
-    try { await contaVerificar(login, cod); try { localStorage.setItem("semConta", "1"); } catch(e) {} login.ocupado = false; tela = login.volta === "inicio" ? "obj" : "cad"; render(); await sincronizar(); }
+    try { await contaVerificar(login, cod); try { localStorage.setItem("semConta", "1"); } catch(e) {} login.ocupado = false; tela = login.volta === "inicio" ? "obj" : login.volta === "pro" ? "pro" : "cad"; render(); carregarAssinatura(); await sincronizar(); }
     catch(e) { login.ocupado = false; login.erro = msgConta(e); render(); } };
   if (tela === "login" && login.passo === "codigo") { const tick = () => { const b = q("#lg-reenviar"), s = q("#lg-falta"); if (!b) return;
     const f = Math.max(0, Math.ceil((login.reenviarEm - Date.now()) / 1000)); b.disabled = f > 0; if (s) s.textContent = f ? ` em ${f} s` : ""; if (f > 0) setTimeout(tick, 1000); }; setTimeout(tick, 1000); }
@@ -1040,7 +1065,8 @@ function vCad(){
   const c = S.cad;
   const cab = `<div class="top"><button class="back" data-go="obj" data-ini>‹ Início</button></div><h1>Ajustes</h1><p class="muted">${sessao ? "Estes dados ficam neste aparelho e na sua conta." : "Estes dados ficam guardados só neste aparelho."}</p>`;
   let h = contaCard();
-  h += `<section class="card" aria-label="Plano" style="flex-direction:row;justify-content:space-between;align-items:center;gap:12px"><div><div class="small muted">Plano</div><div style="font-weight:700">${PRO() ? "Vaglio Pro" : "Grátis"}</div></div>${PRO() ? (TESTE ? `<button class="btn sec2" id="plano-gratis" style="width:auto;min-height:40px;padding:0 14px">Voltar ao grátis (teste)</button>` : "") : `<button class="btn" data-go="pro" style="width:auto;min-height:40px;padding:0 16px;font-size:15px">Conhecer o Pro</button>`}</section>`;
+  { const cancela = ASSIN && ["teste", "ativa", "atrasada"].includes(ASSIN.status), sp = PRO() ? statusPro() : "";
+    h += `<section class="card" aria-label="Plano"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="small muted">Plano</div><div style="font-weight:700">${PRO() ? "Vaglio Pro" : "Grátis"}</div></div>${PRO() ? (LOCAL && S.plano ? `<button class="btn sec2" id="plano-gratis" style="width:auto;min-height:40px;padding:0 14px">Voltar ao grátis (teste)</button>` : "") : `<button class="btn" data-go="pro" style="width:auto;min-height:40px;padding:0 16px;font-size:15px">Conhecer o Pro</button>`}</div>${sp ? `<p class="small muted">${sp}</p>` : ""}${cancela ? `<button class="btn sec2" id="cancelar-assin" style="min-height:40px;font-size:15px">Cancelar assinatura</button>` : ""}</section>`; }
   h += `<section class="card"><label class="f">Corretora<select id="ccorr"><option value="">Escolha…</option>${CORRETORAS.map(n=>`<option ${n===c.corretora?"selected":""}>${n}</option>`).join("")}</select></label>
    <label class="f">Corretagem por ordem de opções (R$)<input id="ccorrtg" type="text" inputmode="decimal" autocomplete="off" placeholder="Não sei" value="${fmtBR(c.corretagem,2)}"></label>
    <p class="small muted">${c.corretagem===null?"Sem este valor, o custo das operações não inclui corretagem. Os custos aparecem em Detalhes da operação.":`O custo das operações usa ${brl(c.corretagem,2).replace(" ","&nbsp;")} por ordem, na entrada e na saída de cada perna. Aparece em Detalhes da operação.`} Consulte a tabela da sua corretora; o app não confere esse valor.</p></section>`;
@@ -1146,7 +1172,9 @@ const PRECO_PRO = {mensal: {v: 49.90, rot: "Mensal", por: "por mês"}, anual: {v
 function vPro(){
   const VOLTA = {obj: "Início", cartao: "Operação", cen: "Cenários", acomp: "Sua operação", desemp: "Operações", cad: "Ajustes", vitrine: "Vitrine"};
   let h = `<div class="top"><button class="back" data-go="${voltaPro}">‹ ${VOLTA[voltaPro] || "Voltar"}</button></div><div><h1>Vaglio Pro</h1><p class="muted" style="margin-top:6px">A operação pronta para a corretora e o pregão ao vivo.</p></div>`;
-  if (PRO()) return h + `<section class="card"><p><strong>Você assina o Vaglio Pro.</strong></p></section><button class="btn sec2" data-go="${voltaPro}">Voltar</button>`;
+  if (assinVolta === "ok" && !PRO()) h += `<div class="note"><p>Confirmando o pagamento com o Asaas…</p></div>`;
+  else if (assinVolta === "cancelada" || assinVolta === "expirada") h += `<div class="note"><p>O pagamento não foi concluído. Você pode tentar de novo.</p></div>`;
+  if (PRO()) return h + `<section class="card"><p><strong>Você assina o Vaglio Pro.</strong></p>${statusPro() ? `<p class="small muted">${statusPro()}</p>` : ""}</section><button class="btn sec2" data-go="${voltaPro}">Voltar</button>`;
   h += `<section class="card"><h2 style="font-size:16px">No Pro</h2><ul class="lista-pro">
     <li>Quais opções comprar e vender, com strike e quantidade</li>
     <li>A ordem pronta para a corretora, com o preço-limite de cada perna</li>
@@ -1159,8 +1187,16 @@ function vPro(){
   const cartao = (k) => { const p = PRECO_PRO[k], on = planoEsc === k, mes = k === "anual" ? `R$ ${fmtBR(p.v / 12, 2)} por mês · 20% de desconto` : "";
     return `<button class="plano-op" data-plano-esc="${k}" aria-pressed="${on}"><span class="small muted">${p.rot}</span><strong>R$ ${fmtBR(p.v, p.v % 1 ? 2 : 0)} <span class="small muted" style="font-weight:500">${p.por}</span></strong>${mes ? `<span class="small" style="color:var(--good)">${mes}</span>` : ""}</button>`; };
   h += `<div role="group" aria-label="Plano" class="planos-pro">${cartao("mensal")}${cartao("anual")}</div>`;
-  const p = PRECO_PRO[planoEsc];
-  return h + `<button class="btn" id="assinar">Começar ${DIAS_GRATIS} dias grátis</button><p class="small muted" style="text-align:center">Sem cobrança nos ${DIAS_GRATIS} primeiros dias. Depois, R$ ${fmtBR(p.v, p.v % 1 ? 2 : 0)} ${p.por}.${TESTE ? " Teste: o botão libera o Pro só neste aparelho." : ""}</p><button class="btn sec2" data-go="${voltaPro}">Agora não</button>`;
+  const p = PRECO_PRO[planoEsc], preco = `R$ ${fmtBR(p.v, p.v % 1 ? 2 : 0)} ${p.por}`, comTeste = !(ASSIN && ASSIN.teste_ate);
+  const teste = LOCAL ? `<button class="btn sec2" id="pro-teste" style="min-height:40px;font-size:14px">Liberar o Pro neste aparelho (teste)</button>` : "";
+  if (!sessao) return h + `<button class="btn" id="pro-entrar">Entrar para começar</button><p class="small muted" style="text-align:center">A assinatura fica na sua conta: vale no celular e no computador.${comTeste ? ` ${DIAS_GRATIS} dias grátis, depois ${preco}.` : ""}</p>${teste}<button class="btn sec2" data-go="${voltaPro}">Agora não</button>`;
+  const pix = pag.forma === "PIX";
+  h += `<section class="card"><div role="group" aria-label="Forma de pagamento" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${segBtn("data-forma", "PIX", "Pix", pix)}${segBtn("data-forma", "CREDIT_CARD", "Cartão", !pix)}</div>
+    ${pix ? `<label class="f">Nome completo<input id="pag-nome" type="text" autocomplete="name" value="${esc(pag.nome)}"></label><label class="f">CPF<input id="pag-cpf" type="text" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" value="${esc(pag.cpf)}"></label>
+      <p class="small muted">O Asaas, que faz a cobrança, pede nome e CPF para o Pix. No app do banco, você agenda o primeiro Pix e autoriza o Pix Automático: as próximas cobranças saem sozinhas.</p>`
+    : `<p class="small muted">Você informa o cartão na página do Asaas, que faz a cobrança. O Vaglio não vê nem guarda os dados do cartão.</p>`}</section>`;
+  if (pag.erro) h += `<p class="small" role="alert" style="color:var(--bad)">${esc(pag.erro)}</p>`;
+  return h + `<button class="btn" id="assinar" ${pag.ocupado ? "disabled" : ""}>${pag.ocupado ? "Abrindo o pagamento…" : comTeste ? `Começar ${DIAS_GRATIS} dias grátis` : "Assinar"}</button><p class="small muted" style="text-align:center">${comTeste ? `Sem cobrança nos ${DIAS_GRATIS} primeiros dias. Depois, ${preco}. Cancele quando quiser, em Ajustes.` : `Primeira cobrança hoje: ${preco}. Cancele quando quiser, em Ajustes.`}</p>${teste}<button class="btn sec2" data-go="${voltaPro}">Agora não</button>`;
 }
 function vDoc(){
   return `<div class="top"><button class="back" data-go="cad">‹ Ajustes</button></div><article class="doc">${TEXTOS[doc] || ""}</article><button class="btn sec2" data-go="cad">Voltar</button>`;
@@ -1240,7 +1276,18 @@ function bind(){
   };
   const pg = q("#plano-gratis"); if (pg) pg.onclick = () => { S.plano = "gratis"; save("estado", S); iniciarAoVivo(); render(); };
   document.querySelectorAll("[data-plano-esc]").forEach(b => b.onclick = () => { planoEsc = b.dataset.planoEsc; render(); });
-  const as = q("#assinar"); if (as) as.onclick = () => { if (!TESTE) { as.textContent = "A assinatura abre em breve"; as.disabled = true; return; } S.plano = "pro"; save("estado", S); tela = voltaPro; slider = null; render(); iniciarAoVivo(); };
+  const pe = q("#pro-entrar"); if (pe) pe.onclick = () => { login = novoLogin("pro"); tela = "login"; render(); };
+  const pt = q("#pro-teste"); if (pt) pt.onclick = () => { S.plano = "pro"; save("estado", S); tela = voltaPro; slider = null; render(); iniciarAoVivo(); };
+  document.querySelectorAll("[data-forma]").forEach(b => b.onclick = () => { pag.forma = b.dataset.forma; pag.erro = ""; render(); });
+  const pn = q("#pag-nome"); if (pn) pn.oninput = () => { pag.nome = pn.value; };
+  const pc = q("#pag-cpf"); if (pc) pc.oninput = () => { pag.cpf = pc.value; };
+  const as = q("#assinar"); if (as) as.onclick = async () => {
+    if (pag.forma === "PIX" && (pag.nome.trim().length < 3 || !cpfOk(pag.cpf))) { pag.erro = "Confira o nome completo e o CPF."; render(); return; }
+    pag.erro = ""; pag.ocupado = true; render();
+    try { const r = await sbFn("assinar", {plano: planoEsc, forma: pag.forma, nome: pag.nome.trim(), cpf: pag.cpf}); if (!r || !r.url) throw new Error("sem endereço"); location.href = r.url; }
+    catch(e) { pag.ocupado = false; pag.erro = e.status === 409 ? "Você já tem o Vaglio Pro." : e.status === 401 ? "Entre de novo na sua conta para assinar." : e.status === 400 && e.message ? e.message : "Não foi possível abrir o pagamento agora. Tente de novo em instantes."; render(); } };
+  const ca = q("#cancelar-assin"); if (ca) ca.onclick = async () => { if (!confirm("Cancelar a assinatura? Não haverá novas cobranças, e o Pro continua até o fim do período já pago.")) return;
+    ca.disabled = true; try { await sbFn("cancelar-assinatura"); } catch(e) { alert("Não foi possível cancelar agora. Tente de novo em instantes."); } await carregarAssinatura(); render(); };
   const cp = q("#copiar"); if (cp) cp.onclick = () => { if (DEFASADO) { cp.textContent = "Bloqueado: preços desatualizados"; return; } if (tela==="acomp"){ const P = opSel(); if (P && P.m) copiar(textoParametros(P.m, P.ativo, P.data), cp); } else { const m = montagem(tese); if (typeof m!=="string") copiar(textoParametros(m, S.ativo, S.data), cp); } };
   document.querySelectorAll("[data-per]").forEach(b => b.onclick = () => { per = b.dataset.per; render(); });
   const pd = q("#pde"); if (pd) pd.onchange = () => { pDe = pd.value; render(); }; const pa = q("#pate"); if (pa) pa.onchange = () => { pAte = pa.value; render(); };
@@ -1283,5 +1330,7 @@ render();
 atualizarStatus();
 sincronizarAvisos(false);
 if (sessao) sincronizar();
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && sessao) sincronizar(); });
+if (sessao) carregarAssinatura().then(esperarAssinatura);
+if (assinVolta) { tela = "pro"; voltaPro = "obj"; try { history.replaceState(null, "", location.pathname + location.search.replace(/[?&]assinatura=[^&]*/, "").replace(/^&/, "?")); } catch(e) {} render(); }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && sessao) { sincronizar(); carregarAssinatura(); } });
 </script>

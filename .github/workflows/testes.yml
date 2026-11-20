@@ -9,6 +9,7 @@ on:
     paths:
       - "montador.js"
       - "aovivo.js"
+      - "supabase/**"
       - "montador.py"
       - "pwa/sw.js"
       - "paridade.py"
@@ -68,8 +69,19 @@ jobs:
       - name: Ao vivo — preço de execução, regras a cada cotação, fonte simulada e telas
         run: node testes/aovivo.js
 
-      - name: Plano grátis × Vaglio Pro (opções e tempo real só no Pro)
+      - name: Plano grátis × Vaglio Pro (opções e tempo real só no Pro; assinar, voltar do pagamento e cancelar)
         run: node testes/assinatura.js
+
+      - name: Regras da assinatura (teste grátis, períodos pagos, carência, cancelamento, avisos do Asaas)
+        run: node --experimental-strip-types testes/assinatura_regras.mjs
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Edge Functions da assinatura (tipos e lint)
+        working-directory: supabase/functions
+        run: deno check assinar/index.ts asaas-webhook/index.ts cancelar-assinatura/index.ts && deno lint
 
       - name: Números no formato brasileiro (vírgula, ponto de milhar)
         run: node testes/numeros.js
