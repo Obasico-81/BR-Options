@@ -24,6 +24,9 @@ header{position:sticky;top:0;z-index:5;background:rgba(30,30,32,.92);backdrop-fi
 header .wrap{display:flex;align-items:center;justify-content:space-between;min-height:60px}
 .marca{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none}
 .marca b{font-weight:800;font-size:18px;letter-spacing:.18em}
+.topo-acoes{display:flex;align-items:center;gap:16px}
+.topo-inst{color:var(--muted);text-decoration:none;font-weight:600;font-size:15px}
+.topo-inst:hover,.topo-inst[aria-current]{color:var(--ink)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 22px;border-radius:14px;font:inherit;font-weight:700;font-size:17px;text-decoration:none;cursor:pointer;border:0}
 .btn.pri{background:var(--accent);color:var(--accent-ink)}
 .btn.sec{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
@@ -151,7 +154,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
     <b>VAGLIO</b>
   </a>
   <nav class="topo-nav" aria-label="Seções"><a href="#como">Como funciona</a><a href="#planos">Planos</a><a href="#contato">Contato</a></nav>
-  <a class="btn pri peq" data-cta href="#instalar">Acessar</a>
+  <div class="topo-acoes"><a class="topo-inst" href="instalar/">Instalar</a><a class="btn pri peq" data-cta href="instalar/">Acessar</a></div>
 </div></header>
 
 <main>
@@ -160,7 +163,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
     <h1>Estratégias com opções na <em>bolsa brasileira</em>.</h1>
     <p class="lead">Você diz o que espera da ação e quanto aceita arriscar. O Vaglio monta a operação e mostra o risco e o ganho máximos, em reais, antes de você enviar a ordem na sua corretora.</p>
     <div class="ctas">
-      <a class="btn pri" data-cta href="#instalar">Acessar a plataforma</a>
+      <a class="btn pri" data-cta href="instalar/">Acessar a plataforma</a>
       <a class="btn sec" href="#planos">Ver planos</a>
     </div>
     <p class="nota" data-nota>Grátis para começar.</p>
@@ -196,7 +199,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
   <div class="cel"><img src="img/cel-operacoes.webp" alt="O Vaglio no celular: a aba Operações ao vivo, com quatro operações reais em ativos diferentes, o risco somado e o aviso de alvo atingido" loading="lazy" width="390" height="844"></div>
   <div><h2>Acompanhe todas as suas operações ao mesmo tempo<span class="pro">Pro</span></h2>
     <p class="sub">Monte quantas operações quiser, em ativos diferentes, e acompanhe todas numa tela só, no celular ou no computador, com o risco somado. Durante o pregão, veja quanto receberia se encerrasse cada uma agora e receba o aviso de alvo, limite ou prazo de saída, com a ordem de saída pronta.</p>
-    <div class="ctas"><a class="btn pri" data-baixar href="#instalar">Baixar o app</a></div>
+    <div class="ctas"><a class="btn pri" data-baixar href="instalar/">Baixar o app</a></div>
     <p class="legenda">Imagem ilustrativa, com cotações simuladas.</p></div>
 </div></section>
 
@@ -208,31 +211,14 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
       <li>Custo, risco máximo, ganho máximo e ponto de equilíbrio de cada operação</li>
       <li>Cenários, chance implícita e Vitrine</li>
       <li>Simulação e Desempenho, pelos preços de fechamento</li></ul>
-      <a class="btn sec" data-ir href="#instalar">Começar grátis</a></div>
+      <a class="btn sec" data-ir href="instalar/">Começar grátis</a></div>
     <div class="card sim destaque"><h3>Vaglio Pro</h3><div class="preco">R$ 49,90 <small>por mês</small></div><p style="margin:-6px 0 0;color:var(--good);font-size:15px">ou R$ 479 por ano: R$ 39,92 por mês</p><ul>
       <li>Quais opções comprar e vender, com strike e quantidade</li>
       <li>A ordem pronta para a corretora</li>
       <li>Cotação em tempo real de todas as suas operações e quanto receberia se encerrasse cada uma agora</li>
       <li>Aviso de saída, com a ordem de saída pronta</li></ul>
-      <a class="btn pri" data-ir href="#instalar">Testar 7 dias grátis</a></div>
+      <a class="btn pri" data-ir href="instalar/">Testar 7 dias grátis</a></div>
   </div>
-</div></section>
-
-<section id="instalar"><div class="wrap">
-  <h2>Instale o Vaglio</h2>
-  <div class="inst">
-    <div class="card" data-sistema="android"><h3>Android</h3>
-      <a class="btn pri" data-apk href="#" style="width:100%;margin-top:10px">Baixar para Android</a>
-      <p style="margin:10px 0 0;color:var(--muted);font-size:15px">Instalação direta, fora da Play Store.</p>
-      <ol><li>Abra o arquivo baixado.</li><li>Se o celular pedir, permita instalar apps desta fonte.</li><li>Toque em <b>Instalar</b>.</li></ol></div>
-    <div class="card" data-sistema="iphone"><h3>iPhone</h3>
-      <a class="btn sec" data-web href="#" style="width:100%;margin-top:10px">Abrir no Safari</a>
-      <ol><li>Abra o app no <b>Safari</b>.</li><li>Toque em <b>Compartilhar</b> (o quadrado com a seta).</li><li>Toque em <b>Adicionar à Tela de Início</b>.</li></ol></div>
-    <div class="card" data-sistema="computador"><h3>Computador</h3>
-      <a class="btn sec" data-web href="#" style="width:100%;margin-top:10px">Acessar a plataforma</a>
-      <div class="qr" style="margin-top:14px"><!--QR--><span style="color:var(--muted);font-size:15px">No celular, aponte a câmera para o código.</span></div></div>
-  </div>
-  <button class="outro" type="button" data-outro hidden>Outro aparelho?</button>
 </div></section>
 
 <section id="perguntas" class="faq"><div class="wrap">
@@ -259,6 +245,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
 <script>
 // Endereços: o app no navegador, o APK de teste do Android e as páginas de termos e privacidade.
 var APP = "https://obasico-81.github.io/BR-Options/";
+var INST = "instalar/";
 var APK = "https://github.com/Obasico-81/BR-Options/releases/download/android-teste/vaglio.apk";
 (function () {
   var ua = navigator.userAgent || "", android = /Android/i.test(ua),
@@ -279,19 +266,19 @@ var APK = "https://github.com/Obasico-81/BR-Options/releases/download/android-te
   });
   // botão secundário: no computador, o QR para instalar no celular; no celular, usar no navegador
   document.querySelectorAll("[data-sec]").forEach(function (a) {
-    if (android || iphone) { a.href = APP; a.textContent = "Usar no navegador"; } else { a.href = "#instalar"; a.textContent = "Instalar no celular"; }
+    if (android || iphone) { a.href = APP; a.textContent = "Usar no navegador"; } else { a.href = INST; a.textContent = "Instalar no celular"; }
   });
   // botão da seção do celular: baixar o app (APK no Android; no iPhone e no computador, leva às instruções e ao QR)
   document.querySelectorAll("[data-baixar]").forEach(function (a) {
-    if (android) a.href = APK; else if (iphone) { a.href = "#instalar"; a.textContent = "Instalar o app"; } else a.href = "#instalar";
+    if (android) a.href = APK; else if (iphone) { a.href = INST; a.textContent = "Instalar o app"; } else a.href = INST;
   });
   // botões dos planos: o mesmo destino do botão principal, sem trocar o texto
   document.querySelectorAll("[data-ir]").forEach(function (a) { a.href = android ? APK : APP; });
   var nota = document.querySelector("[data-nota]");
-  if (android) nota.textContent = "Grátis para começar. Instalação direta, fora da Play Store.";
-  else if (iphone) nota.textContent = "Grátis para começar. No iPhone, o app abre no Safari e pode ir para a tela de início.";
+  if (nota && android) nota.textContent = "Grátis para começar. Instalação direta, fora da Play Store.";
+  else if (nota && iphone) nota.textContent = "Grátis para começar. No iPhone, o app abre no Safari e pode ir para a tela de início.";
   // o cartão do aparelho de quem está vendo vem primeiro
-  var inst = document.querySelector(".inst"), meu = inst.querySelector('[data-sistema="' + sistema + '"]');
+  var inst = document.querySelector(".inst"), meu = inst && inst.querySelector('[data-sistema="' + sistema + '"]');
   if (meu) inst.insertBefore(meu, inst.firstChild);
   // só o cartão do aparelho de quem está vendo; "Outro aparelho?" mostra os três
   var outro = document.querySelector("[data-outro]");

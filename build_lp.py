@@ -1,6 +1,6 @@
 """Gera as páginas de divulgação a partir de lp/: copia os arquivos e põe em cada página o QR code do próprio endereço
 (para quem abre no computador apontar a câmera do celular). lp/index.html: institucional (raiz do site);
-lp/bolsa-brasileira/: a da campanha. Uso: python3 build_lp.py [--url URL] [--saida PASTA]"""
+lp/bolsa-brasileira/: a da campanha; lp/instalar/: como instalar. Uso: python3 build_lp.py [--url URL] [--saida PASTA]"""
 import argparse, os, shutil
 import segno
 
@@ -12,7 +12,7 @@ a = ap.parse_args()
 if os.path.isdir(a.saida):
     shutil.rmtree(a.saida)
 shutil.copytree("lp", a.saida)
-# cada página (lp/index.html, a institucional; lp/bolsa-brasileira/index.html, a da campanha) leva o QR do seu endereço
+# cada página com <!--QR--> (hoje, lp/instalar/index.html) leva o QR do seu endereço
 for raiz, _, arqs in os.walk(a.saida):
     if "index.html" not in arqs:
         continue
