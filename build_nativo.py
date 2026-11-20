@@ -8,7 +8,7 @@ Uso: python3 build.py && python3 build_nativo.py [--base URL] [--saida PASTA]
 """
 import argparse, json, os
 
-BASE_PADRAO = "https://obasico-81.github.io/BR-Options/"
+BASE_PADRAO = "https://vaglio.com.br/app/"
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--base", default=BASE_PADRAO, help="endereço do site publicado, terminado em /")

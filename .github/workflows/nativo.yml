@@ -43,7 +43,7 @@ jobs:
       - name: O site publicado libera os dados para o app (CORS)
         shell: bash
         run: |
-          h=$(curl -sSI https://obasico-81.github.io/BR-Options/ | tr -d '\r')
+          h=$(curl -sSI https://vaglio.com.br/app/ | tr -d '\r')
           echo "$h" | grep -iE "^HTTP/|^access-control-allow-origin"
           echo "$h" | grep -qi "^access-control-allow-origin: \*"
 
