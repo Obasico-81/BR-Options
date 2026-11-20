@@ -1,7 +1,7 @@
 // Port de montador.py (mesmas regras). Funciona no navegador (window.Montador) e no Node (module.exports).
 (function (root) {
   const TAXA_B3 = 0.00134, LOTE = 100;
-  const SPREAD_MAX = 0.20; // spread máximo (venda − compra) / médio, no fechamento; era 10% (15% no Lucro frequente) até 02/11/2026
+  const SPREAD_MAX = 0.20; // spread máximo (venda − compra) / médio, no fechamento; era 10% (15% no Chance maior) até 02/11/2026
   // Corretagem do usuário (R$ por ordem). null = não informada: o custo não soma corretagem (até 03/11/2026 havia uma margem fixa).
   let CORRETAGEM = null;
   const setCorretagem = (v) => { CORRETAGEM = (v === null || v === undefined || isNaN(+v) || +v < 0) ? null : +v; };
