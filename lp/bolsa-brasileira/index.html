@@ -86,7 +86,7 @@ h2{font-size:clamp(26px,5vw,36px);line-height:1.15;letter-spacing:-.01em;margin:
 .notif span{color:var(--muted)}
 .notif .ic{flex:none;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#3a3016;color:var(--accent);font-weight:800;font-size:14px}
 .notif .ic.ok{background:#1F3328;color:var(--good)}
-.notif .ex{margin-left:auto;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding-left:8px}
+.notif .pro{margin-left:auto;flex:none;color:#F0C060}
 .notifs{display:grid;gap:10px}
 .vivo{display:inline-flex;align-items:center;gap:6px;color:var(--good);font-size:13px;font-weight:700}
 .vivo i{width:7px;height:7px;border-radius:50%;background:var(--good);animation:pisca 2s infinite}
@@ -107,7 +107,7 @@ h2{font-size:clamp(26px,5vw,36px);line-height:1.15;letter-spacing:-.01em;margin:
 .planos .preco small{font-size:15px;font-weight:600;color:var(--muted)}
 .planos .card.destaque{border-color:#6b5a1e;box-shadow:0 0 0 1px #6b5a1e inset}
 .planos .btn{margin-top:auto}
-.legenda{font-size:13px;color:#6f6d68;margin:8px 0 0}
+.legenda{font-size:13px;color:var(--muted);margin:8px 0 0}
 .aviso{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:14px 16px;color:var(--muted);font-size:16px;margin-top:18px}
 @media (max-width:600px){
   .tab,.tab thead,.tab tbody{display:block}
@@ -161,9 +161,10 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
     <p class="nota" data-nota>Grátis para começar.</p>
   </div>
   <div class="notifs" aria-label="Exemplos de avisos do Vaglio">
-    <div class="notif"><span class="ic">V</span><div><b>Trava de alta montada · BOVA11</b><span>Risco R$ 420 · ganho máximo R$ 380</span></div><span class="ex">exemplo</span></div>
-    <div class="notif"><span class="ic">↗</span><div><b>BOVA11 sobe 3% · <span class="vivo"><i></i>ao vivo</span></b><span>+R$ 49 se encerrar agora</span></div><span class="ex">exemplo</span></div>
-    <div class="notif"><span class="ic ok">✓</span><div><b>Alvo atingido · BOVA11 +6%</b><span>+R$ 191 se encerrar agora · ordem de saída pronta</span></div><span class="ex">exemplo</span></div>
+    <div class="notif"><span class="ic">V</span><div><b>Trava de alta montada · BOVA11</b><span>Risco R$ 420 · ganho máximo R$ 380</span></div></div>
+    <div class="notif"><span class="ic">↗</span><div><b>BOVA11 sobe 3% · <span class="vivo"><i></i>ao vivo</span></b><span>+R$ 49 se encerrar agora</span></div><span class="pro">Pro</span></div>
+    <div class="notif"><span class="ic ok">✓</span><div><b>Alvo atingido · BOVA11 +6%</b><span>+R$ 191 se encerrar agora · ordem de saída pronta</span></div><span class="pro">Pro</span></div>
+    <p class="legenda">Exemplos ilustrativos, com cotações simuladas.</p>
   </div>
   <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="../img/pc-montada.webp" alt="Operação montada no Vaglio: valor pago, que é o risco máximo, ganho máximo, ponto de equilíbrio, chance implícita e gráfico do resultado no vencimento" width="1600" height="1000"></div>
 </div></div>
