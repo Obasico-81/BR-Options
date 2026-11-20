@@ -8,7 +8,7 @@ taxas da B3, corretagem por ordem e total); a operação real (execucao: outra q
 """
 import json, math, subprocess, sys
 from datetime import date, timedelta
-from montador import Opcao, montar, montar_sinal, montar_aposta, set_corretagem, vol_real_60, movimento_necessario, resultado_no_dia, regra_de_saida, execucao, tendencia
+from montador import Opcao, montar, montar_sinal, montar_aposta, set_corretagem, vol_real_60, movimento_necessario, resultado_no_dia, regra_de_saida, saida_da_regra, execucao, tendencia
 
 r2 = lambda x: math.floor(x * 100 + 0.5) / 100   # mesmo arredondamento do Math.round do JS (o round do Python arredonda 5,885 para 5,88)
 CORRETAGENS = (None, 5.0)
@@ -104,6 +104,9 @@ def resumo(m, nome, S, theta=False):
                [o.ask if l > 0 else o.bid for l, o in x.pernas]]
     d["regras"] = [regra_de_saida(m, marcas(m.perda_max, dias, peq), venc) for peq in (False, True)] \
         + [regra_de_saida(m, [{"d": venc, "r": 10 * m.perda_max}], venc)]   # no dia do vencimento: ignorado (vale o vencimento)
+    # saída de quem segue o app: pregão seguinte ao disparo (e pendente quando o disparo é no último dia da sequência)
+    d["saidas"] = [saida_da_regra(m, marcas(m.perda_max, dias, peq), venc) for peq in (False, True)] \
+        + [saida_da_regra(m, marcas(m.perda_max, dias, False)[:1], venc)]
     return d
 
 
@@ -158,7 +161,8 @@ const res=(m,theta,n,S)=>{ if(typeof m==='string') return m;
   d.marc=[M.resultadoNoDia(m,p0),M.resultadoNoDia(m,p1),M.resultadoNoDia(m,sem),M.resultadoNoDia(m,absurdo)];
   const x=M.execucao(m,{lotes:m.lotes+1,precos:m.pernas.map(([l,o])=>l>0?r2(o.a*1.05):r2(o.b*0.95))});
   d.ex=[x.premio,x.perdaMax,x.ganhoMax,x.equilibrio,x.alvo,x.stop,M.resultadoNoDia(x,p0),x.pernas.map(([l,o])=>l>0?o.a:o.b)];
-  d.regras=[false,true].map(peq=>M.regraDeSaida(m,marcas(m.perdaMax,m.dias,peq),venc)).concat([M.regraDeSaida(m,[{d:venc,r:10*m.perdaMax}],venc)]); return d; };
+  d.regras=[false,true].map(peq=>M.regraDeSaida(m,marcas(m.perdaMax,m.dias,peq),venc)).concat([M.regraDeSaida(m,[{d:venc,r:10*m.perdaMax}],venc)]);
+  d.saidas=[false,true].map(peq=>M.saidaDaRegra(m,marcas(m.perdaMax,m.dias,peq),venc)).concat([M.saidaDaRegra(m,marcas(m.perdaMax,m.dias,false).slice(0,1),venc)]); return d; };
 M.setCorretagem(cor);
 for(const [n,a] of Object.entries(s.ativos)){
   for(const t of ['alta','baixa','forte','alta_com_caixa']) out[n+'/'+t]=res(M.montar(t,a.S,a.chain,a.iv,300,{caixa:30000}),false,n,a.S);
@@ -205,7 +209,7 @@ TEND_ESP = {"alta": ("alta",) * 2, "queda": ("queda",) * 2, "plana": ("neutro",)
             "buracos": ("alta",) * 2, "ifr_q": ("queda", "neutro"), "ifr_a": ("alta", "neutro")}
 igual_ex = lambda a, b: all(all(perto(c, e) for c, e in zip(x, y)) and len(x) == len(y) if isinstance(x, list) else perto(x, y) for x, y in zip(a, b))
 perto = lambda a, b, tol=0.011: (a is None and b is None) or (a is not None and b is not None and abs(a - b) < tol)
-falhas = casos = montados = 0; regras = {}; tend = {}
+falhas = casos = montados = 0; regras = {}; tend = {}; saidas = {}
 for cor in CORRETAGENS:
     py, js = lado_python(cor), lado_js(cor)
     rotulo = "sem corretagem" if cor is None else f"corretagem R$ {cor:.2f}"
@@ -244,11 +248,16 @@ for cor in CORRETAGENS:
             and ("theta" not in v or perto(v["theta"], j["theta"])) and all(perto(a, b, 1e-12) for a, b in zip(v["mov"], j["mov"])) \
             and all(perto(a, b) for a, b in zip(v["marc"], j["marc"])) and v["marc"][2] is None and j["marc"][2] is None and igual_ex(v["ex"], j["ex"]) \
             and all((x is None and y is None) or (x is not None and y is not None and x["regra"] == y["regra"] and x["d"] == y["d"] and perto(x["r"], y["r"]))
-                    for x, y in zip(v["regras"], j["regras"]))
+                    for x, y in zip(v["regras"], j["regras"])) \
+            and all((x is None and y is None) or (x is not None and y is not None and x["regra"] == y["regra"] and x["d"] == y["d"]
+                     and bool(x.get("pendente")) == bool(y.get("pendente")) and x.get("d_saida") == y.get("dSaida") and perto(x.get("r"), y.get("r")))
+                    for x, y in zip(v["saidas"], j["saidas"]))
+        for x in v["saidas"]: saidas["pendente" if x and x.get("pendente") else "pregão seguinte" if x else "nenhuma"] = saidas.get("pendente" if x and x.get("pendente") else "pregão seguinte" if x else "nenhuma", 0) + 1
         if not ok: print("ERRO", rotulo, k, "| py:", v, "| js:", j)
         falhas += 0 if ok else 1
 print("tendência (casos por cor):", ", ".join(f"{k or 'sem dados'} {v}" for k, v in sorted(tend.items(), key=lambda kv: str(kv[0]))))
 print("regras de saída disparadas:", ", ".join(f"{k} {v}" for k, v in sorted(regras.items())))
+print("saída de quem segue o app:", ", ".join(f"{k} {v}" for k, v in sorted(saidas.items())))
 print(f"juro: {'Selic de ' + str(SELIC) + '% a.a.' if SELIC is not None else 'padrão'} ({JURO:.4f} contínuo)")
 print(f"{casos} casos ({montados} montados) em {len(snap['ativos'])} ativos, sem e com corretagem: {falhas} falha(s)")
 sys.exit(1 if falhas else 0)
