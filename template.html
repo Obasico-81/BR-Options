@@ -334,7 +334,7 @@ async function sbReq(caminho, o = {}){
   if (o.prefer) h.Prefer = o.prefer;
   const r = await fetch(SB.url + caminho, {method: o.metodo || "GET", headers: h, body: o.corpo === undefined ? undefined : JSON.stringify(o.corpo)});
   const txt = await r.text(); let j = null; try { j = txt ? JSON.parse(txt) : null; } catch(e) {}
-  if (!r.ok) throw Object.assign(new Error((j && (j.msg || j.message || j.error_description || j.error)) || ("HTTP " + r.status)), {status: r.status, codigo: j && (j.error_code || j.code)});
+  if (!r.ok) throw Object.assign(new Error((j && (j.msg || j.message || j.erro || j.error_description || j.error)) || ("HTTP " + r.status)), {status: r.status, codigo: j && (j.error_code || j.code)});
   return j;
 }
 function guardarSessao(j){
