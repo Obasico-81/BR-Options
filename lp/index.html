@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Vaglio · Saiu das bets? Na bolsa, você sabe o risco antes</title>
+<meta name="description" content="As bets foram proibidas. Na bolsa brasileira, com o Vaglio, você monta operações com opções sabendo antes quanto custa, quanto pode perder no máximo e o que acontece em cada cenário.">
+<meta name="theme-color" content="#1E1E20">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Saiu das bets? Na bolsa, você sabe quanto pode perder antes de entrar.">
+<meta property="og:description" content="Antes da ordem, o risco na mesa: custo, perda máxima, ponto de equilíbrio e cenários de cada operação com opções.">
+<meta property="og:image" content="img/compartilhar.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+@font-face{font-family:Figtree;src:url(fontes/figtree-latin-wght-normal.woff2) format("woff2");font-weight:300 900;font-display:swap}
+:root{--bg:#1E1E20;--bg2:#161618;--surface:#28282B;--ink:#EDEBE4;--muted:#A9A7A0;--line:#3C3C40;--accent:#F5C400;--accent-ink:#1E1E20;--good:#7BD389;--bad:#FF8A7F}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Figtree,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:17px;line-height:1.55}
+a{color:var(--accent)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+header{position:sticky;top:0;z-index:5;background:rgba(30,30,32,.92);backdrop-filter:blur(8px);border-bottom:1px solid transparent}
+header .wrap{display:flex;align-items:center;justify-content:space-between;min-height:60px}
+.marca{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none}
+.marca b{font-weight:800;font-size:18px;letter-spacing:.18em}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 22px;border-radius:14px;font:inherit;font-weight:700;font-size:17px;text-decoration:none;cursor:pointer;border:0}
+.btn.pri{background:var(--accent);color:var(--accent-ink)}
+.btn.sec{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn.peq{min-height:40px;padding:0 14px;font-size:15px;border-radius:12px}
+.hero{padding:40px 0 24px}
+.hero .wrap{display:grid;gap:36px;align-items:center}
+h1{font-size:clamp(32px,7vw,52px);line-height:1.08;letter-spacing:-.02em;margin:0 0 16px;font-weight:800;text-wrap:balance}
+h1 em{font-style:normal;color:var(--accent)}
+.lead{color:var(--muted);font-size:19px;margin:0 0 24px;max-width:36em}
+.ctas{display:flex;flex-direction:column;gap:10px;max-width:420px}
+.nota{font-size:14px;color:var(--muted);margin-top:10px}
+.janela{border-radius:14px;overflow:hidden;background:#0c0c0d;border:1px solid #2c2c30;box-shadow:0 30px 60px rgba(0,0,0,.45)}
+.janela .barra{display:flex;gap:6px;align-items:center;height:28px;padding:0 12px;background:#161618;border-bottom:1px solid #2c2c30}
+.janela .barra i{width:10px;height:10px;border-radius:50%;background:#3C3C40;display:block}
+.janela .barra span{margin-left:10px;font-size:12px;color:#6f6d68}
+.janela img{display:block;width:100%;height:auto}
+.cel{width:min(300px,78vw);margin:0 auto;border-radius:38px;padding:10px;background:#0c0c0d;border:1px solid #2c2c30;box-shadow:0 30px 60px rgba(0,0,0,.45)}
+.cel img{display:block;width:100%;border-radius:30px}
+section{padding:56px 0;border-top:1px solid var(--line)}
+h2{font-size:clamp(26px,5vw,36px);line-height:1.15;letter-spacing:-.01em;margin:0 0 12px;font-weight:800;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 28px;max-width:40em}
+.passos{display:grid;gap:28px}
+.passo{display:grid;gap:16px;align-items:start}
+.passo .n{display:inline-flex;width:34px;height:34px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-weight:800;align-items:center;justify-content:center;margin-bottom:6px}
+.passo h3{font-size:21px;margin:0 0 6px}
+.passo p{margin:0;color:var(--muted)}
+.passo .txt h3{font-size:24px}
+.duas{display:grid;gap:28px;align-items:center}
+.grade{display:grid;gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px}
+.card h3{margin:0 0 6px;font-size:19px}
+.card p{margin:0;color:var(--muted);font-size:16px}
+.num{font-size:40px;font-weight:800;color:var(--accent);line-height:1;margin-bottom:8px}
+.inst{display:grid;gap:14px}
+.inst ol{margin:8px 0 0;padding-left:20px;color:var(--muted)}
+.inst li{margin:4px 0}
+.qr{display:none;align-items:center;gap:18px}
+.qr svg{width:132px;height:132px;background:#fff;border-radius:12px;padding:8px;flex:none}
+.chip{display:inline-block;background:#3a3016;color:#F0C060;border-radius:999px;padding:6px 14px;font-weight:700;font-size:14px;margin-bottom:16px}
+.tab{width:100%;border-collapse:separate;border-spacing:0;font-size:16px;background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.tab th,.tab td{text-align:left;padding:14px 16px;vertical-align:top;border-top:1px solid var(--line)}
+.tab thead th{border-top:0;font-size:14px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.tab thead th:last-child{color:var(--accent)}
+.tab td:first-child{color:var(--muted);font-weight:600;width:28%}
+.tab td:nth-child(2){color:#c9c6bd}
+.tab td:last-child{font-weight:600}
+.faq details{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:10px}
+.faq summary{cursor:pointer;font-weight:700;font-size:18px;list-style:none;display:flex;justify-content:space-between;gap:12px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";color:var(--muted);font-weight:500}
+.faq details[open] summary::after{content:"−"}
+.faq p{margin:10px 0 0;color:var(--muted)}
+.final{text-align:center}
+.final .ctas{margin:0 auto}
+.aviso{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:14px 16px;color:var(--muted);font-size:16px;margin-top:18px}
+@media (max-width:600px){
+  .tab,.tab tbody{display:block}.tab thead{display:none}
+  .tab tr{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}.tab tr:first-child{border-top:0}
+  .tab td{border-top:0;padding:10px 14px}.tab td:first-child{grid-column:1/-1;width:auto;padding-bottom:0}
+  .tab td:nth-child(2)::before,.tab td:last-child::before{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;margin-bottom:2px}
+  .tab td:nth-child(2)::before{content:"Bets";color:var(--muted)}.tab td:last-child::before{content:"Vaglio";color:var(--accent)}
+}
+footer{border-top:1px solid var(--line);padding:32px 0 48px;color:var(--muted);font-size:14px}
+footer p{margin:0 0 10px;max-width:60em}
+footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
+@media (min-width:860px){
+  .hero{padding:72px 0 48px}
+  .hero .wrap{grid-template-columns:1fr;gap:48px}
+  .hero .janela{max-width:1040px;width:100%;margin:0 auto}
+  .hero h1{max-width:16em}
+  .passos{gap:56px}
+  .passo{display:grid;grid-template-columns:.75fr 1.25fr;gap:44px;align-items:center}
+  .passo:nth-child(even){grid-template-columns:1.25fr .75fr}
+  .passo:nth-child(even) .txt{order:2}
+  .duas{grid-template-columns:.8fr 1.2fr}
+  .grade{grid-template-columns:repeat(3,1fr)}
+  .inst{grid-template-columns:repeat(3,1fr)}
+  body.computador .qr{display:flex}
+}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="marca" href="#" aria-label="Vaglio">
+    <svg viewBox="0 0 120 120" width="30" height="30" aria-hidden="true" style="color:var(--accent)"><clipPath id="c1"><rect x="0" y="54" width="120" height="66"/></clipPath><path d="M24 22 L60 98 L96 22" fill="none" stroke="currentColor" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/><g clip-path="url(#c1)"><path d="M24 22 L60 98 L96 22" fill="none" stroke="currentColor" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/></g><rect x="6" y="50" width="108" height="5" rx="2.5" fill="currentColor"/></svg>
+    <b>VAGLIO</b>
+  </a>
+  <a class="btn pri peq" data-cta href="#instalar">Baixar</a>
+</div></header>
+
+<main>
+<div class="hero"><div class="wrap">
+  <div>
+    <span class="chip">As bets foram proibidas. E agora?</span>
+    <h1>Saiu das bets? Na bolsa, você sabe <em>quanto pode perder</em> antes de entrar.</h1>
+    <p class="lead">Com o Vaglio, você monta operações com opções de ações na bolsa brasileira, um mercado regulado pela CVM, com preço formado entre investidores. Antes da ordem, a tela mostra o custo, a perda máxima em reais, a partir de que preço você ganha e o que acontece em cada cenário.</p>
+    <div class="ctas">
+      <a class="btn pri" data-cta href="#instalar">Baixar o app</a>
+      <a class="btn sec" data-web href="#">Usar no navegador</a>
+    </div>
+    <p class="nota" data-nota>Versão de teste, gratuita. Para operar de verdade, a ordem é feita na sua corretora.</p>
+  </div>
+  <div class="janela"><div class="barra"><i></i><i></i><i></i><span>vaglio.com.br/app</span></div><img src="img/pc-montada.webp" alt="Plataforma Vaglio: operação montada com o valor pago, que é o risco máximo, o ganho máximo, o ponto de equilíbrio, a chance implícita e o gráfico do resultado no vencimento" width="1600" height="1000"></div>
+</div></div>
+
+<section id="diferenca"><div class="wrap">
+  <h2>Bet é uma coisa. Bolsa é outra.</h2>
+  <p class="sub">Opções não são aposta: são contratos negociados na bolsa. Dá para perder dinheiro, e é por isso que o Vaglio mostra o tamanho da perda antes.</p>
+  <table class="tab">
+    <thead><tr><th></th><th>Bets</th><th>Opções com o Vaglio</th></tr></thead>
+    <tbody>
+      <tr><td>Situação</td><td>Proibidas no Brasil em 2026</td><td>Bolsa brasileira, regulada pela CVM</td></tr>
+      <tr><td>Quem define o preço</td><td>A casa, com a margem dela na odd</td><td>Compradores e vendedores, na bolsa</td></tr>
+      <tr><td>Quanto você pode perder</td><td>Tudo o que apostou, a cada aposta</td><td>A perda máxima aparece em reais antes da ordem, dentro do limite que você define</td></tr>
+      <tr><td>O que você vê antes</td><td>A odd</td><td>Custo, ponto de equilíbrio, cenários e a chance que o próprio preço indica</td></tr>
+      <tr><td>Onde fica o seu dinheiro</td><td>Na casa de apostas</td><td>Na sua conta, numa corretora, em seu nome</td></tr>
+    </tbody>
+  </table>
+</div></section>
+
+<section id="como"><div class="wrap">
+  <h2>Como funciona</h2>
+  <p class="sub">Quatro passos, do que você espera da ação até a operação acompanhada.</p>
+  <div class="passos">
+    <div class="passo"><div class="txt"><span class="n">1</span><h3>Diga o que espera do papel</h3><p>Subir, cair ou se mexer muito. Você escolhe o ativo, o vencimento e quanto aceita arriscar, em reais.</p></div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-inicio.webp" alt="Início da Plataforma: lista de ativos com minigráfico e as quatro operações lado a lado, com custo, risco máximo, ganho e chance" loading="lazy" width="1600" height="1000"></div></div>
+    <div class="passo"><div class="txt"><span class="n">2</span><h3>Veja a operação montada</h3><p>Quais opções comprar e vender, quanto paga ou recebe, o risco máximo e o ponto de equilíbrio. Três perfis: Lucro maior, Equilibrada e Lucro frequente.</p></div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-ordens.webp" alt="Operação montada: as ordens a enviar na corretora, com os preços-limite, e o gráfico do resultado no vencimento" loading="lazy" width="1600" height="1000"></div></div>
+    <div class="passo"><div class="txt"><span class="n">3</span><h3>Veja o que pode acontecer</h3><p>O resultado no vencimento para cada preço da ação, com a chance que o próprio preço das opções indica.</p></div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-cenarios.webp" alt="Cenários: gráfico e tabela do resultado no vencimento para cada preço da ação" loading="lazy" width="1600" height="1000"></div></div>
+    <div class="passo"><div class="txt"><span class="n">4</span><h3>Registre e acompanhe</h3><p>Registre o que executou na corretora. O app marca a operação todo dia e avisa quando chega a hora de sair, pelas regras definidas na entrada.</p></div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-operacoes.webp" alt="Operações: desempenho no período e tabela das operações em aberto" loading="lazy" width="1600" height="1000"></div></div>
+  </div>
+</div></section>
+
+<section id="vitrine"><div class="wrap duas">
+  <div><h2>Vitrine: o que dá para montar hoje</h2>
+    <p class="sub">Todas as operações que cabem no seu risco, em 8 ações com opções líquidas na bolsa. Filtre pelo que espera (subir, cair ou mexer muito) e ordene por risco, chance ou movimento necessário.</p>
+    <a class="btn sec" data-web href="#">Ver a Vitrine</a></div>
+  <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-vitrine.webp" alt="Vitrine da Plataforma: as operações que cabem no seu risco, em duas colunas" loading="lazy" width="1600" height="1000"></div>
+</div></section>
+
+<section id="celular"><div class="wrap duas">
+  <div class="cel"><img src="img/numeros.webp" alt="O Vaglio no celular: operação montada com o valor pago, o risco máximo, o ganho máximo e a chance implícita" loading="lazy" width="390" height="844"></div>
+  <div><h2>No computador e no celular</h2>
+    <p class="sub">As mesmas telas e os mesmos números nos dois. No Android, baixe o app. No iPhone, abra no Safari e adicione à tela de início.</p>
+    <div class="ctas"><a class="btn pri" data-cta href="#instalar">Baixar o app</a></div></div>
+</div></section>
+
+<section id="numeros"><div class="wrap">
+  <h2>Números, não promessas</h2>
+  <p class="sub">Ninguém aqui vende ganho garantido. O Vaglio mostra os números da operação e deixa a decisão com você. Não recomenda ativo, direção nem momento.</p>
+  <div class="grade">
+    <div class="card"><div class="num">22.532</div><h3>operações conferidas</h3><p>Simulamos as operações do app de 2015 a 2026. A chance mostrada na tela bateu com o que aconteceu, com diferença de poucos pontos.</p></div>
+    <div class="card"><div class="num">R$</div><h3>Risco em reais, antes da ordem</h3><p>Toda operação vem com a perda máxima em reais, dentro do limite que você definiu, e a estimativa das taxas da bolsa e da sua corretagem.</p></div>
+    <div class="card"><div class="num">D+1</div><h3>Desempenho sem maquiagem</h3><p>Quando uma regra de saída é atingida no fechamento, o resultado conta no pregão seguinte, que é quando dá para agir na corretora.</p></div>
+  </div>
+</div></section>
+
+<section id="instalar"><div class="wrap">
+  <h2>Instale o Vaglio</h2>
+  <p class="sub">Grátis durante o período de teste.</p>
+  <div class="inst">
+    <div class="card" data-sistema="android"><h3>Android</h3>
+      <a class="btn pri" data-apk href="#" style="width:100%;margin-top:10px">Baixar para Android</a>
+      <ol><li>Toque em <b>Baixar para Android</b>.</li><li>Abra o arquivo baixado. Se o celular pedir, permita instalar apps desta fonte.</li><li>Toque em <b>Instalar</b>.</li></ol></div>
+    <div class="card" data-sistema="iphone"><h3>iPhone</h3>
+      <a class="btn sec" data-web href="#" style="width:100%;margin-top:10px">Abrir no Safari</a>
+      <ol><li>Abra o app no <b>Safari</b>.</li><li>Toque em <b>Compartilhar</b> (o quadrado com a seta).</li><li>Toque em <b>Adicionar à Tela de Início</b>.</li></ol></div>
+    <div class="card" data-sistema="computador"><h3>Computador</h3>
+      <a class="btn sec" data-web href="#" style="width:100%;margin-top:10px">Usar no navegador</a>
+      <div class="qr" style="margin-top:14px"><!--QR--><span style="color:var(--muted);font-size:15px">Para instalar no celular, aponte a câmera para o código.</span></div></div>
+  </div>
+</div></section>
+<section id="perguntas" class="faq"><div class="wrap">
+  <h2>Perguntas frequentes</h2>
+  <details><summary>Isso é aposta?</summary><p>Não. Opções são contratos negociados na bolsa brasileira, regulada pela CVM, com preço formado entre investidores. Você pode perder dinheiro, mas vê a perda máxima de cada operação antes de entrar.</p></details>
+  <details><summary>Preciso de muito dinheiro?</summary><p>Não. Você define o risco máximo por operação e o app só monta o que cabe nele.</p></details>
+  <details><summary>O app diz o que comprar?</summary><p>Não. Ele mostra os números de cada operação. A decisão é sua.</p></details>
+  <details><summary>Preciso de corretora?</summary><p>Para operar de verdade, sim: a ordem é feita na sua corretora, com o dinheiro na sua conta. No app você monta, simula e acompanha.</p></details>
+  <details><summary>Quanto custa?</summary><p>A versão de teste é gratuita.</p></details>
+  <details><summary>Dá para ganhar sempre?</summary><p>Não. Muitas operações terminam com perda. O que o Vaglio garante é que você sabe o tamanho dela antes de entrar.</p></details>
+</div></section>
+
+<section class="final"><div class="wrap">
+  <h2>Troque o palpite pelos números.</h2>
+  <p class="sub" style="margin-left:auto;margin-right:auto">Monte a primeira operação em minutos, no simulado, antes de pôr dinheiro.</p>
+  <div class="ctas"><a class="btn pri" data-cta href="#instalar">Baixar o app</a><a class="btn sec" data-web href="#">Usar no navegador</a></div>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <p>Se apostar virou um problema para você, procure ajuda profissional ou um grupo de apoio, como os Jogadores Anônimos.</p>
+  <p>O Vaglio não é corretora nem consultoria de valores mobiliários e não faz recomendação de investimento. Operações com opções envolvem risco de perda do valor aplicado. Resultados passados não garantem resultados futuros. Os preços são de fechamento da bolsa.</p>
+  <nav><a data-termos href="#">Termos de uso</a><a data-privacidade href="#">Política de privacidade</a></nav>
+  <p style="margin-top:18px">© Vaglio</p>
+</div></footer>
+
+<script>
+// Endereços: o app no navegador, o APK de teste do Android e as páginas de termos e privacidade.
+var APP = "https://obasico-81.github.io/BR-Options/";
+var APK = "https://github.com/Obasico-81/BR-Options/releases/download/android-teste/vaglio.apk";
+(function () {
+  var ua = navigator.userAgent || "", android = /Android/i.test(ua),
+      iphone = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var sistema = android ? "android" : iphone ? "iphone" : "computador";
+  document.body.classList.add(sistema);
+  document.querySelectorAll("[data-web]").forEach(function (a) { a.href = APP; });
+  document.querySelectorAll("[data-apk]").forEach(function (a) { a.href = APK; });
+  document.querySelector("[data-termos]").href = APP + "termos.html";
+  document.querySelector("[data-privacidade]").href = APP + "privacidade.html";
+  // botão principal conforme o aparelho: Android baixa o APK; iPhone abre o app no Safari; computador vai às instruções
+  document.querySelectorAll("[data-cta]").forEach(function (a) {
+    if (android) { a.href = APK; a.textContent = a.classList.contains("peq") ? "Baixar" : "Baixar para Android"; }
+    else if (iphone) { a.href = APP; a.textContent = a.classList.contains("peq") ? "Abrir" : "Abrir no iPhone"; }
+  });
+  var nota = document.querySelector("[data-nota]");
+  if (android) nota.textContent = "Versão de teste, gratuita. Instalação direta, fora da Play Store.";
+  else if (iphone) nota.textContent = "Versão de teste, gratuita. No iPhone, o app abre no Safari e pode ir para a tela de início.";
+  // o cartão do aparelho de quem está vendo vem primeiro
+  var inst = document.querySelector(".inst"), meu = inst.querySelector('[data-sistema="' + sistema + '"]');
+  if (meu) inst.insertBefore(meu, inst.firstChild);
+})();
+</script>
+</body>
+</html>
