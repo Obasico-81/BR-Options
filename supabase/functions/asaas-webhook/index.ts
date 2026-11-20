@@ -22,8 +22,20 @@ Deno.serve(async (req) => {
 
   const onde = ondeEvento(ev);
   if (!onde) return new Response("ignorado", { status: 200 });
-  const { data: linha, error } = await db.from("assinaturas").select("*").eq(onde.coluna, onde.valor).maybeSingle<Linha>();
+  let { data: linha, error } = await db.from("assinaturas").select("*").eq(onde.coluna, onde.valor).maybeSingle<Linha>();
   if (error) { await db.from("asaas_eventos").delete().eq("id", id); return new Response("erro", { status: 500 }); }   // o Asaas reenvia
+  // Cartão: o Asaas avisa da cobrança antes de avisar da assinatura criada pelo checkout. Sem dono pela assinatura,
+  // pergunta ao Asaas de que checkout ela veio e liga as duas (senão um pagamento na hora, sem teste, se perderia).
+  if (!linha && onde.coluna === "asaas_assinatura") {
+    const sub = await asaas("GET", `/subscriptions/${onde.valor}`).catch(() => null);
+    if (sub?.checkoutSession) {
+      const r = await db.from("assinaturas").select("*").eq("asaas_checkout", sub.checkoutSession).maybeSingle<Linha>();
+      if (r.data) {
+        linha = { ...r.data, asaas_assinatura: sub.id, asaas_cliente: sub.customer ?? r.data.asaas_cliente };
+        await db.from("assinaturas").update({ asaas_assinatura: linha.asaas_assinatura, asaas_cliente: linha.asaas_cliente }).eq("user_id", linha.user_id);
+      }
+    }
+  }
   if (!linha) {
     const orfa = orfaParaCancelar(ev, linha);
     if (orfa) await asaas("DELETE", `/subscriptions/${orfa}`).catch((e) => console.error("órfã", orfa, e));
