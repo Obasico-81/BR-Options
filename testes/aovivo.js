@@ -52,6 +52,14 @@ const venc = "2026-12-18";
   confere("vigia: regra que já disparou num fechamento (forcar) sai na primeira cotação executável", disp.length === 1 && disp[0].regra === "alvo" && Math.abs(disp[0].r + 50) < 0.05, disp); }
 { const disp = []; A.vigia(roteiro([0, 10]), [{ id: 9, m, ativo: T.n, venc: "2026-11-25" }], { aoDisparar: (e) => disp.push(e) });
   confere("vigia: prazo de saída (7 dias antes do vencimento) dispara na abertura", disp.length === 1 && disp[0].regra === "prazo", disp); }
+// a fonte entrega a primeira cotação dentro de abrir() (a simulada faz isso; um fornecedor com cotação em cache também):
+// a regra dispara antes de o vigia voltar, então quem recebe o aviso ainda não tem o retorno do vigia. O livro vem no aviso.
+{ const disp = []; let v = null, erro = null;
+  try { v = A.vigia(roteiro([0, 10]), [{ id: 11, m, ativo: T.n, venc: "2026-11-25" }],
+    { aoDisparar: (e) => disp.push({ regra: e.regra, antesDoRetorno: v === null, ordem: A.ordemDeSaida(m, e.livro) }) }); } catch (e) { erro = e.message; }
+  confere("vigia: regra atingida na cotação entregue dentro de abrir() não quebra, e o aviso traz o livro para a ordem de saída",
+    !erro && v !== null && disp.length === 1 && disp[0].regra === "prazo" && disp[0].antesDoRetorno && Array.isArray(disp[0].ordem) && disp[0].ordem.length === 2
+      && disp[0].ordem[0].lado === "venda" && disp[0].ordem[1].lado === "compra" && disp[0].ordem.every((x) => x.preco > 0 && x.qtd === q), { erro, disp }); }
 { const pv = achar("alta_com_caixa", 1e6), disp = [];
   if (!pv) confere("put vendida monta em algum ativo", false);
   else { const [[, x]] = pv.m.pernas, qq = 100 * pv.m.lotes;   // put vendida: recompra pelo melhor vendedor; prêmio < 0 (crédito)
@@ -123,6 +131,24 @@ async function app() {
     // ao reabrir o app, a real que já avisou não avisa de novo
     await p.reload(); await p.waitForSelector("#nav"); await p.waitForTimeout(1500);
     confere("app ao vivo: depois de reabrir, sem aviso repetido", (await p.locator("#aviso-vivo").count()) === 0);
+    // regra atingida já na primeira cotação, que a simulada entrega dentro de abrir(), antes de o vigia voltar: uma real que
+    // vence daqui a 3 dias (o prazo de saída, 7 dias antes, já chegou). O aviso guarda a ordem pronta e o vivo segue.
+    { const e0 = erros.length;
+      await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector("#nav");
+      await p.evaluate((n) => { S.data = SNAP.data; S.ativo = n; S.perda = 500; S.capital = 20000;
+        for (const v of vencs()) { S.venc = v.iso; S.prazo = v.d; if (typeof montagem("alta") !== "string") break; }
+        const m = montagem("alta"), x = M.execucao(m, { lotes: m.lotes, precos: m.pernas.map(([l, o]) => l > 0 ? o.a : o.b) });
+        const data = addDias(addDias(AV.isoLocal(new Date()), 3), -x.dias);
+        save("estado", S); localStorage.setItem("historico", JSON.stringify([{ m: x, ativo: n, data, id: 3, real: { data, custos: null, montada: { premio: m.premio, perdaMax: m.perdaMax, lotes: m.lotes } } }])); }, T.n);
+      await p.reload(); await p.waitForSelector("#nav");
+      const ok = await p.waitForFunction(() => load("historico", []).find((o) => o.id === 3)?.vivo, null, { timeout: 10000 }).then(() => true).catch(() => false);
+      const o3 = await p.evaluate(() => load("historico", []).find((o) => o.id === 3));
+      confere("app ao vivo: regra atingida já na primeira cotação (prazo): aviso guardado com a ordem pronta, sem erro de página",
+        ok && o3.vivo.regra === "prazo" && Array.isArray(o3.vivo.ordem) && o3.vivo.ordem.length === 2 && erros.length === e0, { vivo: o3 && o3.vivo, erros: erros.slice(e0) });
+      await p.evaluate(() => { aviso = null; mostrarAviso(); selId = null; tela = "acomp"; render(); });
+      const hora = () => p.evaluate(() => +(AGORA.get(3)?.hora || 0)), h1 = await hora(); await p.waitForTimeout(600); const h2 = await hora();
+      const agora = await p.evaluate(() => document.querySelector('[data-agora="3"]')?.textContent || "");
+      confere("app ao vivo: depois disso o vivo segue (selo, 'se encerrar agora' e cotações novas)", (await p.locator(".vivo").count()) > 0 && /R\$/.test(agora) && h2 > h1, { agora, h1, h2 }); }
     confere("app: sem erros de página", erros.length === 0, erros);
   } finally { await b.close(); srv.kill(); }
 }

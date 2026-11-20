@@ -291,7 +291,7 @@ async function iniciarAoVivo(){
   const avisadas = new Set(hs.filter(o => o.real && o.vivo).map(o => o.id));
   VIVO = AV.vigia(f, ops, {aoMudar: (e) => { AGORA.set(e.id, e); vivoHora = e.hora; pintarAgora(); },
     aoDisparar: (e) => { if (avisadas.has(e.id)) return; const hs = load("historico", []), o = hs.find(x => x.id === e.id); if (!o) return;
-      o.vivo = {regra: e.regra, d: AV.isoLocal(e.hora), hora: horaBR(e.hora), r: e.r, ordem: AV.ordemDeSaida(o.m, VIVO.livro)}; save("historico", hs);
+      o.vivo = {regra: e.regra, d: AV.isoLocal(e.hora), hora: horaBR(e.hora), r: e.r, ordem: AV.ordemDeSaida(o.m, e.livro)}; save("historico", hs);
       aviso = {id: o.id, txt: `${REGRA_CURTA[e.regra]} · ${esc(o.m.estrutura)} · ${o.ativo}`, r: e.r, sim: !o.real}; mostrarAviso();
       if (tela === "acomp" || tela === "desemp") { const y = window.scrollY; render(); window.scrollTo(0, y); } }});
   VIVO.fonte = f.nome; pintarAgora();
