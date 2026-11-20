@@ -102,6 +102,12 @@ h2{font-size:clamp(26px,5vw,36px);line-height:1.15;letter-spacing:-.01em;margin:
 .lado .sim li::before{content:"✓";color:var(--good)}
 .lado .sim{border-color:#4a4220}
 .lado h3{margin:0;font-size:19px}
+.pro{display:inline-block;background:#3a3016;color:#F0C060;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;letter-spacing:.02em;vertical-align:middle;margin-left:8px}
+.planos .card{display:flex;flex-direction:column;gap:10px}
+.planos .preco{font-size:30px;font-weight:800;line-height:1.1}
+.planos .preco small{font-size:15px;font-weight:600;color:var(--muted)}
+.planos .card.destaque{border-color:#6b5a1e;box-shadow:0 0 0 1px #6b5a1e inset}
+.planos .btn{margin-top:auto}
 .legenda{font-size:13px;color:#6f6d68;margin:8px 0 0}
 .aviso{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:14px 16px;color:var(--muted);font-size:16px;margin-top:18px}
 @media (max-width:600px){
@@ -155,7 +161,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
       <a class="btn pri" data-cta href="#instalar">Baixar o app</a>
       <a class="btn sec" data-web href="#">Usar no navegador</a>
     </div>
-    <p class="nota" data-nota>Versão de teste, gratuita. Para operar de verdade, a ordem é feita na sua corretora.</p>
+    <p class="nota" data-nota>Grátis para começar. Para operar de verdade, a ordem é feita na sua corretora.</p>
   </div>
   <div class="notifs" aria-label="Exemplos de avisos do Vaglio">
     <div class="notif"><span class="ic">V</span><div><b>Trava de alta montada · BOVA11</b><span>Ganho máximo R$ 380 · risco R$ 420</span></div><span class="ex">exemplo</span></div>
@@ -192,11 +198,11 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
   <div class="passos">
     <div class="passo"><div class="txt"><span class="n">1</span><h3>Diga o que espera do papel</h3><p>Subir, cair ou se mexer muito. Você escolhe o ativo, o vencimento e quanto aceita arriscar, em reais.</p></div>
       <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="../img/pc-inicio.webp" alt="Início da Plataforma: lista de ativos com minigráfico e as quatro operações lado a lado, com custo, risco máximo, ganho e chance" loading="lazy" width="1600" height="1000"></div></div>
-    <div class="passo"><div class="txt"><span class="n">2</span><h3>Veja a operação montada</h3><p>Quais opções comprar e vender, quanto paga ou recebe, o risco máximo e o ponto de equilíbrio. Três perfis: Lucro maior, Equilibrada e Lucro frequente.</p></div>
+    <div class="passo"><div class="txt"><span class="n">2</span><h3>Veja a operação montada</h3><p>Quanto paga ou recebe, o risco máximo, o ganho máximo e o ponto de equilíbrio. Três perfis: Lucro maior, Equilibrada e Lucro frequente. No Pro, as opções de cada perna e a ordem pronta para a corretora.</p></div>
       <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="../img/pc-ordens.webp" alt="Operação montada: as ordens a enviar na corretora, com os preços-limite, e o gráfico do resultado no vencimento" loading="lazy" width="1600" height="1000"></div></div>
     <div class="passo"><div class="txt"><span class="n">3</span><h3>Veja o que pode acontecer</h3><p>O resultado no vencimento para cada preço da ação, com a chance que o próprio preço das opções indica.</p></div>
       <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="../img/pc-cenarios.webp" alt="Cenários: gráfico e tabela do resultado no vencimento para cada preço da ação" loading="lazy" width="1600" height="1000"></div></div>
-    <div class="passo"><div class="txt"><span class="n">4</span><h3>Acompanhe ao vivo</h3><p>Registre o que executou na corretora. Durante o pregão, o app mostra quanto você receberia se encerrasse agora e avisa na hora em que uma regra de saída é atingida, com a ordem de saída pronta.</p></div>
+    <div class="passo"><div class="txt"><span class="n">4</span><h3>Acompanhe ao vivo<span class="pro">Pro</span></h3><p>Registre o que executou na corretora. Durante o pregão, o app mostra quanto você receberia se encerrasse agora e avisa na hora em que uma regra de saída é atingida, com a ordem de saída pronta.</p></div>
       <div><div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="../img/pc-aovivo.webp" alt="Sua operação ao vivo: quanto receberia se encerrasse agora, o aviso de alvo atingido e a ordem de saída, perna por perna" loading="lazy" width="1600" height="1000"></div><p class="legenda">Imagem ilustrativa, com cotações simuladas.</p></div></div>
   </div>
 </div></section>
@@ -213,8 +219,8 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
     <div class="card sim"><h3>No Vaglio</h3><ul>
       <li>Dizer o que espera do papel: subir, cair ou mexer muito</li>
       <li>Ver ganho máximo, risco, custo e equilíbrio antes da ordem</li>
-      <li>Ver ao vivo quanto receberia se encerrasse agora</li>
-      <li>Regras de saída definidas na entrada, com aviso quando são atingidas</li></ul></div>
+      <li>Ver ao vivo quanto receberia se encerrasse agora<span class="pro">Pro</span></li>
+      <li>Regras de saída definidas na entrada, com aviso quando são atingidas<span class="pro">Pro</span></li></ul></div>
   </div>
 </div></section>
 
@@ -258,9 +264,27 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
   </div>
 </div></section>
 
+<section id="planos" class="planos"><div class="wrap">
+  <h2>Planos</h2>
+  <p class="sub">Comece grátis. O Pro tem 7 dias grátis e você cancela quando quiser, no próprio app.</p>
+  <div class="lado">
+    <div class="card sim"><h3>Grátis</h3><div class="preco">R$ 0</div><ul>
+      <li>Custo, risco máximo, ganho máximo e ponto de equilíbrio de cada operação</li>
+      <li>Cenários, chance implícita e Vitrine</li>
+      <li>Simulação e Desempenho, pelos preços de fechamento</li></ul>
+      <a class="btn sec" data-ir href="#instalar">Começar grátis</a></div>
+    <div class="card sim destaque"><h3>Vaglio Pro</h3><div class="preco">R$ 49,90 <small>por mês</small></div><p style="margin:-6px 0 0;color:var(--good);font-size:15px">ou R$ 479 por ano: R$ 39,92 por mês</p><ul>
+      <li>Quais opções comprar e vender, com strike e quantidade</li>
+      <li>A ordem pronta para a corretora</li>
+      <li>Cotação em tempo real e quanto receberia se encerrasse agora</li>
+      <li>Aviso na hora da saída, com a ordem de saída pronta</li></ul>
+      <a class="btn pri" data-ir href="#instalar">7 dias grátis</a></div>
+  </div>
+</div></section>
+
 <section id="instalar"><div class="wrap">
   <h2>Instale o Vaglio</h2>
-  <p class="sub">Grátis durante o período de teste.</p>
+  <p class="sub">Grátis para começar. O Pro tem 7 dias grátis.</p>
   <div class="inst">
     <div class="card" data-sistema="android"><h3>Android</h3>
       <a class="btn pri" data-apk href="#" style="width:100%;margin-top:10px">Baixar para Android</a>
@@ -279,7 +303,8 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
   <details><summary>Preciso de muito dinheiro?</summary><p>Não. Você define o risco máximo por operação e o app só monta o que cabe nele.</p></details>
   <details><summary>O app diz o que comprar?</summary><p>Não. Ele mostra os números de cada operação. A decisão é sua.</p></details>
   <details><summary>Preciso de corretora?</summary><p>Para operar de verdade, sim: a ordem é feita na sua corretora, com o dinheiro na sua conta. No app você monta, simula e acompanha.</p></details>
-  <details><summary>Quanto custa?</summary><p>A versão de teste é gratuita.</p></details>
+  <details><summary>Quanto custa?</summary><p>Montar operações, ver os números, os cenários e a Vitrine, e simular é grátis. O Vaglio Pro, com as opções de cada operação, a ordem pronta e o acompanhamento ao vivo, custa R$ 49,90 por mês ou R$ 479 por ano, com 7 dias grátis. Cancele quando quiser, no app.</p></details>
+  <details><summary>Como pago o Pro?</summary><p>Por Pix Automático ou cartão de crédito, pelo Asaas, que faz a cobrança. O Vaglio não vê nem guarda os dados do seu cartão. Nos 7 dias grátis, nada é cobrado.</p></details>
   <details><summary>De onde vêm as 22.532 operações?</summary><p>Simulamos as operações que o app teria montado em cada pregão de 2015 a 2026, com os preços de fechamento publicados pela B3, e conferimos o que aconteceu até o vencimento. A chance mostrada na tela bateu com o que aconteceu, com diferença de poucos pontos. Resultado passado não garante resultado futuro.</p></details>
   <details><summary>Dá para ganhar sempre?</summary><p>Não. Muitas operações terminam com perda. O que o Vaglio garante é que você sabe o tamanho dela antes de entrar.</p></details>
 </div></section>
@@ -316,9 +341,11 @@ var APK = "https://github.com/Obasico-81/BR-Options/releases/download/android-te
     if (android) { a.href = APK; a.textContent = a.classList.contains("peq") ? "Baixar" : "Baixar para Android"; }
     else if (iphone) { a.href = APP; a.textContent = a.classList.contains("peq") ? "Abrir" : "Abrir no iPhone"; }
   });
+  // botões dos planos: no celular, o mesmo destino do botão principal (APK ou app), sem trocar o texto
+  document.querySelectorAll("[data-ir]").forEach(function (a) { if (android) a.href = APK; else if (iphone) a.href = APP; });
   var nota = document.querySelector("[data-nota]");
-  if (android) nota.textContent = "Versão de teste, gratuita. Instalação direta, fora da Play Store.";
-  else if (iphone) nota.textContent = "Versão de teste, gratuita. No iPhone, o app abre no Safari e pode ir para a tela de início.";
+  if (android) nota.textContent = "Grátis para começar. Instalação direta, fora da Play Store.";
+  else if (iphone) nota.textContent = "Grátis para começar. No iPhone, o app abre no Safari e pode ir para a tela de início.";
   // o cartão do aparelho de quem está vendo vem primeiro
   var inst = document.querySelector(".inst"), meu = inst.querySelector('[data-sistema="' + sistema + '"]');
   if (meu) inst.insertBefore(meu, inst.firstChild);
