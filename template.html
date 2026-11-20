@@ -1,4 +1,4 @@
-<title>Montador de Opções</title>
+<title>Vaglio</title>
 <style>
 /* Fonte Figtree dentro do app (fontes/, licença SIL OFL 1.1): nenhum pedido a servidor de terceiros */
 /*FONTE*/
@@ -301,7 +301,14 @@ function render(){
   navBar();
   bind();
 }
-const topo = (back, label, passo) => `<div class="top">${back?`<button class="back" data-go="${back}">‹ ${label}</button>`:`<span class="small muted" style="font-weight:600">Passo ${passo} de 4</span>`}<span>${back?`<span class="small muted" style="font-weight:600;margin-right:8px">Passo ${passo} de 4</span>`:""}<span class="pill sim">Modo simulado</span></span></div>`;
+// Marca Vaglio (marca/): o símbolo no amarelo do app (var(--accent-text): amarelo no tema escuro, dourado escuro no
+// claro, para ter contraste), com a parte de cima do V mais clara; o nome em negrito, na cor do texto.
+let _vg = 0;
+const SIMB = (px) => { const id = "vg" + (++_vg); return `<svg viewBox="0 0 120 120" width="${px}" height="${px}" aria-hidden="true" style="flex:none;color:var(--accent-text)"><clipPath id="${id}"><rect x="0" y="54" width="120" height="66"/></clipPath><path d="M24 22 L60 98 L96 22" fill="none" stroke="currentColor" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/><g clip-path="url(#${id})"><path d="M24 22 L60 98 L96 22" fill="none" stroke="currentColor" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/></g><rect x="6" y="50" width="108" height="5" rx="2.5" fill="currentColor"/></svg>`; };
+const MARCA_TOPO = () => `<span style="display:flex;align-items:center;gap:9px" aria-label="Vaglio">${SIMB(30)}<span style="font-weight:800;font-size:18px;letter-spacing:.18em">VAGLIO</span></span>`;
+// Passos da montagem: sempre no canto superior direito; à esquerda, a volta (ou a marca, no Início).
+const PASSO = (n) => `<span class="small muted" style="font-weight:600;margin-left:auto">Passo ${n} de 4</span>`;
+const topo = (back, label, passo) => `<div class="top">${back ? `<button class="back" data-go="${back}">‹ ${label}</button>` : ""}${PASSO(passo)}</div>`;
 
 // --- Minigráfico: só o histórico. Fechamentos dos últimos PREG_MINI pregões até o dia dos preços, com a variação no
 // período ao lado. A cor é a tendência (M.tendencia: médias de 21 e 50 pregões e ADX de 14, com o IFR se TEND_IFR):
@@ -391,7 +398,7 @@ function listaAtivos(q){ q = (q||"").trim().toUpperCase(); const d = SNAP.por_da
   return L.length ? L.map(n => { const g = miniGrafico(n, 56, 22); return `<button class="opt" role="option" data-ativo="${n}" aria-selected="${n===S.ativo}" style="border:0;border-top:1px solid var(--line);border-radius:0;justify-content:space-between;align-items:center;padding:12px 6px;${n===S.ativo?"font-weight:700":""}"><span style="display:flex;flex-direction:column;text-align:left;flex:1;min-width:0"><span style="white-space:nowrap">${n} <span class="muted" style="font-weight:500">· ${brl(d[n].S,2)}</span></span>${EMPRESAS[n] ? `<span class="muted emp">${EMPRESAS[n]}</span>` : ""}</span>${g ? `<span style="flex-shrink:0;display:flex">${g.svg}</span>` : ""}</button>`; }).join("") : `<p class="small muted" style="padding:12px 6px">Nenhum ativo encontrado.</p>`; }
 function vObj(){
   const a = dia();
-  let h = topo(null,"",1) + `<h1>Monte sua operação</h1>`;
+  let h = `<div class="top">${MARCA_TOPO()}${PASSO(1)}</div>` + `<h1>Monte sua operação</h1>`;
   if (DEFASADO) h += `<div class="note" role="alert"><p class="small"><strong>Preços desatualizados.</strong> O último fechamento carregado é de ${dBR(SNAP.data)}. As operações abaixo são só simulação, e a cópia dos parâmetros fica bloqueada até os preços serem atualizados.</p></div>`;
   { const nomes = Object.keys(SNAP.por_data[S.data]);
     h += `<section class="card" aria-label="Ativo"><button class="opt" id="atvBtn" aria-expanded="${ativoAberto}" style="justify-content:space-between;align-items:center;padding:12px 14px"><span style="display:flex;flex-direction:column"><span class="small muted">Ativo</span><span style="font-weight:700;font-size:18px;white-space:nowrap">${S.ativo} <span class="muted" style="font-weight:500;font-size:15px">· ${brl(SNAP.por_data[S.data][S.ativo].S,2)}</span> <span class="muted" style="font-weight:500;font-size:15px" aria-hidden="true">${ativoAberto?"▴":"▾"}</span></span>${EMPRESAS[S.ativo] ? `<span class="small muted">${EMPRESAS[S.ativo]}</span>` : ""}</span>${(g => g ? g.svg : "")(miniGrafico(S.ativo))}</button>`;
@@ -458,7 +465,7 @@ function varrer(){
 }
 function vVitrine(){
   const ok = varrer(), n = Object.keys(SNAP.por_data[S.data]).length;
-  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div>
+  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button></div>
    <div><h1>Vitrine</h1><p class="muted" style="margin-top:6px">Tudo o que o app consegue montar hoje com o seu perfil, nos ${n} ativos. Preços de ${dBR(S.data)}.</p></div>
    <section class="card" style="flex-direction:row;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px"><div class="small"><strong>Risco máx. ${brl(S.perda).replace(" ", "&nbsp;")}</strong> · capital ${brl(S.capital).replace(" ", "&nbsp;")}<br><span class="muted">Vencimento mais perto de ${dm(vencSel().iso)}</span></div><button class="back" id="exp-perfil" style="min-height:44px">Mudar</button></section>
    <div><div class="small muted" style="margin-bottom:6px">O que você espera?</div><div class="chips" role="group" aria-label="O que você espera" style="margin-top:0">${[["tudo", "Tudo"], ...EXP_TESES].map(([k, t]) => `<button class="chip" data-expf="${k}" aria-pressed="${expFiltro === k}" style="${expFiltro === k ? "background:var(--ink);color:var(--bg);border-color:var(--ink)" : ""}">${t}</button>`).join("")}</div></div>
@@ -612,7 +619,7 @@ function desempenho(){
   const tot = fim.reduce((a,l)=>a+l.res,0), gan = fim.filter(l=>l.res>0), per_ = fim.filter(l=>l.res<0);
   const chip = (k, t) => `<button class="chip${per===k?" on":""}" data-per="${k}" style="padding:8px 12px;border-radius:999px;border:1.5px solid var(--line);background:${per===k?"var(--ink)":"transparent"};color:${per===k?"var(--bg)":"inherit"};font:inherit;font-size:14px;font-weight:600;cursor:pointer">${t}</button>`;
   const seg = (k, t) => { const on = tipo === k; return `<button class="seg" data-tipo="${k}" aria-pressed="${on}" style="min-height:44px;padding:8px 10px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:15px;font-weight:600;cursor:pointer">${t}</button>`; };
-  const pill = tipo === "real" ? '<span class="pill real">Operações reais</span>' : '<span class="pill sim">Modo simulado</span>';
+  const pill = tipo === "real" ? '<span class="pill real">Operações reais</span>' : "";
   let h = `<h2 style="font-size:18px;margin-top:4px">Desempenho</h2>`;
   h += `<div role="group" aria-label="Tipo de operação" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${seg("real","Reais")}${seg("sim","Simuladas")}</div>`;
   h += `<p class="muted">${tipo === "real" ? "Resultado das suas operações reais encerradas, com os custos que você informou, antes de imposto." : "Resultado das suas operações simuladas já encerradas, antes de imposto."}</p>`;
@@ -644,12 +651,12 @@ function vLista(){
   const item = (o) => `<button class="opt" data-op="${o.id}"><span class="tx"><span class="t">${esc(o.m.estrutura)} · ${o.ativo}</span><span class="st"><span style="flex-basis:100%">Vence ${dBR(addDias(o.data,o.m.dias))} · <span style="white-space:nowrap">risco máx. ${brl(o.m.perdaMax)}</span></span><span class="small" style="flex-basis:100%;margin-top:-4px">${o.real ? `Executada em ${dBR(o.real.data)}` : `Entrada em ${dBR(o.data)}`}${STATUS.get(o.id)?.saida && o.real ? ` · <strong style="color:var(--accent-text)">regra atingida</strong>` : ""}</span></span></span></button>`;
   const ordem = (A) => A.slice().sort((a,b)=>addDias(a.data,a.m.dias).localeCompare(addDias(b.data,b.m.dias)));
   if (nR) h += `<h2 style="font-size:16px;margin-top:6px">Reais <span class="pill real" style="margin-left:6px;vertical-align:middle">na corretora</span></h2>` + ordem(LR).map(item).join("");
-  if (nS) h += `<h2 style="font-size:16px;margin-top:6px">Simuladas <span class="pill sim" style="margin-left:6px;vertical-align:middle">Modo simulado</span></h2>` + ordem(L.filter(o => !o.real)).map(item).join("");
+  if (nS) h += `<h2 style="font-size:16px;margin-top:6px">Simuladas</h2>` + ordem(L.filter(o => !o.real)).map(item).join("");
   return fimTela(h);
 }
 function vCad(){
   const c = S.cad;
-  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button><span class="pill sim">Modo simulado</span></div><h1>Ajustes</h1><p class="muted">Estes dados ficam guardados só neste aparelho.</p>`;
+  let h = `<div class="top"><button class="back" data-go="obj">‹ Início</button></div><h1>Ajustes</h1><p class="muted">Estes dados ficam guardados só neste aparelho.</p>`;
   h += `<section class="card"><label class="f">Corretora<select id="ccorr"><option value="">Escolha…</option>${CORRETORAS.map(n=>`<option ${n===c.corretora?"selected":""}>${n}</option>`).join("")}</select></label>
    <label class="f">Corretagem por ordem de opções (R$)<input id="ccorrtg" type="text" inputmode="decimal" autocomplete="off" placeholder="Não sei" value="${fmtBR(c.corretagem,2)}"></label>
    <p class="small muted">${c.corretagem===null?"Sem este valor, o custo das operações não inclui corretagem. Os custos aparecem em Detalhes da operação.":`O custo das operações usa ${brl(c.corretagem,2).replace(" ","&nbsp;")} por ordem, na entrada e na saída de cada perna. Aparece em Detalhes da operação.`} Consulte a tabela da sua corretora; o app não confere esse valor.</p></section>`;
@@ -658,7 +665,7 @@ function vCad(){
    <p class="small" style="margin-top:6px">A linha mostra os fechamentos dos últimos 60 pregões.</p>
    <p class="small" style="margin-top:6px">A cor mostra a tendência pelos indicadores: <strong style="color:var(--good)">verde</strong> quando o preço está acima da média de 21 pregões, a de 21 está acima da de 50, a de 50 está subindo e a força da tendência (ADX) é de pelo menos 20; <strong style="color:var(--bad)">vermelho</strong> no caso oposto; <strong style="color:var(--warn-text)">amarelo</strong> quando não há tendência definida.</p>
    <p class="small muted" style="margin-top:6px">Descreve o que já aconteceu. Não indica para onde a ação vai.</p></section>`;
-  h += `<section class="card" aria-label="Sobre o app"><h2 style="font-size:16px">Sobre o app</h2><p class="small muted">O app monta, simula e registra operações. Não é corretora e não recomenda ativo, direção nem momento.</p><button class="btn sec" data-doc="termos">Termos de uso</button><button class="btn sec" data-doc="privacidade">Política de privacidade</button></section>`;
+  h += `<section class="card" aria-label="Sobre o app"><div style="display:flex;align-items:center;gap:14px">${SIMB(56)}<div><div style="font-weight:700;font-size:24px;letter-spacing:.18em;line-height:1.1">VAGLIO</div><div class="small muted" style="margin-top:4px">Estratégias com opções na bolsa brasileira</div></div></div><p class="small muted">O app monta, simula e registra operações. Não é corretora e não recomenda ativo, direção nem momento.</p><button class="btn sec" data-doc="termos">Termos de uso</button><button class="btn sec" data-doc="privacidade">Política de privacidade</button></section>`;
   h += `<section class="card"><h2 style="font-size:16px">Seus dados neste aparelho</h2><p class="small muted">Apaga a corretora, o perfil, o tema, as operações simuladas e o histórico.</p><button class="btn danger" id="apagar-tudo">Apagar meus dados</button></section>`;
   return h;
 }
@@ -719,7 +726,7 @@ function vReal(){
   if (typeof m0 === "string") { tela = "obj"; return vObj(); }
   if (!realF || realF.tese !== tese || realF.ativo !== S.ativo) realF = {tese, ativo: S.ativo, data: hojeISO() < S.data ? S.data : hojeISO(), qtd: m0.lotes * 100, precos: m0.pernas.map(([l,x]) => l > 0 ? x.a : x.b), custos: null};
   const m = realMontada(realF, m0), prob = realProblema(realF, m || m0);
-  let h = `<div class="top"><button class="back" data-go="cen">‹ Voltar</button><span class="pill real">Operação real</span></div><div><h1>Registrar operação real</h1><p class="muted" style="margin-top:6px">${esc(m0.estrutura)} · ${S.ativo}. Use os dados da sua nota de corretagem: o app acompanha a operação com eles.</p></div>`;
+  let h = `<div class="top"><button class="back" data-go="cen">‹ Voltar</button>${PASSO(4)}</div><div><h1>Registrar operação real</h1><p class="muted" style="margin-top:6px">${esc(m0.estrutura)} · ${S.ativo}. Use os dados da sua nota de corretagem: o app acompanha a operação com eles.</p></div>`;
   h += `<section class="card"><div class="row3"><label class="f">Data da execução<input id="rdata" type="date" value="${realF.data}" min="${S.data}"></label><label class="f">Opções por perna<input id="rqtd" type="text" inputmode="numeric" autocomplete="off" value="${realF.qtd || ""}"></label></div><p class="small muted">Montada com ${m0.lotes * 100} opções por perna, com os preços de ${dBR(S.data)}.</p></section>`;
   h += m0.pernas.map(([l,x], i) => `<section class="card"><div><div style="font-weight:700">${l > 0 ? "Comprou" : "Vendeu"} ${esc(x.s)}</div><div class="small muted">${nomeOp(x)} · vence ${dBR(addDias(S.data, m0.dias))}</div></div><label class="f">Preço executado (R$ por opção)<input id="rpreco${i}" type="text" inputmode="decimal" autocomplete="off" value="${fmtBR(realF.precos[i], 2)}"></label><p class="small muted">Na montagem: ${l > 0 ? "pagar até" : "receber pelo menos"} ${brl(l > 0 ? x.a : x.b, 2)}.</p></section>`).join("");
   h += `<section class="card"><label class="f">Custos da nota (opcional)<input id="rcustos" type="text" inputmode="decimal" autocomplete="off" placeholder="Taxas e corretagem, em R$" value="${fmtBR(realF.custos, 2)}"></label><p class="small muted">Sem este valor, o resultado fica sem custos.</p></section>`;
@@ -752,7 +759,7 @@ function vDoc(){
 function vAcomp(){
   if (selId===null || !opSel()) return vLista();
   const P = opSel();
-  let h = `<div class="top"><button class="back" data-op="">‹ Operações</button>${P && P.real ? '<span class="pill real">Operação real</span>' : '<span class="pill sim">Modo simulado</span>'}</div><h1>Sua operação</h1>`;
+  let h = `<div class="top"><button class="back" data-op="">‹ Operações</button>${P && P.real ? '<span class="pill real">Operação real</span>' : '<span class="pill sim">Simulada</span>'}</div><h1>Sua operação</h1>`;
   if (!P || !P.m){ return h + `<div class="card empty"><p>Nenhuma operação simulada ainda.</p><p class="small" style="margin-top:6px">Monte uma operação e confirme a simulação para acompanhá-la aqui.</p></div><button class="btn" data-go="obj">Montar operação</button>`; }
   // A cadeia do dia da entrada sai do snapshot depois de 12 pregões; o preço da ação daquele dia continua em fechamentos.
   const m = P.m, a = {S: SNAP.por_data[P.data]?.[P.ativo]?.S ?? SNAP.fechamentos[P.ativo]?.[P.data] ?? SNAP.ativos[P.ativo].S};
@@ -783,7 +790,7 @@ function vAcomp(){
   else h += avisosHtml(P) + `<section class="card"><h2 style="font-size:16px">Custos da nota</h2><p class="small">Entrada: ${R.custos != null ? brl(R.custos, 2) : "não informados"}${fechada ? ` · Saída: ${R.saida.custos != null ? brl(R.saida.custos, 2) : "não informados"}` : ""}.</p></section>`;
   if (rep && !fechada){ const rr = Math.round((M.resultadoNoVencimento(m, rep.preco) - (R && R.custos || 0)) * 100) / 100; h += `<section class="card"><h2 style="font-size:16px">Como terminou de verdade</h2><p class="small">Em ${dBR(rep.venc)}, ${P.ativo} fechou em ${brl(rep.preco,2)}. Resultado: <strong style="color:${rr>0?"var(--good)":rr<0?"var(--bad)":"inherit"}">${rr===0?"R$ 0":sgn(rr)}</strong>, antes de imposto${R ? (R.custos != null ? ", com os custos de entrada e sem os de exercício" : ", sem custos") : ""}.</p></section>`; }
   if (R) h += `<p class="foot">Acompanhada pelos preços de fechamento de cada dia, que a B3 publica no fim do pregão.</p>${!fechada && !rep ? `<button class="btn" id="ir-sair">Registrar encerramento</button>` : ""}<button class="btn danger" id="encerrar">Apagar registro</button>`;
-  else h += `<p class="foot">Valores calculados com preços de fechamento reais, em modo simulado.</p><button class="btn sec2" id="copiar">Copiar parâmetros</button><textarea id="cpbox" class="small" hidden readonly rows="6" style="width:100%;margin-top:8px"></textarea><button class="btn danger" id="encerrar">Encerrar operação simulada</button>`;
+  else h += `<p class="foot">Valores calculados com os preços de fechamento.</p><button class="btn sec2" id="copiar">Copiar parâmetros</button><textarea id="cpbox" class="small" hidden readonly rows="6" style="width:100%;margin-top:8px"></textarea><button class="btn danger" id="encerrar">Encerrar operação simulada</button>`;
   return h;
 }
 

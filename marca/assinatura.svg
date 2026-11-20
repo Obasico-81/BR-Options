@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 120" width="640" height="120" role="img" aria-label="Vaglio">
+  <defs><clipPath id="abaixo"><rect x="0" y="54" width="120" height="66"/></clipPath></defs>
+  <path d="M24 22 L60 98 L96 22" fill="none" stroke="#111110" stroke-width="17"
+        stroke-linecap="round" stroke-linejoin="round" opacity=".28"/>
+  <g clip-path="url(#abaixo)">
+    <path d="M24 22 L60 98 L96 22" fill="none" stroke="#111110" stroke-width="17"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <rect x="6" y="50" width="108" height="4" rx="2" fill="#111110"/>
+  <text x="146" y="62" fill="#111110" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="46" font-weight="600" letter-spacing="9">VAGLIO</text>
+  <text x="149" y="86" fill="#111110" opacity=".72" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="13.5" letter-spacing="1.6">ESTRATÉGIAS COM OPÇÕES NA BOLSA BRASILEIRA</text>
+</svg>

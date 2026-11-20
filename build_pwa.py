@@ -8,7 +8,7 @@ cab = '''<!doctype html>
 <meta name="theme-color" content="#1E1E20">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Opções">
+<meta name="apple-mobile-web-app-title" content="Vaglio">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -24,7 +24,7 @@ json.dump(snapshot_publicado(), open("pwa/snapshot.json", "w", encoding="utf-8")
 # termos de uso e política de privacidade como páginas do site (as lojas pedem os endereços)
 PAGINA = """<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>%s · Montador de Opções</title>
+<title>%s · Vaglio</title>
 <style>%s
 :root{--bg:#1E1E20;--surface:#28282B;--ink:#EDEBE4;--muted:#A9A7A0;--line:#3C3C40;--accent:#F5C400;color-scheme:dark}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;line-height:1.55}
