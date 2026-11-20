@@ -1,8 +1,9 @@
 name: App nativo (Android e iPhone)
 
-# Gera o app de Android (APK de teste, instalável fora da loja) e o de iPhone (para o simulador, com uma foto da tela
-# aberta) a partir de nativo/ (Capacitor), com o mesmo código do site. Os dados do dia o app baixa do site publicado.
-# Ainda sem assinatura de loja: isso entra quando existirem as contas da Google Play e da Apple.
+# Gera o app de Android (APK instalável fora da loja: de produção, com a chave dos segredos, ou de teste) e o de
+# iPhone (para o simulador, com uma foto da tela aberta) a partir de nativo/ (Capacitor), com o mesmo código do site.
+# Os dados do dia o app baixa do site publicado.
+# Envio às lojas (Google Play e App Store) entra quando existirem as contas.
 on:
   workflow_dispatch:
   push:
@@ -24,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: write   # só para atualizar a página de download do APK de teste (release android-teste)
+      contents: write   # só para atualizar a página de download do APK (releases android e android-teste)
     steps:
       - uses: actions/checkout@v6
 
@@ -59,31 +60,67 @@ jobs:
           npm ci
           npx cap sync android
 
-      - name: Gerar o APK de teste
+      # Chave de produção: só nos segredos do repositório (Settings → Secrets and variables → Actions). Sem ela, o
+      # workflow gera o APK de teste de sempre (chave de teste do repositório, com depuração).
+      - name: Chave de produção
+        id: chave
+        shell: bash
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KS" ]; then
+            echo "$KS" | base64 -d > "$RUNNER_TEMP/vaglio.keystore"
+            echo "loja=sim" >> "$GITHUB_OUTPUT"; echo "Com a chave de produção: APK assinado, sem depuração."
+          else
+            echo "loja=nao" >> "$GITHUB_OUTPUT"; echo "Sem a chave de produção: só o APK de teste."
+          fi
+
+      - name: Gerar o APK
         working-directory: nativo/android
-        run: ./gradlew assembleDebug --no-daemon
+        shell: bash
+        env:
+          VERSAO_CODIGO: ${{ github.run_number }}
+          VERSAO_NOME: 1.0.${{ github.run_number }}
+          ANDROID_KEYSTORE_ARQUIVO: ${{ steps.chave.outputs.loja == 'sim' && format('{0}/vaglio.keystore', runner.temp) || '' }}
+          ANDROID_KEYSTORE_SENHA: ${{ secrets.ANDROID_KEYSTORE_SENHA }}
+          ANDROID_CHAVE_ALIAS: ${{ secrets.ANDROID_CHAVE_ALIAS }}
+          ANDROID_CHAVE_SENHA: ${{ secrets.ANDROID_CHAVE_SENHA }}
+        run: |
+          if [ "${{ steps.chave.outputs.loja }}" = sim ]; then
+            ./gradlew assembleRelease --no-daemon
+            ls app/build/outputs/apk/release/app-release.apk
+          else
+            ./gradlew assembleDebug --no-daemon
+          fi
 
       - uses: actions/upload-artifact@v6
         with:
-          name: android-apk-teste
-          path: nativo/android/app/build/outputs/apk/debug/*.apk
+          name: android-apk
+          path: nativo/android/app/build/outputs/apk/*/*.apk
           retention-days: 14
 
-      # Link público e fixo para quem for testar (sem login no GitHub). Só a partir da main; cada build substitui o
-      # arquivo. O APK é assinado com a chave de teste do repositório, então instala por cima do anterior.
-      - name: Publicar o APK de teste (link fixo)
+      # Link público e fixo (sem login no GitHub), só a partir da main; cada build substitui o arquivo e instala por cima
+      # do anterior. Com a chave de produção: release "android" (o link das páginas). Sem ela: release "android-teste".
+      - name: Publicar o APK (link fixo)
         if: github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APK=$(ls nativo/android/app/build/outputs/apk/debug/*.apk | head -1)
+          if [ "${{ steps.chave.outputs.loja }}" = sim ]; then
+            TAG=android; TITULO="Vaglio para Android"; PRE=""
+            APK=nativo/android/app/build/outputs/apk/release/app-release.apk
+            NOTAS="Vaglio para Android, versão 1.0.${GITHUB_RUN_NUMBER}, de $(date -u +%d/%m/%Y) (${GITHUB_SHA::7}). Instalação fora da Play Store: o celular pede para permitir apps desta fonte."
+          else
+            TAG=android-teste; TITULO="App de teste (Android)"; PRE="--prerelease"
+            APK=$(ls nativo/android/app/build/outputs/apk/debug/*.apk | head -1)
+            NOTAS="APK de teste do Android, gerado da main em $(date -u +%d/%m/%Y) (${GITHUB_SHA::7}). Instalar fora da loja: permitir apps de fontes desconhecidas. Os dados do dia vêm do site publicado."
+          fi
           cp "$APK" "$RUNNER_TEMP/vaglio.apk"
-          NOTAS="APK de teste do Android, gerado da main em $(date -u +%d/%m/%Y) (${GITHUB_SHA::7}). Instalar fora da loja: permitir apps de fontes desconhecidas. Os dados do dia vêm do site publicado."
-          gh release view android-teste >/dev/null 2>&1 || gh release create android-teste --prerelease --target main --title "App de teste (Android)" --notes "$NOTAS"
-          gh release edit android-teste --notes "$NOTAS"
-          gh release upload android-teste "$RUNNER_TEMP/vaglio.apk" --clobber
-          echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/android-teste/vaglio.apk"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" $PRE --target main --title "$TITULO" --notes "$NOTAS"
+          gh release edit "$TAG" --notes "$NOTAS"
+          gh release upload "$TAG" "$RUNNER_TEMP/vaglio.apk" --clobber
+          echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/$TAG/vaglio.apk"
 
   iphone:
     runs-on: macos-latest

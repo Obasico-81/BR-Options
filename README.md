@@ -114,8 +114,11 @@ cd nativo && npm ci && npx cap sync              # copia para nativo/android e n
 O workflow *App nativo* gera o APK de teste do Android e compila o app de iPhone para o simulador, com uma foto da
 tela aberta (artefatos da execução). `testes/nativo.js` cobre o carregador: dados do site, cópia guardada, snapshot
 embutido, site com dados mais velhos, site lento e preços diários pelo endereço do site.
-Provisórios até a escolha do nome: `appId` `br.com.montadordeopcoes.app` (não muda depois de publicado na loja) e
-`appName` "Vaglio". Ainda faltam: ícone e tela de abertura próprios, assinatura e envio às lojas.
+`appId` `br.com.vaglio.app` (não muda depois de publicado na loja; o pacote do código Java continua
+`br.com.montadordeopcoes.app`) e `appName` "Vaglio". Com os segredos `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_SENHA`,
+`ANDROID_CHAVE_ALIAS` e `ANDROID_CHAVE_SENHA` no repositório, o workflow gera o APK de produção, assinado e sem depuração,
+e publica em `releases/download/android/vaglio.apk` (o link das páginas); sem eles, só o APK de teste em
+`releases/download/android-teste/vaglio.apk`. Ainda faltam: ícone e tela de abertura próprios e envio às lojas.
 
 ## Pesquisa (reteste fora da amostra)
 

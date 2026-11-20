@@ -4,11 +4,12 @@ android {
     namespace = "br.com.montadordeopcoes.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "br.com.montadordeopcoes.app"
+        applicationId "br.com.vaglio.app"   // o namespace (pacote do código Java) continua o antigo; só o id do app muda
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // versão: o workflow App nativo passa o número da execução (sempre cresce, então o APK novo instala por cima)
+        versionCode((System.getenv("VERSAO_CODIGO") ?: "1") as int)
+        versionName(System.getenv("VERSAO_NOME") ?: "1.0")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -25,12 +26,26 @@ android {
             keyAlias "teste"
             keyPassword "android"
         }
+        // Chave de produção, fora do repositório: no GitHub vem dos segredos ANDROID_KEYSTORE_BASE64,
+        // ANDROID_KEYSTORE_SENHA, ANDROID_CHAVE_ALIAS e ANDROID_CHAVE_SENHA (workflow App nativo). Sem ela, só o APK de teste.
+        loja {
+            def arquivo = System.getenv("ANDROID_KEYSTORE_ARQUIVO")
+            if (arquivo) {
+                storeFile file(arquivo)
+                storePassword System.getenv("ANDROID_KEYSTORE_SENHA")
+                keyAlias System.getenv("ANDROID_CHAVE_ALIAS")
+                keyPassword System.getenv("ANDROID_CHAVE_SENHA")
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.teste
         }
         release {
+            if (System.getenv("ANDROID_KEYSTORE_ARQUIVO")) {
+                signingConfig signingConfigs.loja
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
