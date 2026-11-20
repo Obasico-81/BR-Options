@@ -64,8 +64,9 @@ jobs:
           npx playwright install --with-deps chromium
           node testes/smoke.js "$PWD/pwa/index.html"
 
-      - name: Site no domínio (app em /app/, raiz, endereços antigos e dados na raiz)
+      - name: Site no domínio (páginas na raiz, /bolsa-brasileira/ e /instalar/; app em /app/; endereços antigos e dados na raiz)
         run: |
+          pip install --quiet segno==1.6.6
           python build_site.py
           node testes/site.js
 
