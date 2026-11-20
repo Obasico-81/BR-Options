@@ -1,6 +1,6 @@
 # Vaglio — estratégias com opções na bolsa brasileira (app instalável com dados diários)
 
-Ferramenta que monta operações com opções (custo, risco máximo, equilíbrio e cenários). Modo simulado.
+Ferramenta que monta operações com opções (custo, risco máximo, equilíbrio e cenários).
 Funciona no navegador do celular e pode ser instalada na tela inicial (PWA).
 
 ## Como funciona a atualização diária
