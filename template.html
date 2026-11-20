@@ -99,6 +99,7 @@ input[type=range]{width:100%;min-height:44px;accent-color:var(--accent-text)}
 @media (max-width:340px){.nav button{font-size:10px;letter-spacing:-.01em}}
 .nav button[aria-current="page"]{color:var(--accent-text);font-weight:700}
 .desk{display:none}
+.vit-lista{display:flex;flex-direction:column;gap:14px}
 /* Computador (a partir de 1024px de largura): menu lateral e telas em colunas. Mesmo código, mesmos dados e mesma conta
    do celular; abaixo dessa largura nada muda. */
 @media (min-width:1024px){
@@ -114,7 +115,8 @@ input[type=range]{width:100%;min-height:44px;accent-color:var(--accent-text)}
   .nav button[aria-current="page"]{background:var(--accent-soft)}
   .nav .marca.desk{display:flex;margin:0 6px 26px}
   .nav .rodape.desk{display:flex;flex-direction:column;gap:6px;margin-top:auto;padding:14px 8px 0;border-top:1px solid var(--line);font-size:13px;color:var(--muted);overflow-wrap:anywhere}
-  [data-ini]{display:none}
+  [data-ini],.so-cel{display:none}
+  .vit-lista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:stretch}
   .top>[data-ini]+*{margin-left:auto}   /* a etiqueta continua à direita sem o "‹ Início" */
   .app [role="group"]{max-width:480px}
   .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
@@ -645,7 +647,7 @@ function listaAtivos(q){ q = (q||"").trim().toUpperCase(); const d = SNAP.por_da
   return L.length ? L.map(n => { const g = miniGrafico(n, 56, 22); return `<button class="opt" role="option" data-ativo="${n}" aria-selected="${n===S.ativo}" style="border:0;border-top:1px solid var(--line);border-radius:0;justify-content:space-between;align-items:center;padding:12px 6px;${n===S.ativo?"font-weight:700":""}"><span style="display:flex;flex-direction:column;text-align:left;flex:1;min-width:0"><span style="white-space:nowrap">${n} <span class="muted" style="font-weight:500">· ${brl(d[n].S,2)}</span></span>${EMPRESAS[n] ? `<span class="muted emp">${EMPRESAS[n]}</span>` : ""}</span>${g ? `<span style="flex-shrink:0;display:flex">${g.svg}</span>` : ""}</button>`; }).join("") : `<p class="small muted" style="padding:12px 6px">Nenhum ativo encontrado.</p>`; }
 function vObj(){
   const a = dia();
-  let h = `<div class="top">${MARCA_TOPO()}${PASSO(1)}</div>` + `<h1>Monte sua operação</h1>`;
+  let h = `<div class="top"><span class="so-cel">${MARCA_TOPO()}</span>${PASSO(1)}</div>` + `<h1>Monte sua operação</h1>`;
   if (DEFASADO) h += `<div class="note" role="alert"><p class="small"><strong>Preços desatualizados.</strong> O último fechamento carregado é de ${dBR(SNAP.data)}. As operações abaixo são só simulação, e a cópia dos parâmetros fica bloqueada até os preços serem atualizados.</p></div>`;
   // No computador: à esquerda o ativo (lista sempre aberta) e o perfil (sempre aberto); à direita as quatro operações
   // lado a lado, cada uma com os números principais.
@@ -738,12 +740,14 @@ function vVitrine(){
    <label class="f">Ordenar por<select id="exp-ordem">${EXP_ORDENS.map(([k, t]) => `<option value="${k}" ${k === expOrdem ? "selected" : ""}>${t}</option>`).join("")}</select></label>`;
   h += ok.length ? `<p class="small muted">${ok.length} ${ok.length > 1 ? "operações cabem" : "operação cabe"} no seu perfil.</p>` : `<div class="note"><p>Com o seu perfil, nenhuma operação ${expFiltro === "tudo" ? "" : "deste tipo "}cabe hoje em nenhum dos ${n} ativos. No Início, cada ativo mostra o motivo.</p></div>`;
   const num = (l, v, c = "") => `<span><span class="l">${l}</span><span class="v ${c}" style="${c === "bad" ? "color:var(--bad)" : c === "good" ? "color:var(--good)" : ""}">${v}</span></span>`;
+  if (ok.length) h += `<div class="vit-lista">`;
   for (const x of ok) { const m = x.m, venc = addDias(S.data, m.dias);
     h += `<button class="opt" data-exp="${x.ativo}|${x.t}" style="flex-direction:column;gap:8px">
       <span style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;width:100%"><span class="t">${x.ativo} · ${esc(m.estrutura)}</span><span class="small muted" style="white-space:nowrap">vence ${dm(venc)}</span></span>
       <span class="small muted">${EXP_ESPERA[x.t]}${x.pf !== "eq" ? ` · ${PFT_NOME[x.pf]}` : ""}${EMPRESAS[x.ativo] ? ` · ${EMPRESAS[x.ativo]}` : ""}</span>
       <span class="linha4">${num(m.premio < 0 ? "Recebe agora" : "Paga agora", brl(Math.abs(m.premio)))}${num("Risco máximo", brl(m.perdaMax), "bad")}${num("Ganho máximo", m.ganhoMax === null ? "Sem limite" : brl(m.ganhoMax), "good")}${num("Chance implícita", pct(m.probImplicita))}</span>
       <span class="small">${distEquilibrio(m, x.S)}</span></button>`; }
+  if (ok.length) h += `</div>`;
   return h + `<p class="foot">A lista mostra o que cabe no seu risco máximo, na ordem que você escolheu. O app não sabe para onde o preço vai: escolha pelo que você espera do papel. A chance implícita vem do preço das opções e não é vantagem sua.</p>`;
 }
 
