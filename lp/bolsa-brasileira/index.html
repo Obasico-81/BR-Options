@@ -165,7 +165,6 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
     <div class="notif"><span class="ic">V</span><div><b>Trava de alta montada · PETR4</b><span>Risco <span class="neg">R$&nbsp;1.936</span> · ganho máximo <span class="pos">R$&nbsp;3.014</span></span></div></div>
     <div class="notif"><span class="ic">↗</span><div><b>VALE3 sobe 3% · <span class="vivo"><i></i>ao vivo</span></b><span><span class="pos">+R$&nbsp;430</span> se encerrar agora</span></div><span class="pro">Pro</span></div>
     <div class="notif"><span class="ic ok">✓</span><div><b>Alvo atingido · ITUB4 +7%</b><span><span class="pos">+R$&nbsp;1.701</span> se encerrar agora · ordem de saída pronta</span></div><span class="pro">Pro</span></div>
-    <p class="legenda">Exemplos ilustrativos, com cotações simuladas.</p>
   </div>
   <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="../img/pc-montada.webp" alt="Operação montada no Vaglio: valor pago, que é o risco máximo, ganho máximo, ponto de equilíbrio, chance implícita e gráfico do resultado no vencimento" width="1600" height="1000"></div>
 </div></div>
@@ -220,10 +219,10 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
 </div></section>
 
 <section id="acompanhe"><div class="wrap duas">
-  <div class="cel"><img src="../img/cel-operacoes.webp" alt="O Vaglio no celular: a aba Operações ao vivo, com o aviso de alvo atingido e quanto receberia se encerrasse agora" loading="lazy" width="390" height="844"></div>
-  <div><h2>Acompanhe ao vivo, no celular ou no computador<span class="pro">Pro</span></h2>
-    <p class="sub">Registre o que executou na corretora e defina na entrada o alvo, o limite e o prazo de saída. Durante o pregão, veja quanto receberia se encerrasse agora e receba o aviso quando um deles for atingido, com a ordem de saída pronta.</p>
-    <div class="ctas"><a class="btn pri" data-cta href="#instalar">Acessar a plataforma</a></div>
+  <div class="cel"><img src="../img/cel-operacoes.webp" alt="O Vaglio no celular: a aba Operações ao vivo, com quatro operações reais em ativos diferentes, o risco somado e o aviso de alvo atingido" loading="lazy" width="390" height="844"></div>
+  <div><h2>Acompanhe todas as suas operações ao mesmo tempo<span class="pro">Pro</span></h2>
+    <p class="sub">Monte quantas operações quiser, em ativos diferentes, e acompanhe todas numa tela só, no celular ou no computador, com o risco somado. Defina na entrada o alvo, o limite e o prazo de saída de cada uma: durante o pregão, você vê quanto receberia se encerrasse agora e recebe o aviso quando um deles for atingido, com a ordem de saída pronta.</p>
+    <div class="ctas"><a class="btn pri" data-baixar href="#instalar">Baixar o app</a></div>
     <p class="legenda">Imagem ilustrativa, com cotações simuladas.</p></div>
 </div></section>
 
@@ -308,6 +307,10 @@ var APK = "https://github.com/Obasico-81/BR-Options/releases/download/android-te
   // botão secundário: no computador, o QR para instalar no celular; no celular, usar no navegador
   document.querySelectorAll("[data-sec]").forEach(function (a) {
     if (android || iphone) { a.href = APP; a.textContent = "Usar no navegador"; } else { a.href = "#instalar"; a.textContent = "Instalar no celular"; }
+  });
+  // botão da seção do celular: baixar o app (APK no Android; no iPhone e no computador, leva às instruções e ao QR)
+  document.querySelectorAll("[data-baixar]").forEach(function (a) {
+    if (android) a.href = APK; else if (iphone) { a.href = "#instalar"; a.textContent = "Instalar o app"; } else a.href = "#instalar";
   });
   // botões dos planos: o mesmo destino do botão principal, sem trocar o texto
   document.querySelectorAll("[data-ir]").forEach(function (a) { a.href = android ? APK : APP; });
