@@ -381,7 +381,10 @@ const statusPro = () => { const a = ASSIN; if (!a || !a.status) return "";
     : a.status === "ativa" ? `Próxima cobrança em ${dBR(addDias(a.pro_ate, -3))}.`
     : a.status === "atrasada" ? "Pagamento em atraso. Confira no app do banco ou no cartão."
     : a.status === "cancelada" && a.pro_ate ? `Cancelada. O Pro continua até ${dBR(a.pro_ate)}.` : ""; };
-async function contaExcluir(){ await sbReq("/rest/v1/rpc/excluir_minha_conta", {metodo: "POST", corpo: {}}); sairLocal(); }
+// a assinatura sai do Asaas antes (sem isso, a cobrança continuaria depois da conta apagada)
+async function contaExcluir(){
+  if (ASSIN && ["aguardando", "teste", "ativa", "atrasada"].includes(ASSIN.status)) try { await sbFn("cancelar-assinatura"); } catch(e) { if (e.status !== 404) throw e; }
+  await sbReq("/rest/v1/rpc/excluir_minha_conta", {metodo: "POST", corpo: {}}); sairLocal(); }
 // O que mudou no histórico desde a última gravação: carimba _t nas operações alteradas e anota as apagadas
 function marcarMudancas(novas){
   if (!Array.isArray(novas)) return;

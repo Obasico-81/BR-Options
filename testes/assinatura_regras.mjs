@@ -45,5 +45,7 @@ confere("conta que já usou o teste: assinatura criada não dá Pro até pagar",
 // Pro em vigor e eventos ignorados
 confere("Pro em vigor: teste e atrasada dentro do prazo; vencido ou cancelado, não", R.temPro({ ...noTeste }, hoje) && R.temPro({ ...noTeste, status: "atrasada" }, hoje) && !R.temPro({ ...noTeste, pro_ate: "2026-11-19" }, hoje) && !R.temPro({ ...noTeste, status: "cancelada" }, hoje));
 confere("assinatura criada pela API (Pix, sem checkout) não mexe na linha", R.aplicarEvento({ event: "SUBSCRIPTION_CREATED", subscription: { id: "sub2" } }, pixLinha, hoje) === null);
+confere("checkout concluído sem conta (conta excluída): a assinatura é devolvida para cancelar; Pix pela API, não",
+  R.orfaParaCancelar(criada, null) === "sub1" && R.orfaParaCancelar({ event: "SUBSCRIPTION_CREATED", subscription: { id: "sub2" } }, null) === null && R.orfaParaCancelar(criada, base) === null);
 confere("evento sem relação (ex.: transferência) é ignorado", R.ondeEvento({ event: "TRANSFER_DONE", transfer: { id: "t" } }) === null);
 console.log(falhas ? `\n${falhas} falha(s)` : "\nTudo certo."); process.exit(falhas ? 1 : 0);

@@ -2,8 +2,8 @@
 // authToken = o mesmo valor do segredo ASAAS_WEBHOOK_TOKEN, eventos de cobrança, assinatura, checkout e Pix Automático.
 // Publicar sem exigir login do Supabase (o Asaas não tem sessão): verify_jwt = false. A segurança é o authToken.
 // Cada evento é processado uma vez (tabela asaas_eventos); o que muda na assinatura está em _compartilhado/regras.ts.
-import { banco } from "../_compartilhado/asaas.ts";
-import { type Linha, aplicarEvento, hojeSP, ondeEvento } from "../_compartilhado/regras.ts";
+import { asaas, banco } from "../_compartilhado/asaas.ts";
+import { type Linha, aplicarEvento, hojeSP, ondeEvento, orfaParaCancelar } from "../_compartilhado/regras.ts";
 
 const iguais = (a: string, b: string) => {   // comparação sem atalho (não vaza o token pelo tempo de resposta)
   if (!a || !b || a.length !== b.length) return false;
@@ -24,7 +24,11 @@ Deno.serve(async (req) => {
   if (!onde) return new Response("ignorado", { status: 200 });
   const { data: linha, error } = await db.from("assinaturas").select("*").eq(onde.coluna, onde.valor).maybeSingle<Linha>();
   if (error) { await db.from("asaas_eventos").delete().eq("id", id); return new Response("erro", { status: 500 }); }   // o Asaas reenvia
-  if (!linha) return new Response("sem assinatura", { status: 200 });
+  if (!linha) {
+    const orfa = orfaParaCancelar(ev, linha);
+    if (orfa) await asaas("DELETE", `/subscriptions/${orfa}`).catch((e) => console.error("órfã", orfa, e));
+    return new Response(orfa ? "órfã cancelada" : "sem assinatura", { status: 200 });
+  }
   const campos = aplicarEvento(ev, linha, hojeSP());
   if (!campos) return new Response("sem mudança", { status: 200 });
   const { error: e2 } = await db.from("assinaturas").update({ ...campos, atualizado_em: new Date().toISOString() }).eq("user_id", linha.user_id);

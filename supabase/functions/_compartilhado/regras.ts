@@ -1,4 +1,4 @@
-// Regras da assinatura do Vaglio Pro, sem dependência de servidor (testadas em testes/assinatura_regras.js).
+// Regras da assinatura do Vaglio Pro, sem dependência de servidor (testadas em testes/assinatura_regras.mjs).
 // Preço e teste decididos em 20/11/2026: R$ 49,90 por mês ou R$ 479 por ano, 7 dias grátis na primeira assinatura.
 
 export const DIAS_TESTE = 7;
@@ -54,6 +54,13 @@ export function ondeEvento(ev: any): { coluna: "asaas_checkout" | "asaas_assinat
   if (t && t.startsWith("PIX_AUTOMATIC_RECURRING_AUTHORIZATION_") && ev.authorization?.customerId) return { coluna: "asaas_cliente", valor: ev.authorization.customerId };
   return null;
 }
+
+// Assinatura criada por um checkout sem conta correspondente (a conta foi excluída depois de abrir o pagamento):
+// devolve o id para cancelar no Asaas, senão haveria cobrança sem dono. Só o caso do checkout: a assinatura por Pix é
+// criada pela própria função assinar, e o aviso pode chegar antes de a linha ser gravada.
+// deno-lint-ignore no-explicit-any
+export const orfaParaCancelar = (ev: any, linha: Linha | null): string | null =>
+  !linha && ev?.event === "SUBSCRIPTION_CREATED" && ev.subscription?.checkoutSession && ev.subscription?.id ? ev.subscription.id : null;
 
 // O que muda na linha com o evento. null: nada a fazer.
 // deno-lint-ignore no-explicit-any
