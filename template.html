@@ -450,12 +450,16 @@ const msgConta = (e) => { const t = (e.codigo || "") + " " + e.message;
   : /otp_expired|invalid|expired/i.test(t) ? "Código errado ou vencido. Confira e peça um novo se precisar."
   : !e.status ? "Sem conexão com a internet. Tente de novo." : "Não deu certo agora. Tente de novo em instantes."; };
 const segBtn = (attr, k, t, on) => `<button class="seg" ${attr}="${k}" aria-pressed="${on}" style="min-height:48px;padding:8px 10px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:15px;font-weight:600;cursor:pointer">${t}</button>`;
+// Entrar só pelo celular (decisão de 20/11/2026: o e-mail não tem provedor de envio). O caminho do e-mail continua no
+// código: LOGIN_EMAIL = true volta a mostrar a escolha (os testes de conta usam).
+let LOGIN_EMAIL = false;
 function vLogin(){
+  if (!LOGIN_EMAIL) login.modo = "cel";
   const L = login, ini = L.volta === "inicio", cel = viaCel(L), faltam = Math.max(0, Math.ceil((L.reenviarEm - Date.now()) / 1000));
   const erro = L.erro ? `<p class="small" role="alert" style="color:var(--bad)">${esc(L.erro)}</p>` : "";
   if (L.passo === "email") return `${ini ? `<div class="marca">${MARCA_TOPO()}</div>` : `<div class="top"><button class="back" data-go="${L.volta}">‹ Voltar</button></div>`}
    <div><h1 style="font-size:30px;line-height:1.15">Entre para guardar suas operações</h1><p class="muted" style="margin-top:10px;font-size:17px">Suas operações e seu perfil ficam guardados na conta: trocar de celular não apaga nada, e você entra também pelo computador. Sem senha: você recebe um código.</p></div>
-   <div role="group" aria-label="Entrar com" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${segBtn("data-modo", "cel", "Celular", cel)}${segBtn("data-modo", "email", "E-mail", !cel)}</div>
+   ${LOGIN_EMAIL ? `<div role="group" aria-label="Entrar com" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${segBtn("data-modo", "cel", "Celular", cel)}${segBtn("data-modo", "email", "E-mail", !cel)}</div>` : ""}
    ${cel ? `<label class="f" style="font-size:14px">Seu celular, com DDD<input id="lg-fone" class="campo" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(11) 91234-5678" value="${esc(L.foneTxt)}"></label>`
      : `<label class="f" style="font-size:14px">Seu e-mail<input id="lg-email" class="campo" type="email" inputmode="email" autocomplete="email" placeholder="voce@email.com" value="${esc(L.email)}"></label>`}
    ${erro}<button class="btn" id="lg-enviar" ${L.ocupado ? "disabled" : ""}>${L.ocupado ? "Enviando…" : cel ? "Receber código por SMS" : "Receber código por e-mail"}</button>

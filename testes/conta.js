@@ -62,7 +62,7 @@ async function servidor(route) {
   return json(404, { message: "rota não simulada: " + u.pathname });
 }
 
-async function aparelho(b) {
+async function aparelho(b, comEmail = true) {
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 } });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   await ctx.route(URL_SB + "/**", servidor);
@@ -70,6 +70,7 @@ async function aparelho(b) {
   p.on("pageerror", (e) => erros.push(e.message));
   p.on("dialog", (d) => d.accept());
   await p.goto(arq); await p.waitForSelector("#nav");
+  if (comEmail) await p.evaluate(() => { LOGIN_EMAIL = true; });   // o e-mail está desligado no app; os fluxos de conta abaixo o usam
   return { p, erros, ctx };
 }
 const texto = (p) => p.innerText("#app");
@@ -89,6 +90,11 @@ const sincronizado = (p) => p.waitForFunction(() => !sinc.rodando && sinc.ultima
 (async () => {
   const b = await chromium.launch();
   try {
+    // ---------- tela de entrar como o app publica: só celular ----------
+    { const Z = await aparelho(b, false); await Z.p.click('#nav [data-nav="cad"]'); await Z.p.click("#conta-entrar");
+      confere("tela de entrar: só o celular (sem a opção de e-mail)", (await Z.p.locator("#lg-fone").count()) === 1 && (await Z.p.locator('[data-modo="email"]').count()) === 0 && (await Z.p.locator("#lg-email").count()) === 0 && /Receber código por SMS/.test(await texto(Z.p)));
+      await Z.ctx.close(); }
+
     // ---------- aparelho 1: duas operações e perfil antes de entrar ----------
     const A = await aparelho(b);
     await A.p.evaluate(() => {
