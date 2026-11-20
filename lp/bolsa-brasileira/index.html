@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Vaglio · Na bolsa, você sabe até quanto pode ganhar</title>
-<meta name="description" content="As bets foram proibidas. Na bolsa brasileira, com o Vaglio, você monta operações com opções sabendo antes até quanto pode ganhar, quanto custa, o risco máximo e o que acontece em cada cenário.">
+<title>Vaglio · Opções na bolsa, com ganho e perda máximos antes da ordem</title>
+<meta name="description" content="As bets foram proibidas. Na bolsa brasileira, o Vaglio monta operações com opções e mostra, antes da ordem, o risco máximo, o ganho máximo e os cenários. Grátis para começar.">
 <meta name="theme-color" content="#1E1E20">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
@@ -86,16 +86,12 @@ h2{font-size:clamp(26px,5vw,36px);line-height:1.15;letter-spacing:-.01em;margin:
 .notif span{color:var(--muted)}
 .notif .ic{flex:none;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#3a3016;color:var(--accent);font-weight:800;font-size:14px}
 .notif .ic.ok{background:#1F3328;color:var(--good)}
-.notif .ex{margin-left:auto;font-size:11px;color:#6f6d68;text-transform:uppercase;letter-spacing:.06em;padding-left:8px}
+.notif .ex{margin-left:auto;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding-left:8px}
 .notifs{display:grid;gap:10px}
 .vivo{display:inline-flex;align-items:center;gap:6px;color:var(--good);font-size:13px;font-weight:700}
 .vivo i{width:7px;height:7px;border-radius:50%;background:var(--good);animation:pisca 2s infinite}
 @keyframes pisca{50%{opacity:.35}}
-.faixa{overflow:hidden;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg2);padding:14px 0;white-space:nowrap}
-.faixa .trilho{display:inline-flex;gap:34px;padding-right:34px;animation:rola 38s linear infinite;font-weight:700;font-size:15px;color:#c9c6bd}
-.faixa .trilho span::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:12px;vertical-align:middle}
-@keyframes rola{to{transform:translateX(-50%)}}
-@media (prefers-reduced-motion:reduce){.faixa .trilho{animation:none}.vivo i{animation:none}}
+@media (prefers-reduced-motion:reduce){.vivo i{animation:none}}
 .lado{display:grid;gap:14px}
 .lado ul{list-style:none;margin:10px 0 0;padding:0}
 .lado li{position:relative;padding:8px 0 8px 30px;border-top:1px solid var(--line);color:#c9c6bd}
@@ -157,24 +153,17 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
   <div>
     <span class="chip">As bets foram proibidas. E agora?</span>
     <h1>Na bolsa, você sabe <em>até quanto pode ganhar</em> antes de apostar.</h1>
-    <p class="lead">Com o Vaglio, você monta operações com opções de ações na bolsa brasileira, um mercado regulado pela CVM, com preço formado entre investidores. Antes da ordem, a tela mostra o ganho máximo, a partir de que preço você ganha, o custo, o risco máximo em reais e o que acontece em cada cenário.</p>
+    <p class="lead">Você diz o que espera da ação e quanto aceita arriscar. O Vaglio monta a operação com opções e mostra o risco e o ganho máximos, em reais, antes de você enviar a ordem na sua corretora.</p>
     <div class="ctas">
       <a class="btn pri" data-cta href="#instalar">Acessar a plataforma</a>
       <a class="btn sec" data-sec href="#instalar">Instalar no celular</a>
     </div>
-    <p class="nota" data-nota>Grátis para começar. Para operar de verdade, a ordem é feita na sua corretora.</p>
+    <p class="nota" data-nota>Grátis para começar.</p>
   </div>
   <div class="notifs" aria-label="Exemplos de avisos do Vaglio">
-    <div class="notif"><span class="ic">V</span><div><b>Trava de alta montada · BOVA11</b><span>Ganho máximo R$ 380 · risco R$ 420</span></div><span class="ex">exemplo</span></div>
-    <div class="notif"><span class="ic">↗</span><div><b>BOVA11 sobe 3% · <span class="vivo"><i></i>ao vivo</span></b><span>+R$ 49 se encerrar agora</span></div><span class="ex">exemplo</span></div>
-    <div class="notif"><span class="ic ok">✓</span><div><b>Alvo atingido · BOVA11 +6%</b><span>+R$ 191 se encerrar agora · ordem de saída pronta</span></div><span class="ex">exemplo</span></div>
+    <div class="notif"><span class="ic">V</span><div><b>Trava de alta montada · BOVA11</b><span>Risco R$ 420 · ganho máximo R$ 380</span></div><span class="ex">exemplo</span></div>
   </div>
-  <div class="janela"><div class="barra"><i></i><i></i><i></i><span>vaglio.com.br/app</span></div><img src="../img/pc-montada.webp" alt="Plataforma Vaglio: operação montada com o valor pago, que é o risco máximo, o ganho máximo, o ponto de equilíbrio, a chance implícita e o gráfico do resultado no vencimento" width="1600" height="1000"></div>
-</div></div>
-
-<div class="faixa" aria-hidden="true"><div class="trilho">
-  <span>Ganho máximo antes da ordem</span><span>Risco definido em reais</span><span>Cotação ao vivo</span><span>Aviso na hora da saída</span><span>22.532 operações conferidas</span><span>Opções da bolsa brasileira</span>
-  <span>Ganho máximo antes da ordem</span><span>Risco definido em reais</span><span>Cotação ao vivo</span><span>Aviso na hora da saída</span><span>22.532 operações conferidas</span><span>Opções da bolsa brasileira</span>
+  <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="../img/pc-montada.webp" alt="Operação montada no Vaglio: valor pago, que é o risco máximo, ganho máximo, ponto de equilíbrio, chance implícita e gráfico do resultado no vencimento" width="1600" height="1000"></div>
 </div></div>
 
 <section id="diferenca"><div class="wrap">
@@ -184,10 +173,9 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
     <thead><tr><th>Bets</th><th>Opções com o Vaglio</th></tr></thead>
     <tbody>
       <tr><td>Proibidas no Brasil em 2026</td><td>Bolsa brasileira, regulada pela CVM</td></tr>
-      <tr><td>A casa definia o preço, com a margem dela na odd</td><td>O preço sai de compradores e vendedores, na bolsa</td></tr>
-      <tr><td>O ganho era a odd vezes o valor apostado</td><td>O ganho máximo aparece em reais antes da ordem, com o preço a partir do qual você ganha</td></tr>
-      <tr><td>Você perdia tudo o que apostava, a cada aposta</td><td>A perda máxima aparece em reais antes da ordem, dentro do limite que você define</td></tr>
-      <tr><td>Antes, você via só a odd</td><td>Antes, você vê o custo, o ponto de equilíbrio, os cenários e a chance que o próprio preço indica</td></tr>
+      <tr><td>A casa definia a odd, com a margem dela</td><td>O preço sai de compradores e vendedores</td></tr>
+      <tr><td>O ganho era a odd vezes o valor apostado</td><td>Ganho máximo e perda máxima em reais, antes da ordem</td></tr>
+      <tr><td>Antes, você via só a odd</td><td>Antes, você vê o ponto de equilíbrio, os cenários e a chance que o preço indica</td></tr>
       <tr><td>O dinheiro ficava na casa de apostas</td><td>O dinheiro fica na sua conta, numa corretora, em seu nome</td></tr>
     </tbody>
   </table>
@@ -206,23 +194,6 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
   </div>
 </div></section>
 
-<section id="mao"><div class="wrap">
-  <h2>Montar na mão × montar no Vaglio</h2>
-  <p class="sub">A mesma operação, com e sem o trabalho de planilha.</p>
-  <div class="lado">
-    <div class="card nao"><h3>Na mão</h3><ul>
-      <li>Procurar os strikes na cadeia de opções</li>
-      <li>Calcular custo, risco e ponto de equilíbrio na planilha</li>
-      <li>Olhar a tela da corretora a toda hora</li>
-      <li>Decidir a saída no calor do momento</li></ul></div>
-    <div class="card sim"><h3>No Vaglio</h3><ul>
-      <li>Dizer o que espera da ação: subir, cair ou mexer muito</li>
-      <li>Ver ganho máximo, risco, custo e equilíbrio antes da ordem</li>
-      <li>Ver ao vivo quanto receberia se encerrasse agora<span class="pro">Pro</span></li>
-      <li>Regras de saída definidas na entrada, com aviso quando são atingidas<span class="pro">Pro</span></li></ul></div>
-  </div>
-</div></section>
-
 <section id="vitrine" class="vitrine"><div class="wrap">
   <div class="cab"><h2>Vitrine: o que dá para montar hoje</h2>
     <p class="sub">As operações que cabem no seu risco, em 8 ações com opções líquidas. Filtre pelo que espera e ordene por risco, chance ou movimento necessário.</p>
@@ -234,12 +205,11 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
   <h2>Para quem é o Vaglio</h2>
   <div class="lado">
     <div class="card sim"><h3>É para quem</h3><ul>
-      <li>Aceita perder o valor que definiu para a operação</li>
       <li>Prefere decidir com números</li>
       <li>Quer operar na bolsa, com o dinheiro na própria conta</li></ul></div>
     <div class="card nao"><h3>Não é para quem</h3><ul>
-      <li>Procura lucro garantido</li>
-      <li>Quer recuperar perdas aumentando a aposta</li>
+      <li>Procura resultado garantido</li>
+      <li>Quer recuperar perdas aumentando o risco</li>
       <li>Não pode perder o valor que vai arriscar</li>
       <li>Quer que alguém decida no seu lugar</li></ul></div>
   </div>
@@ -247,15 +217,15 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
 
 <section id="acompanhe"><div class="wrap duas">
   <div class="cel"><img src="../img/cel-operacoes.webp" alt="O Vaglio no celular: a aba Operações ao vivo, com o aviso de alvo atingido e quanto receberia se encerrasse agora" loading="lazy" width="390" height="844"></div>
-  <div><h2>Acompanhe suas operações no celular<span class="pro">Pro</span></h2>
-    <p class="sub">Registre o que executou na corretora e acompanhe tudo na aba Operações. Durante o pregão, o app mostra quanto você receberia se encerrasse agora e avisa na hora em que o alvo, o limite ou o prazo de saída é atingido, com a ordem de saída pronta. No computador, as mesmas telas.</p>
+  <div><h2>Acompanhe ao vivo, no celular ou no computador<span class="pro">Pro</span></h2>
+    <p class="sub">Registre o que executou na corretora e defina na entrada o alvo, o limite e o prazo de saída. Durante o pregão, veja quanto receberia se encerrasse agora e receba o aviso quando um deles for atingido, com a ordem de saída pronta.</p>
     <div class="ctas"><a class="btn pri" data-cta href="#instalar">Acessar a plataforma</a></div>
     <p class="legenda">Imagem ilustrativa, com cotações simuladas.</p></div>
 </div></section>
 
 <section id="planos" class="planos"><div class="wrap">
   <h2>Planos</h2>
-  <p class="sub">Comece grátis. O Pro tem 7 dias grátis e você cancela quando quiser, no próprio app.</p>
+  <p class="sub">O Pro tem 7 dias grátis. Cancele quando quiser, no app.</p>
   <div class="lado">
     <div class="card sim"><h3>Grátis</h3><div class="preco">R$ 0</div><ul>
       <li>Custo, risco máximo, ganho máximo e ponto de equilíbrio de cada operação</li>
@@ -266,48 +236,46 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
       <li>Quais opções comprar e vender, com strike e quantidade</li>
       <li>A ordem pronta para a corretora</li>
       <li>Cotação em tempo real e quanto receberia se encerrasse agora</li>
-      <li>Aviso na hora da saída, com a ordem de saída pronta</li></ul>
-      <a class="btn pri" data-ir href="#instalar">7 dias grátis</a></div>
+      <li>Aviso de saída, com a ordem de saída pronta</li></ul>
+      <a class="btn pri" data-ir href="#instalar">Testar 7 dias grátis</a></div>
   </div>
 </div></section>
 
 <section id="instalar"><div class="wrap">
   <h2>Instale o Vaglio</h2>
-  <p class="sub">Grátis para começar. O Pro tem 7 dias grátis.</p>
   <div class="inst">
     <div class="card" data-sistema="android"><h3>Android</h3>
       <a class="btn pri" data-apk href="#" style="width:100%;margin-top:10px">Baixar para Android</a>
-      <ol><li>Toque em <b>Baixar para Android</b>.</li><li>Abra o arquivo baixado. Se o celular pedir, permita instalar apps desta fonte.</li><li>Toque em <b>Instalar</b>.</li></ol></div>
+      <p style="margin:10px 0 0;color:var(--muted);font-size:15px">Instalação direta, fora da Play Store.</p>
+      <ol><li>Abra o arquivo baixado.</li><li>Se o celular pedir, permita instalar apps desta fonte.</li><li>Toque em <b>Instalar</b>.</li></ol></div>
     <div class="card" data-sistema="iphone"><h3>iPhone</h3>
       <a class="btn sec" data-web href="#" style="width:100%;margin-top:10px">Abrir no Safari</a>
       <ol><li>Abra o app no <b>Safari</b>.</li><li>Toque em <b>Compartilhar</b> (o quadrado com a seta).</li><li>Toque em <b>Adicionar à Tela de Início</b>.</li></ol></div>
     <div class="card" data-sistema="computador"><h3>Computador</h3>
       <a class="btn sec" data-web href="#" style="width:100%;margin-top:10px">Acessar a plataforma</a>
-      <div class="qr" style="margin-top:14px"><!--QR--><span style="color:var(--muted);font-size:15px">Para instalar no celular, aponte a câmera para o código.</span></div></div>
+      <div class="qr" style="margin-top:14px"><!--QR--><span style="color:var(--muted);font-size:15px">No celular, aponte a câmera para o código.</span></div></div>
   </div>
 </div></section>
 <section id="perguntas" class="faq"><div class="wrap">
   <h2>Perguntas frequentes</h2>
-  <details><summary>O que são opções?</summary><p>Contratos negociados na bolsa brasileira, regulada pela CVM, com preço formado entre investidores. Você pode perder dinheiro, mas vê a perda máxima de cada operação antes de entrar.</p></details>
-  <details><summary>Preciso de muito dinheiro?</summary><p>Não. Você define o risco máximo por operação e o app só monta o que cabe nele.</p></details>
-  <details><summary>O app diz o que comprar?</summary><p>Não. Ele mostra os números de cada operação. A decisão é sua.</p></details>
-  <details><summary>Preciso de corretora?</summary><p>Para operar de verdade, sim: a ordem é feita na sua corretora, com o dinheiro na sua conta. No app você monta, simula e acompanha.</p></details>
-  <details><summary>Quanto custa?</summary><p>Montar operações, ver os números, os cenários e a Vitrine, e simular é grátis. O Vaglio Pro, com as opções de cada operação, a ordem pronta e o acompanhamento ao vivo, custa R$ 49,90 por mês ou R$ 479 por ano, com 7 dias grátis. Cancele quando quiser, no app.</p></details>
+  <details><summary>O que são opções?</summary><p>Contratos negociados na bolsa que dão o direito de comprar ou vender uma ação a um preço combinado, com data de vencimento. Você pode perder dinheiro, mas vê a perda máxima de cada operação antes de entrar.</p></details>
+  <details><summary>Dá para ganhar sempre?</summary><p>Não. Muitas operações terminam com perda. O Vaglio mostra a perda máxima antes de você entrar.</p></details>
+  <details><summary>O Vaglio recomenda operações?</summary><p>Não. O Vaglio não recomenda ativo, direção nem momento. Ele monta a operação a partir do que você escolhe e mostra os números. A decisão é sua.</p></details>
+  <details><summary>Preciso de corretora?</summary><p>Sim. A ordem é feita na sua corretora, com o dinheiro da sua conta. O Vaglio monta, simula e, no Pro, acompanha ao vivo.</p></details>
+  <details><summary>O que é a chance mostrada na tela?</summary><p>É a chance que o próprio preço das opções indica. Não é uma previsão do Vaglio e não garante o resultado.</p></details>
   <details><summary>Como pago o Pro?</summary><p>Por Pix Automático ou cartão de crédito, pelo Asaas, que faz a cobrança. O Vaglio não vê nem guarda os dados do seu cartão. Nos 7 dias grátis, nada é cobrado.</p></details>
-  <details><summary>De onde vêm as 22.532 operações?</summary><p>Simulamos as operações que o app teria montado em cada pregão de 2015 a 2026, com os preços de fechamento publicados pela B3, e conferimos o que aconteceu até o vencimento. A chance mostrada na tela bateu com o que aconteceu, com diferença de poucos pontos. Resultado passado não garante resultado futuro.</p></details>
-  <details><summary>Dá para ganhar sempre?</summary><p>Não. Muitas operações terminam com perda. O que o Vaglio garante é que você sabe o tamanho dela antes de entrar.</p></details>
 </div></section>
 
 <section class="final"><div class="wrap">
-  <h2>Troque o palpite pelos números.</h2>
-  <p class="sub" style="margin-left:auto;margin-right:auto">Monte a primeira operação em minutos, no simulado, antes de pôr dinheiro.</p>
+  <h2>Comece pelo simulado.</h2>
+  <p class="sub" style="margin-left:auto;margin-right:auto">Monte a primeira operação e veja os números antes de pôr dinheiro.</p>
   <div class="ctas"><a class="btn pri" data-cta href="#instalar">Acessar a plataforma</a><a class="btn sec" data-sec href="#instalar">Instalar no celular</a></div>
 </div></section>
 </main>
 
 <footer><div class="wrap">
   <p>Se apostar virou um problema para você, procure ajuda profissional ou um grupo de apoio, como os Jogadores Anônimos.</p>
-  <p>O Vaglio não é corretora nem consultoria de valores mobiliários e não faz recomendação de investimento. Operações com opções envolvem risco de perda do valor aplicado. Resultados passados não garantem resultados futuros. Cotações da B3, em tempo real, por distribuidor autorizado.</p>
+  <p>O Vaglio não é corretora nem consultoria de valores mobiliários e não faz recomendação de investimento. Operações com opções envolvem risco de perda do valor aplicado. Resultado passado não garante resultado futuro. No Pro, cotações da B3 em tempo real, por distribuidor autorizado.</p>
   <nav><a data-termos href="#">Termos de uso</a><a data-privacidade href="#">Política de privacidade</a></nav>
   <p style="margin-top:18px">© Vaglio</p>
 </div></footer>
