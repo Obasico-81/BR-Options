@@ -12,7 +12,7 @@ o ganho máximo e o que pode acontecer até o vencimento. Queria sua ajuda por u
 **Como instalar**
 - Android: baixe https://github.com/Obasico-81/BR-Options/releases/download/android-teste/vaglio.apk
   e abra o arquivo. O celular vai pedir para permitir instalar "de fontes desconhecidas": permita para o navegador.
-- iPhone: abra https://obasico-81.github.io/BR-Options/ no Safari, toque em Compartilhar e em "Adicionar à Tela de
+- iPhone: abra https://vaglio.com.br/app/ no Safari, toque em Compartilhar e em "Adicionar à Tela de
   Início". Abra pelo ícone criado.
 
 **O que fazer** (sem pedir ajuda; se travar, anote onde e siga em frente)
