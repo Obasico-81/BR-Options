@@ -861,7 +861,7 @@ function custosHtml(m, cor){
 function travaPernas(m){
   const b = (w) => `<span class="cega" style="width:${w}px"></span>`;
   return `<section class="card"><h2 style="display:flex;justify-content:space-between;align-items:center;gap:8px">O que fazer<span class="pill real">Pro</span></h2>${m.pernas.map(([l], i) => `<div class="step"><span class="n">${i+1}</span><p><strong>${l > 0 ? "Comprar" : "Vender"}</strong> ${b(44)} opções com strike ${b(64)}<br>${b(170)}</p></div>`).join("")}
-    <p class="small">Quais opções, o strike e a quantidade de cada perna estão no Vaglio Pro.</p><button class="btn" data-go="pro">Ver as opções</button></section>`;
+    <p class="small">Quais opções, o strike e a quantidade de cada perna estão no Vaglio Pro.</p><button class="btn sec" data-go="pro">Ver as opções</button></section>`;
 }
 function pernasHtml(m){
   return m.pernas.map(([l,o],i)=>`<div class="step"><span class="n">${i+1}</span><p><strong>${l>0?"Comprar":"Vender"}</strong> ${m.lotes*100} ${o.t==="C"?"opções de compra (call)":"opções de venda (put)"} com strike ${brl(o.k,2)}, que vencem em ${m.dias} dias.<br><span class="muted small">${esc(o.s)} · ${l>0?"você paga até":"você recebe pelo menos"} ${brl(l>0?o.a:o.b,2)} por ação</span></p></div>`).join("");
