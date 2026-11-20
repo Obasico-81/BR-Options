@@ -266,6 +266,21 @@
     for (const [l, x] of m.pernas) { const p = precos && precos[x.s]; if (!p || !(p[0] > 0) || !(p[1] >= p[0])) return null; v += l * (p[0] + p[1]) / 2; }
     return r2(Math.max(v * LOTE * m.lotes - m.premio, -m.perdaMax));
   }
+  // Ao vivo: resultado se a operação fosse desfeita agora, pelo preço de execução. livro: {símbolo: [melhor compra,
+  // melhor venda, qtd na compra, qtd na venda]} (qtds opcionais). Vende a perna comprada pelo melhor comprador e recompra
+  // a vendida pelo melhor vendedor, menos as taxas da B3 e a corretagem da saída. Sem piso: é o que se receberia. null se
+  // faltar o preço do lado que interessa ou se a quantidade nesse preço não cobre os lotes (aí o preço não é executável:
+  // um preço médio que pisca não dispara regra). Diferente de resultadoNoDia (preço médio de fechamento, piso no risco).
+  function resultadoAgora(m, livro) {
+    const q = LOTE * m.lotes; let v = 0, taxas = 0;
+    for (const [l, x] of m.pernas) {
+      const p = livro && livro[x.s]; if (!p) return null;
+      const px = l > 0 ? p[0] : p[1], qt = l > 0 ? p[2] : p[3];
+      if (!(px > 0) || (qt !== undefined && qt !== null && qt < q)) return null;
+      v += l * px; taxas += TAXA_B3 * px * q;
+    }
+    return r2(v * q - m.premio - taxas - fixo(m.pernas.length) / 2);
+  }
   // Resultado com os preços em que cada perna foi de fato desfeita (encerramento registrado de operação real): sem piso.
   function resultadoComPrecos(m, precos) { return r2(m.pernas.reduce((s, [l], i) => s + l * precos[i], 0) * LOTE * m.lotes - m.premio); }
   // Primeira regra de saída atingida nos fechamentos depois da entrada e antes do vencimento: alvo (resultado >= alvo),
@@ -293,6 +308,6 @@
     const prox = marcas.find((x) => x.d > rg.d && x.d < venc && x.r !== null);
     return prox ? { regra: rg.regra, d: rg.d, dSaida: prox.d, r: prox.r } : { regra: rg.regra, d: rg.d, pendente: true };
   }
-  const api = { setCorretagem, setJuro, juroDaSelic, R_PADRAO, montar, montarSinal, montarAposta, execucao, probAcima, resultadoNoVencimento, volReal60, tendencia, movimentoNecessario, resultadoNoDia, resultadoComPrecos, regraDeSaida, saidaDaRegra };
+  const api = { setCorretagem, setJuro, juroDaSelic, R_PADRAO, montar, montarSinal, montarAposta, execucao, probAcima, resultadoNoVencimento, volReal60, tendencia, movimentoNecessario, resultadoNoDia, resultadoAgora, resultadoComPrecos, regraDeSaida, saidaDaRegra };
   if (typeof module !== "undefined") module.exports = api; else root.Montador = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -1,4 +1,4 @@
-"""Gera index.html embutindo montador.js e o snapshot publicado (enxuto) a partir de snapshot.json.
+"""Gera index.html embutindo montador.js, aovivo.js e o snapshot publicado (enxuto) a partir de snapshot.json.
 
 O snapshot.json do repositório guarda até 12 pregões de cadeia (paridade, testes, modo ?teste=1 local). O app só
 usa o pregão mais recente e os fechamentos: o publicado leva só isso, sem a cópia duplicada em "ativos" (o app a
@@ -47,5 +47,5 @@ def snapshot_publicado(caminho="snapshot.json"):
 if __name__ == "__main__":
     snap = json.dumps(snapshot_publicado(), ensure_ascii=False, separators=(",", ":"))
     t = open("template.html", encoding="utf-8").read()
-    t = t.replace("/*TEXTOS*/", json.dumps(textos(), ensure_ascii=False)).replace("/*FONTE*/", fonte_css()).replace("/*MONTADOR*/", open("montador.js", encoding="utf-8").read()).replace("/*SNAPSHOT*/", snap)
+    t = t.replace("/*TEXTOS*/", json.dumps(textos(), ensure_ascii=False)).replace("/*FONTE*/", fonte_css()).replace("/*MONTADOR*/", open("montador.js", encoding="utf-8").read() + "\n" + open("aovivo.js", encoding="utf-8").read()).replace("/*SNAPSHOT*/", snap)
     open("index.html", "w", encoding="utf-8").write(t); print(len(t.encode("utf-8")) // 1024, "KB")

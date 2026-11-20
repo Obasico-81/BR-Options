@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - "montador.js"
+      - "aovivo.js"
       - "montador.py"
       - "pwa/sw.js"
       - "paridade.py"
@@ -63,6 +64,9 @@ jobs:
 
       - name: Marcação diária (contas e app servido por HTTP)
         run: node testes/marcacao.js
+
+      - name: Ao vivo — preço de execução, regras a cada cotação, fonte simulada e telas
+        run: node testes/aovivo.js
 
       - name: Números no formato brasileiro (vírgula, ponto de milhar)
         run: node testes/numeros.js

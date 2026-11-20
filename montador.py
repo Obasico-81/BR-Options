@@ -475,6 +475,23 @@ def resultado_no_dia(m: Montagem, precos: dict) -> Optional[float]:
     return _r2(max(v * LOTE * m.lotes - m.premio, -m.perda_max))
 
 
+def resultado_agora(m: Montagem, livro: dict) -> Optional[float]:
+    """Ao vivo: resultado (R$, todos os lotes) se a operação fosse desfeita agora, pelo preço de execução: vende a perna
+    comprada pelo melhor comprador e recompra a vendida pelo melhor vendedor, menos as taxas da B3 e a corretagem da saída.
+    livro: {símbolo: [compra, venda, qtd na compra, qtd na venda]} (qtds opcionais). Sem piso. None se faltar o preço do
+    lado que interessa ou se a quantidade nesse preço não cobre os lotes. Espelha resultadoAgora do montador.js."""
+    q = LOTE * m.lotes; v = taxas = 0.0
+    for l, o in m.pernas:
+        p = (livro or {}).get(o.simbolo)
+        if not p:
+            return None
+        px, qt = (p[0], p[2] if len(p) > 2 else None) if l > 0 else (p[1], p[3] if len(p) > 3 else None)
+        if px is None or not px > 0 or (qt is not None and qt < q):
+            return None
+        v += l * px; taxas += TAXA_B3 * px * q
+    return _r2(v * q - m.premio - taxas - _fixo(len(m.pernas)) / 2)
+
+
 def resultado_com_precos(m: Montagem, precos: list) -> float:
     """Resultado com os preços em que cada perna foi de fato desfeita (encerramento registrado): sem piso."""
     return _r2(sum(l * p for (l, _), p in zip(m.pernas, precos)) * LOTE * m.lotes - m.premio)

@@ -32,6 +32,13 @@ p{margin:0}
 .pill.no{background:var(--track);color:var(--muted)}
 .pill.sim{background:var(--warn-soft);color:var(--warn-text);font-size:13px;padding:4px 12px}
 .pill.real{background:var(--accent-soft);color:var(--accent-text);font-size:13px;padding:4px 12px}
+.vivo{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.vivo i{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px var(--good-soft);animation:pisca 2s infinite}
+@keyframes pisca{50%{opacity:.35}}
+.aviso-vivo{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);z-index:50;width:min(440px,calc(100% - 32px));display:flex;flex-direction:column;gap:2px;text-align:left;padding:12px 16px;border-radius:14px;border:1px solid var(--line);border-left:4px solid var(--accent);background:var(--surface);color:var(--ink);font:inherit;font-size:15px;box-shadow:0 10px 30px rgba(0,0,0,.35);cursor:pointer}
+.aviso-vivo span{color:var(--muted);font-size:14px}
+.ordem{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;font-size:14px;margin-top:8px;font-variant-numeric:tabular-nums}
+.ordem .l{font-weight:700}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;min-width:0}
@@ -203,7 +210,7 @@ const cols = (a, b, c = "") => `<div class="cols ${c}"><div class="col">${a}</di
 const ESTREITAS = new Set(["real", "sair", "doc"]);   // telas de formulário ou texto: uma coluna, mais estreita
 const opSel = () => load("historico", []).find(o => o.id === selId) || null;
 // Em aberto: a simulada sai na primeira regra atingida; a real só quando o usuário registra o encerramento (ou vence).
-const abertas = () => { const hoje = S.data; return load("historico", []).filter(o => { const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); return !(rep && rep.venc <= hoje) && (o.real ? !o.real.saida : !(STATUS.get(o.id)?.saida && !STATUS.get(o.id).saida.pendente)); }); };
+const abertas = () => { const hoje = S.data; return load("historico", []).filter(o => { const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); return !(rep && rep.venc <= hoje) && (o.real ? !o.real.saida : !o.vivo && !(STATUS.get(o.id)?.saida && !STATUS.get(o.id).saida.pendente)); }); };
 const hojeISO = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 
 // --- Marcação diária: preços de fechamento das opções (pwa/precos/AAAA-MM-DD.json, publicados pelo atualizador) ---
@@ -228,8 +235,56 @@ async function atualizarStatus(){
     hs.forEach((o, i) => STATUS.set(o.id, res[i]));
     if (hs.length && (tela === "acomp" || tela === "desemp")) render();
   } finally { marcando = false; }
+  iniciarAoVivo();
 }
 const COMO = {alvo: "saiu no alvo", limite: "saiu no limite", prazo: "saiu no prazo", vencimento: "venceu", encerrada: "encerrada"};
+
+// --- Ao vivo (aovivo.js): cotações do pregão, de qualquer fornecedor. A cada cotação, o "se encerrar agora" de cada
+// operação aberta (preço de execução, com as taxas da saída) e as regras de saída. A simulada sai no momento em que a
+// regra é atingida, por esse preço (fica em o.vivo); na real, o app avisa e mostra a ordem pronta (o.vivo guarda o aviso).
+// Sem fonte, tudo segue pelo fechamento (marcação diária). ?aovivo=sim liga a fonte simulada (testes e prints; não é dado
+// de mercado); a do fornecedor entra em fonteAoVivo quando for contratada.
+const AV = window.AoVivo, PARAM = new URLSearchParams(location.search);
+const AGORA = new Map(); let VIVO = null, FONTE = null, vivoChave = "", vivoHora = null, aviso = null;
+const REGRA_CURTA = {alvo: "Alvo atingido", limite: "Limite atingido", prazo: "Prazo de saída"};
+// o que aparece ao lado da operação na lista: o aviso ao vivo (com a hora) ou, sem cotação ao vivo, a regra do fechamento
+const alertaOp = (o) => o.vivo ? `${REGRA_CURTA[o.vivo.regra].toLowerCase()} às ${o.vivo.hora}` : STATUS.get(o.id)?.saida ? (VIVO ? "regra atingida no fechamento" : `regra atingida${o.real ? "" : ": sai no próximo pregão"}`) : "";
+const horaBR = (h, seg) => new Date(h).toLocaleTimeString("pt-BR", {hour: "2-digit", minute: "2-digit", second: seg ? "2-digit" : undefined});
+async function fonteAoVivo(){
+  if (PARAM.get("aovivo") !== "sim" || !AV) return null;
+  const op = await precosDia(SNAP.data), base = Object.assign({}, ...Object.values(SNAP.ativos).map(a => Object.fromEntries((a.chain || []).map(o => [o.s, [o.b, o.a]])))), num = (k, d) => PARAM.has(k) ? +PARAM.get(k) : d;
+  return AV.simulada({base: Object.assign(base, op || {}), spot: Object.fromEntries(Object.entries(SNAP.ativos).map(([n, a]) => [n, a.S])), juro: M.juroDaSelic(selicDe(SNAP.data) ?? 11), passo: num("passo", 1500), minutos: num("minutos", 5), rumo: num("rumo", 0), semente: num("semente", Date.now())});
+}
+async function iniciarAoVivo(){
+  const hs = load("historico", []), ops = abertas().map(o => { const st = STATUS.get(o.id); return {id: o.id, m: o.m, ativo: o.ativo, venc: addDias(o.data, o.m.dias), forcar: !o.real && st && st.saida && st.saida.pendente ? st.saida.regra : null}; });
+  const chave = ops.map(o => o.id).join(",");
+  if (VIVO && chave === vivoChave) return; if (VIVO) VIVO.fechar(); VIVO = null; vivoChave = chave;
+  if (!ops.length) return; const f = FONTE || (FONTE = await fonteAoVivo()); if (!f || chave !== vivoChave) return;
+  // a real que já avisou continua sendo acompanhada (o "se encerrar agora" segue mudando), sem novo aviso
+  const avisadas = new Set(hs.filter(o => o.real && o.vivo).map(o => o.id));
+  VIVO = AV.vigia(f, ops, {aoMudar: (e) => { AGORA.set(e.id, e); vivoHora = e.hora; pintarAgora(); },
+    aoDisparar: (e) => { if (avisadas.has(e.id)) return; const hs = load("historico", []), o = hs.find(x => x.id === e.id); if (!o) return;
+      o.vivo = {regra: e.regra, d: AV.isoLocal(e.hora), hora: horaBR(e.hora), r: e.r, ordem: AV.ordemDeSaida(o.m, VIVO.livro)}; save("historico", hs);
+      aviso = {id: o.id, txt: `${REGRA_CURTA[e.regra]} · ${esc(o.m.estrutura)} · ${o.ativo}`, r: e.r, sim: !o.real}; mostrarAviso();
+      if (tela === "acomp" || tela === "desemp") { const y = window.scrollY; render(); window.scrollTo(0, y); } }});
+  VIVO.fonte = f.nome; pintarAgora();
+}
+// a cada cotação, só os números mudam na tela (sem refazer a tela: não atrapalha quem está digitando ou arrastando)
+let pintando = false;
+function pintarAgora(){ if (pintando) return; pintando = true; requestAnimationFrame(() => { pintando = false;
+  document.querySelectorAll("[data-agora]").forEach(el => { const a = AGORA.get(+el.dataset.agora); if (!a) return;
+    el.textContent = a.r === 0 ? "R$ 0" : sgn(a.r); el.style.color = a.r > 0 ? "var(--good)" : a.r < 0 ? "var(--bad)" : "inherit"; });
+  document.querySelectorAll("[data-hora-vivo]").forEach(el => { if (vivoHora) el.textContent = horaBR(vivoHora, true); });
+  document.querySelectorAll("[data-px]").forEach(el => { const [s, i] = el.dataset.px.split("|"), p = VIVO && VIVO.livro[s]; if (p) el.textContent = brl(p[+i], 2); }); }); }
+// a ordem para encerrar agora, perna por perna (o preço acompanha o livro); feita: a que a simulação executou
+const ordemHtml = (m, feita) => `<div class="ordem">${m.pernas.map(([l, x], i) => { const f = feita && feita[i], p = VIVO && VIVO.livro[x.s];
+  return `<span class="l">${f ? (l > 0 ? "Vendeu" : "Recomprou") : l > 0 ? "Vender" : "Comprar"}</span><span>${m.lotes * 100} ${esc(x.s)}</span><span>a ${f ? brl(f.preco, 2) : `<span data-px="${esc(x.s)}|${l > 0 ? 0 : 1}">${p ? brl(p[l > 0 ? 0 : 1], 2) : "…"}</span>`}</span>`; }).join("")}</div>`;
+const seloVivo = () => VIVO ? `<span class="vivo"><i></i>Ao vivo${VIVO.fonte === "Simulada" ? " (simulado)" : ""} · <span data-hora-vivo>${vivoHora ? horaBR(vivoHora, true) : "…"}</span></span>` : "";
+function mostrarAviso(){ let el = document.getElementById("aviso-vivo"); if (!aviso) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement("button"); el.id = "aviso-vivo"; el.className = "aviso-vivo"; document.body.appendChild(el); }
+  el.innerHTML = `<strong>${aviso.txt}</strong><span>${aviso.sim ? `A simulação saiu com ${sgn(aviso.r)}` : `${sgn(aviso.r)} se encerrar agora`}</span>`;
+  el.onclick = () => { selId = aviso.id; aviso = null; mostrarAviso(); slider = null; tela = "acomp"; render(); };
+  clearTimeout(mostrarAviso.t); mostrarAviso.t = setTimeout(() => { aviso = null; mostrarAviso(); }, 12000); }
 
 function load(k, d){ try{ const v = localStorage.getItem(k); if (!v) return d; const j = JSON.parse(v); return (d && typeof d === "object") ? Object.assign(d, j) : j; }catch(e){ return d; } }
 function save(k, v){
@@ -890,7 +945,8 @@ function erro(t,m){
 function desempenho(){
   const hoje = S.data, todas = load("historico", []), temReal = todas.some(o => o.real);
   const tipo = desTipo || (temReal ? "real" : "sim"), hs = todas.filter(o => tipo === "real" ? o.real : !o.real);
-  const ref = tipo === "real" && hojeISO() > hoje ? hojeISO() : hoje;   // reais: encerramento registrado pode ser depois do último pregão
+  // reais: encerramento registrado pode ser depois do último pregão; simuladas: a saída ao vivo é no pregão de hoje
+  const ref = (tipo === "real" || hs.some(o => o.vivo)) && hojeISO() > hoje ? hojeISO() : hoje;
   let de, ate = ref;
   if (per==="30") de = addDias(ref,-30); else if (per==="90") de = addDias(ref,-90); else if (per==="365") de = addDias(ref,-365);
   else if (per==="pers"){ de = pDe || "0000-00-00"; ate = pAte || ref; } else de = "0000-00-00";
@@ -899,6 +955,7 @@ function desempenho(){
     if (o.real) { if (o.real.saida) return {o, venc, fecha: o.real.saida.data, res: o.real.saida.res, como: "encerrada", real: true};
       const rp = fechamentoNoVenc(o.ativo, o.data, o.m.dias), v = rp && rp.venc <= hoje;
       return {o, venc, fecha: venc, res: v ? Math.round((M.resultadoNoVencimento(o.m, rp.preco) - (o.real.custos || 0)) * 100) / 100 : null, como: "vencimento", real: v}; }
+    if (o.vivo) return {o, venc, fecha: o.vivo.d, res: o.vivo.r, como: o.vivo.regra, real: true};   // saiu ao vivo, no momento da regra
     if (st && st.saida && !st.saida.pendente) return {o, venc, fecha: st.saida.dSaida, res: st.saida.r, como: st.saida.regra, real: true};
     const rep = fechamentoNoVenc(o.ativo, o.data, o.m.dias); const real = rep && rep.venc <= hoje;
     return {o, venc, fecha: venc, res: real ? M.resultadoNoVencimento(o.m, rep.preco) : null, como: "vencimento", real}; });
@@ -928,7 +985,7 @@ function desempenho(){
     fim.map(l => `<tr><td><strong>${esc(l.o.m.estrutura)}</strong></td><td>${l.o.ativo}</td><td>${dBR(l.o.real ? l.o.real.data : l.o.data)}</td><td>${COMO[l.como]}</td><td>${dBR(l.fecha)}</td><td class="num" style="color:${l.res>0?"var(--good)":l.res<0?"var(--bad)":"inherit"}">${fv(l.res)}</td></tr>`).join("") + `</tbody></table></section>`
     : `<details class="card det"><summary>Encerradas no período (${fim.length})</summary><div style="margin-top:4px">` + fim.map(l => `<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)"><div><div style="font-weight:600">${esc(l.o.m.estrutura)} · ${l.o.ativo}</div><div class="small muted">${l.o.real ? `Executada ${dBR(l.o.real.data)}` : `Entrada ${dBR(l.o.data)}`} · ${COMO[l.como]} em ${dBR(l.fecha)}</div></div><div style="font-weight:700;white-space:nowrap;color:${l.res>0?"var(--good)":l.res<0?"var(--bad)":"inherit"}">${fv(l.res)}</div></div>`).join("") + `</div></details>`;
   const rod = tipo === "real" ? `<p class="foot">Cada operação real termina quando você registra o encerramento, com os preços da sua nota, ou no vencimento (sem os custos de exercício).</p><button class="btn sec2" id="limpar-hist" data-tipo-limpar="real">Apagar operações reais</button>`
-    : `<p class="foot">Cada operação sai na primeira regra atingida (alvo, limite ou prazo), conferida no fechamento de cada dia, com a saída no pregão seguinte, como seria na corretora; ou no vencimento. Dia sem preço da opção fica de fora da conferência.</p><button class="btn sec2" id="limpar-hist" data-tipo-limpar="sim">Apagar histórico simulado</button>`;
+    : `<p class="foot">Cada operação sai na primeira regra atingida (alvo, limite ou prazo)${VIVO ? ", no momento em que é atingida, pelo melhor comprador e melhor vendedor de cada perna" : ", conferida no fechamento de cada dia, com a saída no pregão seguinte, como seria na corretora"}; ou no vencimento.${VIVO ? "" : " Dia sem preço da opção fica de fora da conferência."}</p><button class="btn sec2" id="limpar-hist" data-tipo-limpar="sim">Apagar histórico simulado</button>`;
   return {topo: cab + h, enc, rod, pill};
 }
 
@@ -937,12 +994,15 @@ function vLista(){
   const caixa = base.filter(o => o.m.tese === "alta_com_caixa" || o.m.tese === "sinal_put").reduce((a,o)=>a+o.m.pernas[0][1].k*100*o.m.lotes,0);   // compra obrigatória: caixa preso até o vencimento
   const D = desempenho(), fimTela = (h) => h + `</section>` + D.enc + `<button class="btn" data-go="obj">Montar operação</button>` + D.rod;
   let h = `<div class="top"><button class="back" data-go="obj" data-ini>‹ Início</button>${D.pill}</div><h1>Minhas operações</h1>` + D.topo
-    + `<section id="abertas" aria-label="Em aberto" style="display:flex;flex-direction:column;gap:14px"><h2 style="font-size:18px;margin-top:10px">Em aberto</h2>`;
+    + `<section id="abertas" aria-label="Em aberto" style="display:flex;flex-direction:column;gap:14px"><h2 style="font-size:18px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px">Em aberto${seloVivo()}</h2>`;
   if (!L.length) return fimTela(h + `<div class="card empty"><p>Nenhuma operação em aberto.</p><p class="small" style="margin-top:6px">Monte uma operação e simule, ou registre a que você executou na corretora, para acompanhá-la aqui.</p></div>`);
   const nR = LR.length, nS = L.length - nR;
   h += `<section class="card"><div style="font-size:24px;font-weight:700">${[nR ? `${nR} ${nR > 1 ? "reais" : "real"}` : "", nS ? `${nS} ${nS > 1 ? "simuladas" : "simulada"}` : ""].filter(Boolean).join(" · ")}</div>${nR && nS ? `<div class="small muted" style="margin-top:-6px">Os valores abaixo somam só as reais.</div>` : ""}<div class="row3" style="border-top:1px solid var(--line);padding-top:10px;margin-top:8px"><div><div class="small muted">Risco máximo somado</div><div style="font-weight:700">${brl(tot)}</div></div><div><div class="small muted">Do seu capital</div><div style="font-weight:700">${(tot/S.capital*100).toLocaleString("pt-BR",{maximumFractionDigits:1})}%</div></div>${caixa>0?`<div><div class="small muted">Caixa reservado</div><div style="font-weight:700">${brl(caixa)}</div></div>`:""}</div></section>`;
-  const item = (o) => `<button class="opt" data-op="${o.id}"><span class="tx"><span class="t">${esc(o.m.estrutura)} · ${o.ativo}</span><span class="st"><span style="flex-basis:100%">Vence ${dBR(addDias(o.data,o.m.dias))} · <span style="white-space:nowrap">risco máx. ${brl(o.m.perdaMax)}</span></span><span class="small" style="flex-basis:100%;margin-top:-4px">${o.real ? `Executada em ${dBR(o.real.data)}` : `Entrada em ${dBR(o.data)}`}${STATUS.get(o.id)?.saida ? ` · <strong style="color:var(--accent-text)">regra atingida${o.real ? "" : ": sai no próximo pregão"}</strong>` : ""}</span></span></span></button>`;
+  const item = (o) => `<button class="opt" data-op="${o.id}"><span class="tx"><span class="t">${esc(o.m.estrutura)} · ${o.ativo}</span><span class="st"><span style="flex-basis:100%">Vence ${dBR(addDias(o.data,o.m.dias))} · <span style="white-space:nowrap">risco máx. ${brl(o.m.perdaMax)}</span></span><span class="small" style="flex-basis:100%;margin-top:-4px">${o.real ? `Executada em ${dBR(o.real.data)}` : `Entrada em ${dBR(o.data)}`}${alertaOp(o) ? ` · <strong style="color:var(--accent-text)">${alertaOp(o)}</strong>` : ""}</span>${VIVO ? `<span style="flex-basis:100%">Se encerrar agora <strong data-agora="${o.id}">${AGORA.has(o.id) ? sgn(AGORA.get(o.id).r) : "…"}</strong></span>` : ""}</span></span></button>`;
   const ordem = (A) => A.slice().sort((a,b)=>addDias(a.data,a.m.dias).localeCompare(addDias(b.data,b.m.dias)));
+  if (DESK && VIVO) { const linha = (o) => { const a = AGORA.get(o.id);
+      return `<tr data-op="${o.id}" tabindex="0"><td><strong>${esc(o.m.estrutura)}</strong></td><td>${o.ativo}</td><td>${o.real ? '<span class="pill real">Real</span>' : '<span class="pill sim">Simulada</span>'}</td><td>${dBR(o.real ? o.real.data : o.data)}</td><td>${dBR(addDias(o.data,o.m.dias))}</td><td class="num">${brl(o.m.perdaMax)}</td><td class="num">${o.m.alvo != null ? sgn(o.m.alvo) : "—"}</td><td class="num" data-agora="${o.id}" style="font-weight:700;color:${a ? (a.r>0?"var(--good)":a.r<0?"var(--bad)":"inherit") : "var(--muted)"}">${a ? (a.r===0?"R$ 0":sgn(a.r)) : "…"}</td><td>${alertaOp(o) ? `<strong style="color:var(--accent-text)">${alertaOp(o)}</strong>` : ""}</td></tr>`; };
+    return fimTela(h + `<section class="card scroll"><table class="tab"><thead><tr><th>Operação</th><th>Ativo</th><th>Tipo</th><th>Entrada</th><th>Vence</th><th class="num">Risco máx.</th><th class="num">Alvo</th><th class="num">Se encerrar agora</th><th></th></tr></thead><tbody>${[...ordem(LR), ...ordem(L.filter(o => !o.real))].map(linha).join("")}</tbody></table><p class="small muted">“Se encerrar agora”: vendendo cada perna comprada pelo melhor comprador e recomprando a vendida pelo melhor vendedor, com as taxas da saída. Clique numa operação para ver os detalhes.</p></section>`); }
   if (DESK) { const linha = (o) => { const st = STATUS.get(o.id), hj = st && st.hoje;
       return `<tr data-op="${o.id}" tabindex="0"><td><strong>${esc(o.m.estrutura)}</strong></td><td>${o.ativo}</td><td>${o.real ? '<span class="pill real">Real</span>' : '<span class="pill sim">Simulada</span>'}</td><td>${dBR(o.real ? o.real.data : o.data)}</td><td>${dBR(addDias(o.data,o.m.dias))}</td><td class="num">${brl(o.m.perdaMax)}</td><td class="num" style="color:${hj ? (hj.r>0?"var(--good)":hj.r<0?"var(--bad)":"inherit") : "var(--muted)"}">${hj ? (hj.r===0?"R$ 0":sgn(hj.r)) : "—"}</td><td>${st?.saida && o.real ? '<strong style="color:var(--accent-text)">regra atingida</strong>' : ""}</td></tr>`; };
     return fimTela(h + `<section class="card scroll"><table class="tab"><thead><tr><th>Operação</th><th>Ativo</th><th>Tipo</th><th>Entrada</th><th>Vence</th><th class="num">Risco máx.</th><th class="num">Se encerrar hoje</th><th></th></tr></thead><tbody>${[...ordem(LR), ...ordem(L.filter(o => !o.real))].map(linha).join("")}</tbody></table><p class="small muted">“Se encerrar hoje”: pelo preço médio de fechamento de cada perna no último pregão. Clique numa operação para ver os detalhes.</p></section>`); }
@@ -1074,7 +1134,12 @@ function vAcomp(){
   const cab = h; let esq = null; h = "";
   if (fechada) h += `<section class="card"><div class="small muted">Encerrada em ${dBR(R.saida.data)}${R.custos != null || R.saida.custos != null ? ", com os custos informados" : ", sem custos"}</div><div style="font-size:30px;font-weight:700;color:${R.saida.res > 0 ? "var(--good)" : R.saida.res < 0 ? "var(--bad)" : "inherit"}">${sgn2(R.saida.res)}</div><p class="small muted">Antes de imposto.</p></section>`;
   { const st = STATUS.get(P.id), REGRA = {alvo: "A regra “Sair no alvo” foi atingida", limite: "A regra “Sair no limite” foi atingida", prazo: "Chegou o prazo de saída"};
-    if (st && st.hoje && !fechada) h += `<section class="card"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><div><div class="small muted">Se encerrar hoje</div><div style="font-size:26px;font-weight:700;color:${st.hoje.r>0?"var(--good)":st.hoje.r<0?"var(--bad)":"inherit"}">${st.hoje.r===0?"R$ 0":sgn(st.hoje.r)}</div></div><div class="small muted" style="text-align:right">Fechamento de<br>${dBR(st.hoje.d)}</div></div>
+    const a = AGORA.get(P.id), sv = P.vivo && !R;   // sv: a simulação já saiu ao vivo
+    if (sv) h += `<section class="card"><div class="small muted">${{alvo: "Saiu no alvo", limite: "Saiu no limite", prazo: "Saiu no prazo"}[P.vivo.regra]} em ${dBR(P.vivo.d)}, às ${P.vivo.hora}</div><div style="font-size:30px;font-weight:700;color:${P.vivo.r>0?"var(--good)":P.vivo.r<0?"var(--bad)":"inherit"}">${P.vivo.r===0?"R$ 0":sgn(P.vivo.r)}</div>${P.vivo.ordem ? ordemHtml(m, P.vivo.ordem) : ""}<p class="small muted" style="margin-top:8px">Pelo melhor comprador e pelo melhor vendedor de cada perna naquele momento, com as taxas da saída.</p></section>`;
+    else if (VIVO && !fechada) h += `<section class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px 8px"><div class="small muted">Se encerrar agora</div>${seloVivo()}</div><div data-agora="${P.id}" style="font-size:30px;font-weight:700;white-space:nowrap;color:${a ? (a.r>0?"var(--good)":a.r<0?"var(--bad)":"inherit") : "var(--muted)"}">${a ? (a.r===0?"R$ 0":sgn(a.r)) : "…"}</div>
+      ${P.vivo ? `<p style="margin-top:10px"><strong style="color:var(--accent-text)">${REGRA_CURTA[P.vivo.regra]}</strong> às ${P.vivo.hora}, com ${sgn(P.vivo.r)}.</p>` : ""}${R ? `<div class="small muted" style="margin-top:10px">Para encerrar agora</div>${ordemHtml(m)}` : ""}
+      <p class="small muted" style="margin-top:8px">Vendendo cada perna comprada pelo melhor comprador e recomprando a vendida pelo melhor vendedor, com as taxas da saída.${R && P.vivo ? " Encerrou na corretora? Registre o encerramento." : ""}</p></section>`;
+    else if (st && st.hoje && !fechada) h += `<section class="card"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><div><div class="small muted">Se encerrar hoje</div><div style="font-size:26px;font-weight:700;color:${st.hoje.r>0?"var(--good)":st.hoje.r<0?"var(--bad)":"inherit"}">${st.hoje.r===0?"R$ 0":sgn(st.hoje.r)}</div></div><div class="small muted" style="text-align:right">Fechamento de<br>${dBR(st.hoje.d)}</div></div>
       <p class="small muted" style="margin-top:6px">Pelo preço médio de fechamento de cada perna, entre a melhor compra e a melhor venda. Na corretora, o preço pode ser pior.</p>${st.saida?`<p class="small" style="margin-top:6px"><strong>${REGRA[st.saida.regra]}</strong> no fechamento de ${dBR(st.saida.d)}. ${st.saida.pendente ? "A saída é no próximo pregão." : `Saída no pregão seguinte, ${dBR(st.saida.dSaida)}: ${st.saida.r === 0 ? "R$ 0" : sgn(st.saida.r)}.`}${R ? " Se você encerrou na corretora, registre o encerramento." : ""}</p>`:""}</section>`; }
   if (!fechada) {
   h += `<section class="card"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px"><div><div class="small muted">Resultado no vencimento, se a ação estiver em</div><div id="rv" style="font-size:30px;font-weight:700;color:${r>0?"var(--good)":r<0?"var(--bad)":"inherit"}">${r===0?"R$ 0":sgn(r)}</div></div><div style="text-align:right"><div class="small muted">Ação</div><div id="px" style="font-size:20px;font-weight:700;white-space:nowrap">${brl(slider,2)}</div></div></div>
@@ -1093,8 +1158,8 @@ function vAcomp(){
   if (!R) h += custosHtml(m, P.cor ?? null);
   else h += avisosHtml(P) + `<section class="card"><h2 style="font-size:16px">Custos da nota</h2><p class="small">Entrada: ${R.custos != null ? brl(R.custos, 2) : "não informados"}${fechada ? ` · Saída: ${R.saida.custos != null ? brl(R.saida.custos, 2) : "não informados"}` : ""}.</p></section>`;
   if (rep && !fechada){ const rr = Math.round((M.resultadoNoVencimento(m, rep.preco) - (R && R.custos || 0)) * 100) / 100; h += `<section class="card"><h2 style="font-size:16px">Como terminou de verdade</h2><p class="small">Em ${dBR(rep.venc)}, ${P.ativo} fechou em ${brl(rep.preco,2)}. Resultado: <strong style="color:${rr>0?"var(--good)":rr<0?"var(--bad)":"inherit"}">${rr===0?"R$ 0":sgn(rr)}</strong>, antes de imposto${R ? (R.custos != null ? ", com os custos de entrada e sem os de exercício" : ", sem custos") : ""}.</p></section>`; }
-  if (R) h += `<p class="foot">Acompanhada pelos preços de fechamento de cada dia, que a B3 publica no fim do pregão.</p>${!fechada && !rep ? `<button class="btn" id="ir-sair">Registrar encerramento</button>` : ""}<button class="btn danger" id="encerrar">Apagar registro</button>`;
-  else h += `<p class="foot">Valores calculados com os preços de fechamento.</p><button class="btn sec2" id="copiar">Copiar parâmetros</button><textarea id="cpbox" class="small" hidden readonly rows="6" style="width:100%;margin-top:8px"></textarea><button class="btn danger" id="encerrar">Encerrar operação simulada</button>`;
+  if (R) h += `<p class="foot">${VIVO ? "Acompanhada ao vivo durante o pregão." : "Acompanhada pelos preços de fechamento de cada dia, que a B3 publica no fim do pregão."}</p>${!fechada && !rep ? `<button class="btn" id="ir-sair">Registrar encerramento</button>` : ""}<button class="btn danger" id="encerrar">Apagar registro</button>`;
+  else h += `<p class="foot">${VIVO ? "Montada com os preços de fechamento; acompanhada ao vivo durante o pregão." : "Valores calculados com os preços de fechamento."}</p><button class="btn sec2" id="copiar">Copiar parâmetros</button><textarea id="cpbox" class="small" hidden readonly rows="6" style="width:100%;margin-top:8px"></textarea><button class="btn danger" id="encerrar">Encerrar operação simulada</button>`;
   return DESK ? cab + cols(esq, h) : cab + esq + h;
 }
 

@@ -8,7 +8,7 @@ taxas da B3, corretagem por ordem e total); a operação real (execucao: outra q
 """
 import json, math, subprocess, sys
 from datetime import date, timedelta
-from montador import Opcao, montar, montar_sinal, montar_aposta, set_corretagem, vol_real_60, movimento_necessario, resultado_no_dia, regra_de_saida, saida_da_regra, execucao, tendencia
+from montador import Opcao, montar, montar_sinal, montar_aposta, set_corretagem, vol_real_60, movimento_necessario, resultado_no_dia, resultado_agora, regra_de_saida, saida_da_regra, execucao, tendencia
 
 r2 = lambda x: math.floor(x * 100 + 0.5) / 100   # mesmo arredondamento do Math.round do JS (o round do Python arredonda 5,885 para 5,88)
 CORRETAGENS = (None, 5.0)
@@ -98,6 +98,9 @@ def resumo(m, nome, S, theta=False):
     sem = {k: v for k, v in p0.items() if k != m.pernas[0][1].simbolo}
     absurdo = {o.simbolo: ([0.01, 0.02] if l > 0 else [0.5, 99.0]) for l, o in m.pernas}   # piso no risco máximo
     d["marc"] = [resultado_no_dia(m, p0), resultado_no_dia(m, p1), resultado_no_dia(m, sem), resultado_no_dia(m, absurdo)]
+    # ao vivo, pelo preço de execução: sem quantidade, quantidade que cobre os lotes, quantidade que não cobre (None)
+    q = m.lotes * 100; cheio = {k: v + [q, q] for k, v in p0.items()}; pouco = {k: v + [q - 100, q - 100] for k, v in p0.items()}
+    d["agora"] = [resultado_agora(m, p0), resultado_agora(m, p1), resultado_agora(m, cheio), resultado_agora(m, pouco), resultado_agora(m, sem)]
     # operação real: 1 lote a mais e preços 5% piores que os da montagem (compra mais cara, venda mais barata)
     x = execucao(m, m.lotes + 1, [r2(o.ask * 1.05) if l > 0 else r2(o.bid * 0.95) for l, o in m.pernas])
     d["ex"] = [x.premio, x.perda_max, x.ganho_max, list(x.pontos_equilibrio), x.alvo, x.stop, resultado_no_dia(x, p0),
@@ -159,6 +162,8 @@ const res=(m,theta,n,S)=>{ if(typeof m==='string') return m;
   const [p0,p1]=PR[n], venc=addD(s.data,m.dias), sem={...p0}; delete sem[m.pernas[0][1].s];
   const absurdo=Object.fromEntries(m.pernas.map(([l,o])=>[o.s,l>0?[0.01,0.02]:[0.5,99]]));
   d.marc=[M.resultadoNoDia(m,p0),M.resultadoNoDia(m,p1),M.resultadoNoDia(m,sem),M.resultadoNoDia(m,absurdo)];
+  { const q=m.lotes*100, cheio=Object.fromEntries(Object.entries(p0).map(([k,v])=>[k,[...v,q,q]])), pouco=Object.fromEntries(Object.entries(p0).map(([k,v])=>[k,[...v,q-100,q-100]]));
+    d.agora=[M.resultadoAgora(m,p0),M.resultadoAgora(m,p1),M.resultadoAgora(m,cheio),M.resultadoAgora(m,pouco),M.resultadoAgora(m,sem)]; }
   const x=M.execucao(m,{lotes:m.lotes+1,precos:m.pernas.map(([l,o])=>l>0?r2(o.a*1.05):r2(o.b*0.95))});
   d.ex=[x.premio,x.perdaMax,x.ganhoMax,x.equilibrio,x.alvo,x.stop,M.resultadoNoDia(x,p0),x.pernas.map(([l,o])=>l>0?o.a:o.b)];
   d.regras=[false,true].map(peq=>M.regraDeSaida(m,marcas(m.perdaMax,m.dias,peq),venc)).concat([M.regraDeSaida(m,[{d:venc,r:10*m.perdaMax}],venc)]);
@@ -247,6 +252,8 @@ for cor in CORRETAGENS:
             and all(perto(a, b) for a, b in zip(v["eq"], j["eq"])) and abs(v["prob"] - j["prob"]) < 0.002 and [list(x) for x in v["ks"]] == j["ks"] \
             and ("theta" not in v or perto(v["theta"], j["theta"])) and all(perto(a, b, 1e-12) for a, b in zip(v["mov"], j["mov"])) \
             and all(perto(a, b) for a, b in zip(v["marc"], j["marc"])) and v["marc"][2] is None and j["marc"][2] is None and igual_ex(v["ex"], j["ex"]) \
+            and all(perto(a, b) for a, b in zip(v["agora"], j["agora"])) and v["agora"][0] is not None and perto(v["agora"][0], v["agora"][2]) \
+            and v["agora"][3] is None and v["agora"][4] is None and v["agora"][0] <= v["marc"][0] + 0.01 \
             and all((x is None and y is None) or (x is not None and y is not None and x["regra"] == y["regra"] and x["d"] == y["d"] and perto(x["r"], y["r"]))
                     for x, y in zip(v["regras"], j["regras"])) \
             and all((x is None and y is None) or (x is not None and y is not None and x["regra"] == y["regra"] and x["d"] == y["d"]
