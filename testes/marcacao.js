@@ -37,7 +37,8 @@ confere("saidaDaRegra: pula pregão sem preço depois do disparo", M.saidaDaRegr
 confere("saidaDaRegra: sem pregão seguinte ainda -> pendente", JSON.stringify(M.saidaDaRegra(m, [{ d: "2026-10-01", r: 50 }, { d: "2026-10-05", r: m.alvo + 1 }], venc)) === JSON.stringify({ regra: "alvo", d: "2026-10-05", pendente: true }));
 confere("saidaDaRegra: o dia do vencimento não serve de saída (fica pendente; o app usa o vencimento)", M.saidaDaRegra(m, [{ d: "2026-12-11", r: 20 }, { d: venc, r: 99 }], venc)?.pendente === true);
 confere("saidaDaRegra: nenhuma regra -> null", M.saidaDaRegra(m, [{ d: "2026-10-01", r: 50 }], venc) === null);
-const compra = M.montarAposta("alta", a.S, a.chain, a.iv, 2000);
+// compra simples: a call de PETR4 pode estar sem liquidez no dia (ex.: 19/11/2026); procura em outros ativos e prazos
+const compra = Object.values(snap.ativos).flatMap((x) => [45, 30, 60, 15, 75, 90].map((pz) => [x, pz])).map(([x, pz]) => M.montarAposta("alta", x.S, x.chain, x.iv, 2000, { prazoAlvo: pz })).find((x) => typeof x !== "string");
 confere("regraDeSaida: compra simples não tem regra (só vencimento)", typeof compra !== "string" && M.regraDeSaida(compra, [{ d: "2026-10-01", r: 99999 }, { d: "2026-12-17", r: -99999 }], venc) === null);
 
 // ---------- 2. app servido por HTTP, com preços sintéticos ----------
