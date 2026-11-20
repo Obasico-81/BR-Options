@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Vaglio · Instalar</title>
+<meta name="description" content="Como instalar o Vaglio no Android, no iPhone e no computador.">
+<meta name="theme-color" content="#1E1E20">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Vaglio · Instalar">
+<meta property="og:description" content="Antes da ordem, o risco na mesa: custo, risco máximo, ganho máximo, ponto de equilíbrio e cenários de cada operação com opções.">
+<meta property="og:image" content="../img/compartilhar.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+@font-face{font-family:Figtree;src:url(../fontes/figtree-latin-wght-normal.woff2) format("woff2");font-weight:300 900;font-display:swap}
+:root{--bg:#1E1E20;--bg2:#161618;--surface:#28282B;--ink:#EDEBE4;--muted:#A9A7A0;--line:#3C3C40;--accent:#F5C400;--accent-ink:#1E1E20;--good:#7BD389;--bad:#FF8A7F}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Figtree,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:17px;line-height:1.55}
+a{color:var(--accent)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+header{position:sticky;top:0;z-index:5;background:rgba(30,30,32,.92);backdrop-filter:blur(8px);border-bottom:1px solid transparent}
+header .wrap{display:flex;align-items:center;justify-content:space-between;min-height:60px}
+.marca{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none}
+.marca b{font-weight:800;font-size:18px;letter-spacing:.18em}
+.topo-acoes{display:flex;align-items:center;gap:16px}
+.topo-inst{color:var(--muted);text-decoration:none;font-weight:600;font-size:15px}
+.topo-inst:hover,.topo-inst[aria-current]{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 22px;border-radius:14px;font:inherit;font-weight:700;font-size:17px;text-decoration:none;cursor:pointer;border:0}
+.btn.pri{background:var(--accent);color:var(--accent-ink)}
+.btn.sec{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn.peq{min-height:40px;padding:0 14px;font-size:15px;border-radius:12px}
+.hero{padding:40px 0 24px}
+.hero .wrap{display:grid;gap:36px;align-items:center}
+h1{font-size:clamp(32px,7vw,52px);line-height:1.08;letter-spacing:-.02em;margin:0 0 16px;font-weight:800;text-wrap:balance}
+h1 em{font-style:normal;color:var(--accent)}
+.lead{color:var(--muted);font-size:19px;margin:0 0 24px;max-width:36em}
+.ctas{display:flex;flex-direction:column;gap:10px;max-width:420px}
+.nota{font-size:14px;color:var(--muted);margin-top:10px}
+.janela{border-radius:14px;overflow:hidden;background:#0c0c0d;border:1px solid #2c2c30;box-shadow:0 30px 60px rgba(0,0,0,.45)}
+.janela .barra{display:flex;gap:6px;align-items:center;height:28px;padding:0 12px;background:#161618;border-bottom:1px solid #2c2c30}
+.janela .barra i{width:10px;height:10px;border-radius:50%;background:#3C3C40;display:block}
+.janela .barra span{margin-left:10px;font-size:12px;color:#6f6d68}
+.janela img{display:block;width:100%;height:auto}
+.cel{width:min(300px,78vw);margin:0 auto;border-radius:38px;padding:10px;background:#0c0c0d;border:1px solid #2c2c30;box-shadow:0 30px 60px rgba(0,0,0,.45)}
+.cel img{display:block;width:100%;height:auto;border-radius:30px}
+section{padding:56px 0;border-top:1px solid var(--line)}
+h2{font-size:clamp(26px,5vw,36px);line-height:1.15;letter-spacing:-.01em;margin:0 0 12px;font-weight:800;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 28px;max-width:40em}
+.passos{display:grid;gap:28px}
+.passo{display:grid;gap:16px;align-items:start}
+.passo .n{display:inline-flex;width:34px;height:34px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-weight:800;align-items:center;justify-content:center;margin-bottom:6px}
+.passo h3{font-size:21px;margin:0 0 6px}
+.passo p{margin:0;color:var(--muted)}
+.passo .txt h3{font-size:24px}
+.duas{display:grid;gap:28px;align-items:center}
+.vitrine{background:var(--bg2)}
+.vitrine .cab{text-align:center;max-width:720px;margin:0 auto 32px}
+.vitrine .cab .sub{margin:0 auto 20px}
+.vitrine .janela{max-width:1040px;margin:0 auto}
+.grade{display:grid;gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px}
+.card h3{margin:0 0 6px;font-size:19px}
+.card p{margin:0;color:var(--muted);font-size:16px}
+.num{font-size:40px;font-weight:800;color:var(--accent);line-height:1;margin-bottom:8px}
+.inst{display:grid;gap:14px}
+.inst ol{margin:8px 0 0;padding-left:20px;color:var(--muted)}
+.inst li{margin:4px 0}
+.inst.so-um{grid-template-columns:1fr!important;max-width:460px}
+.inst.so-um>.card:not(.meu){display:none}
+.outro{background:none;border:0;padding:0;margin-top:14px;color:var(--muted);font:inherit;font-size:15px;text-decoration:underline;cursor:pointer}
+.qr{display:none;align-items:center;gap:18px}
+.qr svg{width:132px;height:132px;background:#fff;border-radius:12px;padding:8px;flex:none}
+.chip{display:inline-block;background:#3a3016;color:#F0C060;border-radius:999px;padding:6px 14px;font-weight:700;font-size:14px;margin-bottom:16px}
+.faq details{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:10px}
+.faq summary{cursor:pointer;font-weight:700;font-size:18px;list-style:none;display:flex;justify-content:space-between;gap:12px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";color:var(--muted);font-weight:500}
+.faq details[open] summary::after{content:"−"}
+.faq p{margin:10px 0 0;color:var(--muted)}
+.final{text-align:center}
+.final .ctas{margin:0 auto}
+.notif{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:12px 14px;box-shadow:0 16px 40px rgba(0,0,0,.45);font-size:15px;line-height:1.35;max-width:380px}
+.notif b{display:block;font-size:15px}
+.notif span{color:var(--muted)}
+.notif .ic{flex:none;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#3a3016;color:var(--accent);font-weight:800;font-size:14px}
+.notif .ic.ok{background:#1F3328;color:var(--good)}
+.notif .pro{margin-left:auto;flex:none;color:#F0C060}
+.notif .pos{color:var(--good);font-weight:700}.notif .neg{color:var(--bad);font-weight:700}
+.notifs{display:grid;gap:10px}
+.vivo{display:inline-flex;align-items:center;gap:6px;color:var(--good);font-size:13px;font-weight:700}
+.vivo i{width:7px;height:7px;border-radius:50%;background:var(--good);animation:pisca 2s infinite}
+@keyframes pisca{50%{opacity:.35}}
+.faixa{overflow:hidden;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg2);padding:14px 0;white-space:nowrap}
+.faixa .trilho{display:inline-flex;gap:34px;padding-right:34px;animation:rola 38s linear infinite;font-weight:700;font-size:15px;color:#c9c6bd}
+.faixa .trilho span::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:12px;vertical-align:middle}
+@keyframes rola{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.faixa .trilho{animation:none}.vivo i{animation:none}}
+.lado{display:grid;gap:14px}
+.lado ul{list-style:none;margin:10px 0 0;padding:0}
+.lado li{position:relative;padding:8px 0 8px 30px;border-top:1px solid var(--line);color:#c9c6bd}
+.lado li:first-child{border-top:0}
+.lado li::before{position:absolute;left:0;top:8px;font-weight:800}
+.lado .nao li::before{content:"✕";color:var(--bad)}
+.lado .sim li::before{content:"✓";color:var(--good)}
+.lado .sim{border-color:#4a4220}
+.lado h3{margin:0;font-size:19px}
+.pro{display:inline-block;background:#3a3016;color:#F0C060;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;letter-spacing:.02em;vertical-align:middle;margin-left:8px}
+.planos .card{display:flex;flex-direction:column;gap:10px}
+.planos .preco{font-size:30px;font-weight:800;line-height:1.1}
+.planos .preco small{font-size:15px;font-weight:600;color:var(--muted)}
+.planos .card.destaque{border-color:#6b5a1e;box-shadow:0 0 0 1px #6b5a1e inset}
+.planos .btn{margin-top:auto}
+.legenda{font-size:13px;color:var(--muted);margin:8px 0 0}
+.aviso{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:14px 16px;color:var(--muted);font-size:16px;margin-top:18px}
+@media (max-width:600px){
+}
+footer{border-top:1px solid var(--line);padding:32px 0 48px;color:var(--muted);font-size:14px}
+footer p{margin:0 0 10px;max-width:60em}
+footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
+@media (min-width:860px){
+  .hero{padding:72px 0 48px}
+  .hero .wrap{gap:48px}
+  .hero .janela{max-width:1040px;width:100%;margin:0 auto}
+  .hero h1{max-width:16em}
+  .passos{gap:56px}
+  .passo{display:grid;grid-template-columns:.75fr 1.25fr;gap:44px;align-items:center}
+  .passo:nth-child(even){grid-template-columns:1.25fr .75fr}
+  .passo:nth-child(even) .txt{order:2}
+  .duas{grid-template-columns:.8fr 1.2fr}
+  .lado{grid-template-columns:1fr 1fr}
+  .hero .wrap{grid-template-columns:1.3fr .7fr;column-gap:40px}
+  .hero .janela{grid-column:1/-1}
+  .notifs{margin:0;gap:14px}
+  .notifs .notif:nth-child(2){margin-left:28px}
+  .notifs .notif:nth-child(3){margin-left:-12px}
+  .grade{grid-template-columns:repeat(3,1fr)}
+  .inst{grid-template-columns:repeat(3,1fr)}
+  body.computador .qr{display:flex}
+}
+.topo-nav{display:none;gap:22px;align-items:center}
+.topo-nav a{color:var(--muted);text-decoration:none;font-weight:600;font-size:15px}
+.topo-nav a:hover{color:var(--ink)}
+.contato{text-align:center}
+.contato a.email{font-size:clamp(22px,4vw,30px);font-weight:800;color:var(--accent);text-decoration:none}
+@media (min-width:860px){ .topo-nav{display:flex} }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="marca" href="../" aria-label="Vaglio">
+    <svg viewBox="0 0 120 120" width="30" height="30" aria-hidden="true" style="color:var(--accent)"><clipPath id="c1"><rect x="0" y="54" width="120" height="66"/></clipPath><path d="M24 22 L60 98 L96 22" fill="none" stroke="currentColor" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/><g clip-path="url(#c1)"><path d="M24 22 L60 98 L96 22" fill="none" stroke="currentColor" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/></g><rect x="6" y="50" width="108" height="5" rx="2.5" fill="currentColor"/></svg>
+    <b>VAGLIO</b>
+  </a>
+  <nav class="topo-nav" aria-label="Seções"><a href="../#como">Como funciona</a><a href="../#planos">Planos</a><a href="../#contato">Contato</a></nav>
+  <div class="topo-acoes"><a class="topo-inst" href="./" aria-current="page">Instalar</a><a class="btn pri peq" data-cta href="./">Acessar</a></div>
+</div></header>
+
+<main>
+<section id="instalar" style="border-top:0"><div class="wrap">
+  <h1 style="font-size:clamp(30px,6vw,44px)">Instale o Vaglio</h1>
+  <div class="inst">
+    <div class="card" data-sistema="android"><h3>Android</h3>
+      <a class="btn pri" data-apk href="#" style="width:100%;margin-top:10px">Baixar para Android</a>
+      <p style="margin:10px 0 0;color:var(--muted);font-size:15px">Instalação direta, fora da Play Store.</p>
+      <ol><li>Abra o arquivo baixado.</li><li>Se o celular pedir, permita instalar apps desta fonte.</li><li>Toque em <b>Instalar</b>.</li></ol></div>
+    <div class="card" data-sistema="iphone"><h3>iPhone</h3>
+      <a class="btn sec" data-web href="#" style="width:100%;margin-top:10px">Abrir no Safari</a>
+      <ol><li>Abra o app no <b>Safari</b>.</li><li>Toque em <b>Compartilhar</b> (o quadrado com a seta).</li><li>Toque em <b>Adicionar à Tela de Início</b>.</li></ol></div>
+    <div class="card" data-sistema="computador"><h3>Computador</h3>
+      <a class="btn sec" data-web href="#" style="width:100%;margin-top:10px">Acessar a plataforma</a>
+      <div class="qr" style="margin-top:14px"><!--QR--><span style="color:var(--muted);font-size:15px">No celular, aponte a câmera para o código.</span></div></div>
+  </div>
+  <button class="outro" type="button" data-outro hidden>Outro aparelho?</button>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <p>O Vaglio não é corretora nem consultoria de valores mobiliários e não faz recomendação de investimento. Operações com opções envolvem risco de perda do valor aplicado. Resultado passado não garante resultado futuro. No Pro, cotações da B3 em tempo real, por distribuidor autorizado.</p>
+  <nav><a data-termos href="#">Termos de uso</a><a data-privacidade href="#">Política de privacidade</a><a href="mailto:contato@vaglio.com.br">contato@vaglio.com.br</a></nav>
+  <p style="margin-top:18px">© Vaglio</p>
+</div></footer>
+
+<script>
+// Endereços: o app no navegador (vaglio.com.br/app/), o APK do Android e as páginas de termos e privacidade.
+var APP = "https://vaglio.com.br/app/";
+var INST = "./";
+var APK = "https://github.com/Obasico-81/BR-Options/releases/download/android-teste/vaglio.apk";
+(function () {
+  var ua = navigator.userAgent || "", android = /Android/i.test(ua),
+      iphone = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var sistema = android ? "android" : iphone ? "iphone" : "computador";
+  document.body.classList.add(sistema);
+  document.querySelectorAll("[data-web]").forEach(function (a) { a.href = APP; });
+  document.querySelectorAll("[data-apk]").forEach(function (a) { a.href = APK; });
+  document.querySelector("[data-termos]").href = APP + "termos.html";
+  document.querySelector("[data-privacidade]").href = APP + "privacidade.html";
+  // botão principal conforme o aparelho: no computador, Acessar a plataforma (o app no navegador); no Android, Baixar o
+  // app (APK); no iPhone, Abrir o app no Safari (ainda não há app de iPhone para baixar)
+  var peq = function (a) { return a.classList.contains("peq"); };
+  document.querySelectorAll("[data-cta]").forEach(function (a) {
+    if (android) { a.href = APK; a.textContent = peq(a) ? "Baixar" : "Baixar o app"; }
+    else if (iphone) { a.href = APP; a.textContent = peq(a) ? "Abrir" : "Abrir o app"; }
+    else { a.href = APP; a.textContent = peq(a) ? "Acessar" : "Acessar a plataforma"; }
+  });
+  // botão secundário: no computador, o QR para instalar no celular; no celular, usar no navegador
+  document.querySelectorAll("[data-sec]").forEach(function (a) {
+    if (android || iphone) { a.href = APP; a.textContent = "Usar no navegador"; } else { a.href = INST; a.textContent = "Instalar no celular"; }
+  });
+  // botão da seção do celular: baixar o app (APK no Android; no iPhone e no computador, leva às instruções e ao QR)
+  document.querySelectorAll("[data-baixar]").forEach(function (a) {
+    if (android) a.href = APK; else if (iphone) { a.href = INST; a.textContent = "Instalar o app"; } else a.href = INST;
+  });
+  // botões dos planos: o mesmo destino do botão principal, sem trocar o texto
+  document.querySelectorAll("[data-ir]").forEach(function (a) { a.href = android ? APK : APP; });
+  var nota = document.querySelector("[data-nota]");
+  if (nota && android) nota.textContent = "Grátis para começar. Instalação direta, fora da Play Store.";
+  else if (nota && iphone) nota.textContent = "Grátis para começar. No iPhone, o app abre no Safari e pode ir para a tela de início.";
+  // o cartão do aparelho de quem está vendo vem primeiro
+  var inst = document.querySelector(".inst"), meu = inst && inst.querySelector('[data-sistema="' + sistema + '"]');
+  if (meu) inst.insertBefore(meu, inst.firstChild);
+  // só o cartão do aparelho de quem está vendo; "Outro aparelho?" mostra os três
+  var outro = document.querySelector("[data-outro]");
+  if (meu && outro) { meu.classList.add("meu"); inst.classList.add("so-um"); outro.hidden = false;
+    outro.onclick = function () { inst.classList.remove("so-um"); outro.hidden = true; }; }
+})();
+</script>
+</body>
+</html>

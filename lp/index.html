@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Vaglio · Estratégias com opções na bolsa brasileira</title>
+<meta name="description" content="O Vaglio monta operações com opções na bolsa brasileira e mostra, antes da ordem, o custo, o risco máximo, o ganho máximo, o ponto de equilíbrio e os cenários. Grátis para começar.">
+<meta name="theme-color" content="#1E1E20">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Vaglio · Estratégias com opções na bolsa brasileira">
+<meta property="og:description" content="Antes da ordem, o risco na mesa: custo, risco máximo, ganho máximo, ponto de equilíbrio e cenários de cada operação com opções.">
+<meta property="og:image" content="img/compartilhar.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+@font-face{font-family:Figtree;src:url(fontes/figtree-latin-wght-normal.woff2) format("woff2");font-weight:300 900;font-display:swap}
+:root{--bg:#1E1E20;--bg2:#161618;--surface:#28282B;--ink:#EDEBE4;--muted:#A9A7A0;--line:#3C3C40;--accent:#F5C400;--accent-ink:#1E1E20;--good:#7BD389;--bad:#FF8A7F}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Figtree,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:17px;line-height:1.55}
+a{color:var(--accent)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+header{position:sticky;top:0;z-index:5;background:rgba(30,30,32,.92);backdrop-filter:blur(8px);border-bottom:1px solid transparent}
+header .wrap{display:flex;align-items:center;justify-content:space-between;min-height:60px}
+.marca{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none}
+.marca b{font-weight:800;font-size:18px;letter-spacing:.18em}
+.topo-acoes{display:flex;align-items:center;gap:16px}
+.topo-inst{color:var(--muted);text-decoration:none;font-weight:600;font-size:15px}
+.topo-inst:hover,.topo-inst[aria-current]{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 22px;border-radius:14px;font:inherit;font-weight:700;font-size:17px;text-decoration:none;cursor:pointer;border:0}
+.btn.pri{background:var(--accent);color:var(--accent-ink)}
+.btn.sec{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn.peq{min-height:40px;padding:0 14px;font-size:15px;border-radius:12px}
+.hero{padding:40px 0 24px}
+.hero .wrap{display:grid;gap:36px;align-items:center}
+h1{font-size:clamp(32px,7vw,52px);line-height:1.08;letter-spacing:-.02em;margin:0 0 16px;font-weight:800;text-wrap:balance}
+h1 em{font-style:normal;color:var(--accent)}
+.lead{color:var(--muted);font-size:19px;margin:0 0 24px;max-width:36em}
+.ctas{display:flex;flex-direction:column;gap:10px;max-width:420px}
+.nota{font-size:14px;color:var(--muted);margin-top:10px}
+.janela{border-radius:14px;overflow:hidden;background:#0c0c0d;border:1px solid #2c2c30;box-shadow:0 30px 60px rgba(0,0,0,.45)}
+.janela .barra{display:flex;gap:6px;align-items:center;height:28px;padding:0 12px;background:#161618;border-bottom:1px solid #2c2c30}
+.janela .barra i{width:10px;height:10px;border-radius:50%;background:#3C3C40;display:block}
+.janela .barra span{margin-left:10px;font-size:12px;color:#6f6d68}
+.janela img{display:block;width:100%;height:auto}
+.cel{width:min(300px,78vw);margin:0 auto;border-radius:38px;padding:10px;background:#0c0c0d;border:1px solid #2c2c30;box-shadow:0 30px 60px rgba(0,0,0,.45)}
+.cel img{display:block;width:100%;height:auto;border-radius:30px}
+section{padding:56px 0;border-top:1px solid var(--line)}
+h2{font-size:clamp(26px,5vw,36px);line-height:1.15;letter-spacing:-.01em;margin:0 0 12px;font-weight:800;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 28px;max-width:40em}
+.passos{display:grid;gap:28px}
+.passo{display:grid;gap:16px;align-items:start}
+.passo .n{display:inline-flex;width:34px;height:34px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-weight:800;align-items:center;justify-content:center;margin-bottom:6px}
+.passo h3{font-size:21px;margin:0 0 6px}
+.passo p{margin:0;color:var(--muted)}
+.passo .txt h3{font-size:24px}
+.duas{display:grid;gap:28px;align-items:center}
+.vitrine{background:var(--bg2)}
+.vitrine .cab{text-align:center;max-width:720px;margin:0 auto 32px}
+.vitrine .cab .sub{margin:0 auto 20px}
+.vitrine .janela{max-width:1040px;margin:0 auto}
+.grade{display:grid;gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px}
+.card h3{margin:0 0 6px;font-size:19px}
+.card p{margin:0;color:var(--muted);font-size:16px}
+.num{font-size:40px;font-weight:800;color:var(--accent);line-height:1;margin-bottom:8px}
+.inst{display:grid;gap:14px}
+.inst ol{margin:8px 0 0;padding-left:20px;color:var(--muted)}
+.inst li{margin:4px 0}
+.inst.so-um{grid-template-columns:1fr!important;max-width:460px}
+.inst.so-um>.card:not(.meu){display:none}
+.outro{background:none;border:0;padding:0;margin-top:14px;color:var(--muted);font:inherit;font-size:15px;text-decoration:underline;cursor:pointer}
+.qr{display:none;align-items:center;gap:18px}
+.qr svg{width:132px;height:132px;background:#fff;border-radius:12px;padding:8px;flex:none}
+.chip{display:inline-block;background:#3a3016;color:#F0C060;border-radius:999px;padding:6px 14px;font-weight:700;font-size:14px;margin-bottom:16px}
+.faq details{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:10px}
+.faq summary{cursor:pointer;font-weight:700;font-size:18px;list-style:none;display:flex;justify-content:space-between;gap:12px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";color:var(--muted);font-weight:500}
+.faq details[open] summary::after{content:"−"}
+.faq p{margin:10px 0 0;color:var(--muted)}
+.final{text-align:center}
+.final .ctas{margin:0 auto}
+.notif{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:12px 14px;box-shadow:0 16px 40px rgba(0,0,0,.45);font-size:15px;line-height:1.35;max-width:380px}
+.notif b{display:block;font-size:15px}
+.notif span{color:var(--muted)}
+.notif .ic{flex:none;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#3a3016;color:var(--accent);font-weight:800;font-size:14px}
+.notif .ic.ok{background:#1F3328;color:var(--good)}
+.notif .pro{margin-left:auto;flex:none;color:#F0C060}
+.notif .pos{color:var(--good);font-weight:700}.notif .neg{color:var(--bad);font-weight:700}
+.notifs{display:grid;gap:10px}
+.vivo{display:inline-flex;align-items:center;gap:6px;color:var(--good);font-size:13px;font-weight:700}
+.vivo i{width:7px;height:7px;border-radius:50%;background:var(--good);animation:pisca 2s infinite}
+@keyframes pisca{50%{opacity:.35}}
+.faixa{overflow:hidden;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg2);padding:14px 0;white-space:nowrap}
+.faixa .trilho{display:inline-flex;gap:34px;padding-right:34px;animation:rola 38s linear infinite;font-weight:700;font-size:15px;color:#c9c6bd}
+.faixa .trilho span::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:12px;vertical-align:middle}
+@keyframes rola{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.faixa .trilho{animation:none}.vivo i{animation:none}}
+.lado{display:grid;gap:14px}
+.lado ul{list-style:none;margin:10px 0 0;padding:0}
+.lado li{position:relative;padding:8px 0 8px 30px;border-top:1px solid var(--line);color:#c9c6bd}
+.lado li:first-child{border-top:0}
+.lado li::before{position:absolute;left:0;top:8px;font-weight:800}
+.lado .nao li::before{content:"✕";color:var(--bad)}
+.lado .sim li::before{content:"✓";color:var(--good)}
+.lado .sim{border-color:#4a4220}
+.lado h3{margin:0;font-size:19px}
+.pro{display:inline-block;background:#3a3016;color:#F0C060;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;letter-spacing:.02em;vertical-align:middle;margin-left:8px}
+.planos .card{display:flex;flex-direction:column;gap:10px}
+.planos .preco{font-size:30px;font-weight:800;line-height:1.1}
+.planos .preco small{font-size:15px;font-weight:600;color:var(--muted)}
+.planos .card.destaque{border-color:#6b5a1e;box-shadow:0 0 0 1px #6b5a1e inset}
+.planos .btn{margin-top:auto}
+.legenda{font-size:13px;color:var(--muted);margin:8px 0 0}
+.aviso{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:14px 16px;color:var(--muted);font-size:16px;margin-top:18px}
+@media (max-width:600px){
+}
+footer{border-top:1px solid var(--line);padding:32px 0 48px;color:var(--muted);font-size:14px}
+footer p{margin:0 0 10px;max-width:60em}
+footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
+@media (min-width:860px){
+  .hero{padding:72px 0 48px}
+  .hero .wrap{gap:48px}
+  .hero .janela{max-width:1040px;width:100%;margin:0 auto}
+  .hero h1{max-width:16em}
+  .passos{gap:56px}
+  .passo{display:grid;grid-template-columns:.75fr 1.25fr;gap:44px;align-items:center}
+  .passo:nth-child(even){grid-template-columns:1.25fr .75fr}
+  .passo:nth-child(even) .txt{order:2}
+  .duas{grid-template-columns:.8fr 1.2fr}
+  .lado{grid-template-columns:1fr 1fr}
+  .hero .wrap{grid-template-columns:1.3fr .7fr;column-gap:40px}
+  .hero .janela{grid-column:1/-1}
+  .notifs{margin:0;gap:14px}
+  .notifs .notif:nth-child(2){margin-left:28px}
+  .notifs .notif:nth-child(3){margin-left:-12px}
+  .grade{grid-template-columns:repeat(3,1fr)}
+  .inst{grid-template-columns:repeat(3,1fr)}
+  body.computador .qr{display:flex}
+}
+.topo-nav{display:none;gap:22px;align-items:center}
+.topo-nav a{color:var(--muted);text-decoration:none;font-weight:600;font-size:15px}
+.topo-nav a:hover{color:var(--ink)}
+.contato{text-align:center}
+.contato a.email{font-size:clamp(22px,4vw,30px);font-weight:800;color:var(--accent);text-decoration:none}
+@media (min-width:860px){ .topo-nav{display:flex} }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="marca" href="#" aria-label="Vaglio">
+    <svg viewBox="0 0 120 120" width="30" height="30" aria-hidden="true" style="color:var(--accent)"><clipPath id="c1"><rect x="0" y="54" width="120" height="66"/></clipPath><path d="M24 22 L60 98 L96 22" fill="none" stroke="currentColor" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/><g clip-path="url(#c1)"><path d="M24 22 L60 98 L96 22" fill="none" stroke="currentColor" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/></g><rect x="6" y="50" width="108" height="5" rx="2.5" fill="currentColor"/></svg>
+    <b>VAGLIO</b>
+  </a>
+  <nav class="topo-nav" aria-label="Seções"><a href="#como">Como funciona</a><a href="#planos">Planos</a><a href="#contato">Contato</a></nav>
+  <div class="topo-acoes"><a class="topo-inst" href="instalar/">Instalar</a><a class="btn pri peq" data-cta href="instalar/">Acessar</a></div>
+</div></header>
+
+<main>
+<div class="hero"><div class="wrap">
+  <div>
+    <h1>Estratégias com opções na <em>bolsa brasileira</em>.</h1>
+    <p class="lead">Você diz o que espera da ação e quanto aceita arriscar. O Vaglio monta a operação e mostra o risco e o ganho máximos, em reais, antes de você enviar a ordem na sua corretora.</p>
+    <div class="ctas">
+      <a class="btn pri" data-cta href="instalar/">Acessar a plataforma</a>
+      <a class="btn sec" href="#planos">Ver planos</a>
+    </div>
+    <p class="nota" data-nota>Grátis para começar.</p>
+  </div>
+  <div class="notifs" aria-label="Exemplos de avisos do Vaglio">
+    <div class="notif"><span class="ic">V</span><div><b>Trava de alta montada · PETR4</b><span>Ganho máximo <span class="pos">R$&nbsp;3.014</span> · risco <span class="neg">R$&nbsp;1.936</span></span></div></div>
+    <div class="notif"><span class="ic">↗</span><div><b>VALE3 sobe 3% · <span class="vivo"><i></i>ao vivo</span></b><span><span class="pos">+R$&nbsp;430</span> se encerrar agora</span></div><span class="pro">Pro</span></div>
+    <div class="notif"><span class="ic ok">✓</span><div><b>Alvo atingido · ITUB4 +7%</b><span><span class="pos">+R$&nbsp;1.701</span> se encerrar agora · ordem de saída pronta</span></div><span class="pro">Pro</span></div>
+  </div>
+  <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-montada.webp" alt="Operação montada no Vaglio: valor pago, que é o risco máximo, ganho máximo, ponto de equilíbrio, chance implícita e gráfico do resultado no vencimento" width="1600" height="1000"></div>
+</div></div>
+
+<section id="como"><div class="wrap">
+  <h2>Como funciona</h2>
+  <p class="sub">O Vaglio não recomenda ativo, direção nem momento: você escolhe.</p>
+  <div class="passos">
+    <div class="passo"><div class="txt"><span class="n">1</span><h3>Diga o que espera da ação</h3><p>Subir, cair ou se mexer muito. Escolha o ativo, o vencimento e quanto aceita arriscar, em reais.</p></div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-inicio.webp" alt="Início do Vaglio: lista de ativos com minigráfico e as operações lado a lado, com custo, risco máximo, ganho e chance" loading="lazy" width="1600" height="1000"></div></div>
+    <div class="passo"><div class="txt"><span class="n">2</span><h3>Veja a operação montada</h3><p>Quanto paga ou recebe, risco máximo, ganho máximo e ponto de equilíbrio, em três perfis: Lucro maior, Equilibrada e Lucro frequente. No Pro, as opções de cada operação e a ordem pronta para a corretora.</p></div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-ordens.webp" alt="Operação montada: as ordens para a corretora, com os preços-limite, e o gráfico do resultado no vencimento" loading="lazy" width="1600" height="1000"></div></div>
+    <div class="passo"><div class="txt"><span class="n">3</span><h3>Veja o que pode acontecer</h3><p>O resultado no vencimento para cada preço da ação, com a chance que o próprio preço das opções indica.</p></div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-cenarios.webp" alt="Cenários: gráfico e tabela do resultado no vencimento para cada preço da ação" loading="lazy" width="1600" height="1000"></div></div>
+  </div>
+</div></section>
+
+<section id="vitrine" class="vitrine"><div class="wrap">
+  <div class="cab"><h2>Vitrine: o que dá para montar hoje</h2>
+    <p class="sub">As operações que cabem no seu risco, em 8 ações com opções líquidas. Filtre pelo que espera e ordene por risco, chance ou movimento necessário.</p></div>
+  <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-vitrine.webp" alt="Vitrine da Plataforma: as operações que cabem no seu risco, em duas colunas" loading="lazy" width="1600" height="1000"></div>
+</div></section>
+
+<section id="acompanhe"><div class="wrap duas">
+  <div class="cel"><img src="img/cel-operacoes.webp" alt="O Vaglio no celular: a aba Operações ao vivo, com quatro operações reais em ativos diferentes, o risco somado e o aviso de alvo atingido" loading="lazy" width="390" height="844"></div>
+  <div><h2>Acompanhe todas as suas operações ao mesmo tempo<span class="pro">Pro</span></h2>
+    <p class="sub">Monte quantas operações quiser, em ativos diferentes, e acompanhe todas numa tela só, no celular ou no computador, com o risco somado. Durante o pregão, veja quanto receberia se encerrasse cada uma agora e receba o aviso de alvo, limite ou prazo de saída, com a ordem de saída pronta.</p>
+    <div class="ctas"><a class="btn pri" data-baixar href="instalar/">Baixar o app</a></div>
+    <p class="legenda">Imagem ilustrativa, com cotações simuladas.</p></div>
+</div></section>
+
+<section id="planos" class="planos"><div class="wrap">
+  <h2>Planos</h2>
+  <p class="sub">O Pro tem 7 dias grátis. Cancele quando quiser, no app.</p>
+  <div class="lado">
+    <div class="card sim"><h3>Grátis</h3><div class="preco">R$ 0</div><ul>
+      <li>Custo, risco máximo, ganho máximo e ponto de equilíbrio de cada operação</li>
+      <li>Cenários, chance implícita e Vitrine</li>
+      <li>Simulação e Desempenho, pelos preços de fechamento</li></ul>
+      <a class="btn sec" data-ir href="instalar/">Começar grátis</a></div>
+    <div class="card sim destaque"><h3>Vaglio Pro</h3><div class="preco">R$ 49,90 <small>por mês</small></div><p style="margin:-6px 0 0;color:var(--good);font-size:15px">ou R$ 479 por ano: R$ 39,92 por mês</p><ul>
+      <li>Quais opções comprar e vender, com strike e quantidade</li>
+      <li>A ordem pronta para a corretora</li>
+      <li>Cotação em tempo real de todas as suas operações e quanto receberia se encerrasse cada uma agora</li>
+      <li>Aviso de saída, com a ordem de saída pronta</li></ul>
+      <a class="btn pri" data-ir href="instalar/">Testar 7 dias grátis</a></div>
+  </div>
+</div></section>
+
+<section id="perguntas" class="faq"><div class="wrap">
+  <h2>Perguntas frequentes</h2>
+  <details><summary>O Vaglio recomenda operações?</summary><p>Não. O Vaglio não recomenda ativo, direção nem momento. Ele monta a operação a partir do que você escolhe e mostra os números. A decisão é sua.</p></details>
+  <details><summary>Preciso de corretora?</summary><p>Sim. A ordem é feita na sua corretora, com o dinheiro da sua conta. O Vaglio monta, simula e, no Pro, acompanha ao vivo.</p></details>
+  <details><summary>O que é a chance mostrada na tela?</summary><p>É a chance que o próprio preço das opções indica. Não é uma previsão do Vaglio e não garante o resultado.</p></details>
+  <details><summary>Como pago o Pro?</summary><p>Por Pix Automático ou cartão de crédito, pelo Asaas, que faz a cobrança. O Vaglio não vê nem guarda os dados do seu cartão. Nos 7 dias grátis, nada é cobrado.</p></details>
+</div></section>
+
+<section id="contato" class="contato"><div class="wrap">
+  <h2>Contato</h2>
+  <p class="sub" style="margin-left:auto;margin-right:auto">Dúvidas, parcerias e imprensa.</p>
+  <a class="email" href="mailto:contato@vaglio.com.br">contato@vaglio.com.br</a>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <p>O Vaglio não é corretora nem consultoria de valores mobiliários e não faz recomendação de investimento. Operações com opções envolvem risco de perda do valor aplicado. Resultado passado não garante resultado futuro. No Pro, cotações da B3 em tempo real, por distribuidor autorizado.</p>
+  <nav><a data-termos href="#">Termos de uso</a><a data-privacidade href="#">Política de privacidade</a><a href="mailto:contato@vaglio.com.br">contato@vaglio.com.br</a></nav>
+  <p style="margin-top:18px">© Vaglio</p>
+</div></footer>
+
+<script>
+// Endereços: o app no navegador (vaglio.com.br/app/), o APK do Android e as páginas de termos e privacidade.
+var APP = "https://vaglio.com.br/app/";
+var INST = "instalar/";
+var APK = "https://github.com/Obasico-81/BR-Options/releases/download/android-teste/vaglio.apk";
+(function () {
+  var ua = navigator.userAgent || "", android = /Android/i.test(ua),
+      iphone = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var sistema = android ? "android" : iphone ? "iphone" : "computador";
+  document.body.classList.add(sistema);
+  document.querySelectorAll("[data-web]").forEach(function (a) { a.href = APP; });
+  document.querySelectorAll("[data-apk]").forEach(function (a) { a.href = APK; });
+  document.querySelector("[data-termos]").href = APP + "termos.html";
+  document.querySelector("[data-privacidade]").href = APP + "privacidade.html";
+  // botão principal conforme o aparelho: no computador, Acessar a plataforma (o app no navegador); no Android, Baixar o
+  // app (APK); no iPhone, Abrir o app no Safari (ainda não há app de iPhone para baixar)
+  var peq = function (a) { return a.classList.contains("peq"); };
+  document.querySelectorAll("[data-cta]").forEach(function (a) {
+    if (android) { a.href = APK; a.textContent = peq(a) ? "Baixar" : "Baixar o app"; }
+    else if (iphone) { a.href = APP; a.textContent = peq(a) ? "Abrir" : "Abrir o app"; }
+    else { a.href = APP; a.textContent = peq(a) ? "Acessar" : "Acessar a plataforma"; }
+  });
+  // botão secundário: no computador, o QR para instalar no celular; no celular, usar no navegador
+  document.querySelectorAll("[data-sec]").forEach(function (a) {
+    if (android || iphone) { a.href = APP; a.textContent = "Usar no navegador"; } else { a.href = INST; a.textContent = "Instalar no celular"; }
+  });
+  // botão da seção do celular: baixar o app (APK no Android; no iPhone e no computador, leva às instruções e ao QR)
+  document.querySelectorAll("[data-baixar]").forEach(function (a) {
+    if (android) a.href = APK; else if (iphone) { a.href = INST; a.textContent = "Instalar o app"; } else a.href = INST;
+  });
+  // botões dos planos: o mesmo destino do botão principal, sem trocar o texto
+  document.querySelectorAll("[data-ir]").forEach(function (a) { a.href = android ? APK : APP; });
+  var nota = document.querySelector("[data-nota]");
+  if (nota && android) nota.textContent = "Grátis para começar. Instalação direta, fora da Play Store.";
+  else if (nota && iphone) nota.textContent = "Grátis para começar. No iPhone, o app abre no Safari e pode ir para a tela de início.";
+  // o cartão do aparelho de quem está vendo vem primeiro
+  var inst = document.querySelector(".inst"), meu = inst && inst.querySelector('[data-sistema="' + sistema + '"]');
+  if (meu) inst.insertBefore(meu, inst.firstChild);
+  // só o cartão do aparelho de quem está vendo; "Outro aparelho?" mostra os três
+  var outro = document.querySelector("[data-outro]");
+  if (meu && outro) { meu.classList.add("meu"); inst.classList.add("so-um"); outro.hidden = false;
+    outro.onclick = function () { inst.classList.remove("so-um"); outro.hidden = true; }; }
+})();
+</script>
+</body>
+</html>
