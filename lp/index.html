@@ -136,11 +136,6 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
 .topo-nav a{color:var(--muted);text-decoration:none;font-weight:600;font-size:15px}
 .topo-nav a:hover{color:var(--ink)}
 .contato{text-align:center}
-.fatos{display:grid;gap:18px}
-.fatos>div{border-top:1px solid var(--line);padding-top:14px}
-.fatos>div:first-child{border-top:0;padding-top:0}
-.fatos .num{font-size:30px;margin-bottom:4px}
-.fatos p{margin:0;color:var(--muted);font-size:15px}
 .contato a.email{font-size:clamp(22px,4vw,30px);font-weight:800;color:var(--accent);text-decoration:none}
 @media (min-width:860px){ .topo-nav{display:flex} }
 </style>
@@ -166,8 +161,10 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
     </div>
     <p class="nota" data-nota>Grátis para começar.</p>
   </div>
-  <div class="card fatos" aria-label="Como conferimos a chance">
-    <div><div class="num">22.532</div><p>operações simuladas com preços de fechamento da B3, de 2015 a 2026, para conferir a chance mostrada na tela. Resultado passado não garante resultado futuro.</p></div>
+  <div class="notifs" aria-label="Exemplos de avisos do Vaglio">
+    <div class="notif"><span class="ic">V</span><div><b>Trava de alta montada · BOVA11</b><span>Ganho máximo R$ 380 · risco R$ 420</span></div><span class="ex">exemplo</span></div>
+    <div class="notif"><span class="ic">↗</span><div><b>BOVA11 sobe 3% · <span class="vivo"><i></i>ao vivo</span></b><span>+R$ 49 se encerrar agora</span></div><span class="ex">exemplo</span></div>
+    <div class="notif"><span class="ic ok">✓</span><div><b>Alvo atingido · BOVA11 +6%</b><span>+R$ 191 se encerrar agora · ordem de saída pronta</span></div><span class="ex">exemplo</span></div>
   </div>
   <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-montada.webp" alt="Operação montada no Vaglio: valor pago, que é o risco máximo, ganho máximo, ponto de equilíbrio, chance implícita e gráfico do resultado no vencimento" width="1600" height="1000"></div>
 </div></div>
