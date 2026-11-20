@@ -518,6 +518,18 @@ function custosHtml(m, cor){
 function pernasHtml(m){
   return m.pernas.map(([l,o],i)=>`<div class="step"><span class="n">${i+1}</span><p><strong>${l>0?"Comprar":"Vender"}</strong> ${m.lotes*100} ${o.t==="C"?"opções de compra (call)":"opções de venda (put)"} com strike ${brl(o.k,2)}, que vencem em ${m.dias} dias.<br><span class="muted small">${esc(o.s)} · ${l>0?"você paga até":"você recebe pelo menos"} ${brl(l>0?o.a:o.b,2)} por ação</span></p></div>`).join("");
 }
+// Escolha de perfil com vantagem no histórico (pesquisa/decisoes.py, run 43980845154). Só as comparações que passaram no
+// critério fixado antes de rodar: IC 95% conjunto (Bonferroni) de um lado do zero e o mesmo sinal em 2015–2020 e
+// 2021–2026. Diferença média por operação (mesmo papel e dia), a cada R$ 100 de risco, segurando até o vencimento.
+const VANTAGEM = {alta: ["maior", [["eq", 7], ["freq", 18]]], aposta_alta: ["eq", [["freq", 15]]]};
+function vantagemHtml(t){
+  const v = VANTAGEM[t]; if (!v) return "";
+  const [p, contra] = v;
+  if (!(t === "alta" ? pftDisp : pfDisp)(t, p)) return "";
+  return `<div class="note" style="padding:12px 14px;display:flex;flex-direction:column;gap:2px"><span class="small"><strong>${PFT_NOME[p]}</strong> terminou à frente no histórico</span>`
+    + `<span style="font-weight:700">${contra.map(([k, d]) => `+R$ ${d} vs. ${PFT_NOME[k]}`).join(" · ")}</span>`
+    + `<span class="small muted">por R$ 100 de risco, em média · 2015–2026 · passado não garante futuro</span></div>`;
+}
 function vCartao(){
   const m = montagem(tese), T = TESES.find(t=>t.k===tese);
   if (typeof m === "string") { tela="obj"; return vObj(); }
@@ -533,6 +545,7 @@ function vCartao(){
     h += `<div role="group" aria-label="Perfil da trava" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px">` + PFT.map((k) => { const on = k === cur, ok = pftDisp(tese, k); return `<button class="seg" data-pft="${k}" ${ok ? "" : "disabled"} aria-pressed="${on}" style="min-height:48px;padding:6px 6px;border-radius:12px;border:1.5px solid ${on ? "var(--ink)" : "var(--line)"};background:${on ? "var(--ink)" : "transparent"};color:${on ? "var(--bg)" : "inherit"};font:inherit;font-size:13px;font-weight:600;cursor:pointer;line-height:1.2;opacity:${ok ? 1 : .5}">${PFT_NOME[k]}${ok ? "" : "<br><span style='font-weight:500;font-size:11px'>indisponível hoje</span>"}</button>`; }).join("") + `</div><p class="small muted" style="margin-top:-4px">${DESC[cur]}</p>`; }
   if (tese.startsWith("aposta")) { const PF = [["maior","Lucro maior","Acerta menos vezes. Se acertar, o lucro é maior."],["eq","Equilibrada","Meio-termo entre frequência e tamanho do lucro."],["freq","Lucro frequente","Acerta mais vezes, com lucro menor. O custo para entrar e sair é um pouco maior."]], cur = pfAtual(tese);
     h += `<div role="group" aria-label="Perfil da operação" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px">` + PF.map(([k,n]) => { const on = k===cur, ok = pfDisp(tese,k); return `<button class="seg" data-pf="${k}" ${ok?"":"disabled"} aria-pressed="${on}" style="min-height:48px;padding:6px 6px;border-radius:12px;border:1.5px solid ${on?"var(--ink)":"var(--line)"};background:${on?"var(--ink)":"transparent"};color:${on?"var(--bg)":"inherit"};font:inherit;font-size:13px;font-weight:600;cursor:pointer;line-height:1.2;opacity:${ok?1:.5}">${n}${ok?"":"<br><span style='font-weight:500;font-size:11px'>indisponível hoje</span>"}</button>`; }).join("") + `</div><p class="small muted" style="margin-top:-4px">${PF.find(p=>p[0]===cur)[2]}</p>`; }
+  h += vantagemHtml(tese);
   h += `<section class="card"><h2>O que fazer</h2>${pernasHtml(m)}</section>`;
   const pagaERisco = !credito && Math.abs(Math.abs(m.premio) - m.perdaMax) < 1, riscoSub = `${pct(m.perdaMax/S.capital)} do seu capital · dentro do seu limite de ${brl(S.perda)}`;
   h += `<div class="grid2">
