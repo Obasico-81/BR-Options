@@ -71,8 +71,7 @@ h2{font-size:clamp(26px,5vw,36px);line-height:1.15;letter-spacing:-.01em;margin:
 .tab th,.tab td{text-align:left;padding:14px 16px;vertical-align:top;border-top:1px solid var(--line)}
 .tab thead th{border-top:0;font-size:14px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
 .tab thead th:last-child{color:var(--accent)}
-.tab td:first-child{color:var(--muted);font-weight:600;width:28%}
-.tab td:nth-child(2){color:#c9c6bd}
+.tab td:first-child{color:#c9c6bd;width:42%}
 .tab td:last-child{font-weight:600}
 .faq details{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:10px}
 .faq summary{cursor:pointer;font-weight:700;font-size:18px;list-style:none;display:flex;justify-content:space-between;gap:12px}
@@ -115,11 +114,9 @@ h2{font-size:clamp(26px,5vw,36px);line-height:1.15;letter-spacing:-.01em;margin:
 .legenda{font-size:13px;color:#6f6d68;margin:8px 0 0}
 .aviso{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:14px 16px;color:var(--muted);font-size:16px;margin-top:18px}
 @media (max-width:600px){
-  .tab,.tab tbody{display:block}.tab thead{display:none}
-  .tab tr{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}.tab tr:first-child{border-top:0}
-  .tab td{border-top:0;padding:10px 14px}.tab td:first-child{grid-column:1/-1;width:auto;padding-bottom:0}
-  .tab td:nth-child(2)::before,.tab td:last-child::before{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;margin-bottom:2px}
-  .tab td:nth-child(2)::before{content:"Bets";color:var(--muted)}.tab td:last-child::before{content:"Vaglio";color:var(--accent)}
+  .tab,.tab thead,.tab tbody{display:block}
+  .tab tr{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}.tab thead tr{border-top:0}
+  .tab th,.tab td{border-top:0;padding:10px 14px}.tab td:first-child{width:auto}
 }
 footer{border-top:1px solid var(--line);padding:32px 0 48px;color:var(--muted);font-size:14px}
 footer p{margin:0 0 10px;max-width:60em}
@@ -184,14 +181,14 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
   <h2>Bet era uma coisa. Bolsa é outra.</h2>
   <p class="sub">Opções não são aposta: são contratos negociados na bolsa. Antes de entrar, o Vaglio mostra até quanto você pode ganhar e quanto pode perder.</p>
   <table class="tab">
-    <thead><tr><th></th><th>Bets</th><th>Opções com o Vaglio</th></tr></thead>
+    <thead><tr><th>Bets</th><th>Opções com o Vaglio</th></tr></thead>
     <tbody>
-      <tr><td>Situação</td><td>Proibidas no Brasil em 2026</td><td>Bolsa brasileira, regulada pela CVM</td></tr>
-      <tr><td>Quem define o preço</td><td>Era a casa, com a margem dela na odd</td><td>Compradores e vendedores, na bolsa</td></tr>
-      <tr><td>Quanto você pode ganhar</td><td>Era a odd vezes o valor apostado</td><td>O ganho máximo aparece em reais antes da ordem, com o preço a partir do qual você ganha</td></tr>
-      <tr><td>Quanto você pode perder</td><td>Tudo o que apostava, a cada aposta</td><td>A perda máxima aparece em reais antes da ordem, dentro do limite que você define</td></tr>
-      <tr><td>O que você vê antes</td><td>Você via só a odd</td><td>Custo, ponto de equilíbrio, cenários e a chance que o próprio preço indica</td></tr>
-      <tr><td>Onde fica o seu dinheiro</td><td>Ficava na casa de apostas</td><td>Na sua conta, numa corretora, em seu nome</td></tr>
+      <tr><td>Proibidas no Brasil em 2026</td><td>Bolsa brasileira, regulada pela CVM</td></tr>
+      <tr><td>A casa definia o preço, com a margem dela na odd</td><td>O preço sai de compradores e vendedores, na bolsa</td></tr>
+      <tr><td>O ganho era a odd vezes o valor apostado</td><td>O ganho máximo aparece em reais antes da ordem, com o preço a partir do qual você ganha</td></tr>
+      <tr><td>Você perdia tudo o que apostava, a cada aposta</td><td>A perda máxima aparece em reais antes da ordem, dentro do limite que você define</td></tr>
+      <tr><td>Antes, você via só a odd</td><td>Antes, você vê o custo, o ponto de equilíbrio, os cenários e a chance que o próprio preço indica</td></tr>
+      <tr><td>O dinheiro ficava na casa de apostas</td><td>O dinheiro fica na sua conta, numa corretora, em seu nome</td></tr>
     </tbody>
   </table>
 </div></section>
