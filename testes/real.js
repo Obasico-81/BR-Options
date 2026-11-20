@@ -57,8 +57,8 @@ const r2 = (x) => Math.round(x * 100) / 100, br = (n) => n.toFixed(2).replace(".
     const sua = await p.innerText("#app");
     confere("Sua operação: etiqueta de operação real e 'Se encerrar hoje' pelo preço executado", sua.includes("Operação real") && sua.includes("Se encerrar hoje") && sua.includes((hoje > 0 ? "+" : hoje < 0 ? "−" : "") + "R$ " + Math.abs(Math.round(hoje)).toLocaleString("pt-BR")), { hoje, trecho: sua.slice(0, 260) });
     const vencISO = (() => { const d = new Date(snap.data + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + esp.dias); return d.toISOString().slice(0, 10); })();
-    const regraEsp = M.regraDeSaida(esp, [{ d: snap.data, r: hoje }], vencISO), regraApp = await p.evaluate((id) => STATUS.get(id)?.saida || null, o.id);
-    confere("regra de saída conta o fechamento do dia da execução (alvo atingido)", regraEsp && regraEsp.regra === "alvo" && JSON.stringify(regraApp) === JSON.stringify(regraEsp), { regraApp, regraEsp });
+    const regraEsp = M.saidaDaRegra(esp, [{ d: snap.data, r: hoje }], vencISO), regraApp = await p.evaluate((id) => STATUS.get(id)?.saida || null, o.id);
+    confere("regra de saída conta o fechamento do dia da execução (alvo atingido; saída no próximo pregão)", regraEsp && regraEsp.regra === "alvo" && JSON.stringify(regraApp) === JSON.stringify(regraEsp), { regraApp, regraEsp });
     const lst = await p.evaluate(() => { tela = "acomp"; selId = null; render(); return document.getElementById("app").innerText; });
     confere("operação real com a regra atingida continua em aberto, marcada na lista", /1 real/.test(lst) && lst.includes("regra atingida"), lst.slice(0, 200));
     await p.click(`[data-op="${o.id}"]`); await p.waitForTimeout(300);

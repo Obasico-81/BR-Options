@@ -515,3 +515,16 @@ def regra_de_saida(m: Montagem, marcas: list, venc: str) -> Optional[dict]:
         if prazo and d >= prazo:
             return {"regra": "prazo", "d": d, "r": r}
     return None
+
+
+def saida_da_regra(m: Montagem, marcas: list, venc: str) -> Optional[dict]:
+    """Saída de quem segue o app: a regra é conferida no fechamento, a saída é no pregão seguinte (o resultado desse
+    pregão). {"regra", "d" (disparo), "d_saida", "r"}; {"regra", "d", "pendente": True} enquanto o pregão seguinte não tem
+    preço; None se nenhuma regra disparou. Espelha saidaDaRegra do montador.js."""
+    rg = regra_de_saida(m, marcas, venc)
+    if not rg:
+        return None
+    prox = next((mk for mk in marcas if rg["d"] < mk["d"] < venc and mk["r"] is not None), None)
+    if prox is None:
+        return {"regra": rg["regra"], "d": rg["d"], "pendente": True}
+    return {"regra": rg["regra"], "d": rg["d"], "d_saida": prox["d"], "r": prox["r"]}
