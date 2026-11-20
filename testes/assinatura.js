@@ -29,6 +29,12 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
       confere(`${nome}: grátis — os números continuam (risco, ganho, equilíbrio)`, await p.evaluate(() => { const m = montagem("alta"), t = document.getElementById("app").textContent; return t.includes(brl(m.perdaMax)) && t.includes(brl(m.ganhoMax)) && t.includes(brl(m.equilibrio[0], 2)); }));
       await p.click('[data-go="pro"]');
       confere(`${nome}: grátis — "Ver as opções" abre o Vaglio Pro, e o Voltar volta à operação`, (await p.locator("h1").innerText()) === "Vaglio Pro" && /Operação/.test(await p.locator(".back").first().innerText()));
+      { const txt = () => p.locator("#app").innerText();
+        const t1 = await txt();
+        confere(`${nome}: Pro — R$ 49,90 por mês e R$ 479 por ano (R$ 39,92 por mês), anual marcado, 7 dias grátis`,
+          /R\$ 49,90/.test(t1) && /R\$ 479/.test(t1) && /R\$ 39,92 por mês/.test(t1) && /Começar 7 dias grátis/.test(t1) && /Depois, R\$ 479 por ano/.test(t1) && (await p.locator('[data-plano-esc="anual"]').getAttribute("aria-pressed")) === "true", t1.slice(0, 600));
+        await p.click('[data-plano-esc="mensal"]');
+        confere(`${nome}: Pro — escolher o mensal muda o aviso de cobrança`, /Depois, R\$ 49,90 por mês/.test(await txt())); }
       await p.evaluate(() => { tela = "cen"; render(); });
       confere(`${nome}: grátis — cenários sem strike`, (await pernas()).length === 0 && !/Strike/.test(await p.locator("#app").textContent()));
       confere(`${nome}: grátis — "Já executei" leva ao Pro`, (await p.locator("button", { hasText: "Já executei" }).getAttribute("data-go")) === "pro");

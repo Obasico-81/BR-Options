@@ -40,6 +40,9 @@ p{margin:0}
 .cega{display:inline-block;height:12px;border-radius:6px;background:var(--line);vertical-align:middle;margin:4px 0}
 .card.tease{display:flex;flex-direction:row;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;border-left:4px solid var(--accent)}
 .tease>span:first-child{display:flex;flex-direction:column;gap:4px}
+.planos-pro{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:none!important}
+.plano-op{display:flex;flex-direction:column;gap:4px;align-items:flex-start;text-align:left;padding:14px 16px;border-radius:16px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:17px;cursor:pointer}
+.plano-op[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
 .lista-pro{list-style:none;margin:6px 0 0;padding:0}
 .lista-pro li{position:relative;padding:8px 0 8px 28px;border-top:1px solid var(--line)}
 .lista-pro li:first-child{border-top:0}
@@ -216,7 +219,7 @@ const TESTE = /[?&]teste=1/.test(location.search);   // modo teste: deixa escolh
 if (!TESTE || !SNAP.por_data[S.data]) S.data = SNAP.data;
 const DIAS_VELHOS = Math.floor((Date.now() - new Date(SNAP.data + "T12:00:00Z")) / 86400000), DEFASADO = DIAS_VELHOS > 5 && !TESTE;
 let tela = "obj", tese = null, ciente = false, slider = null, per = "90", pDe = "", pAte = "", selId = null, perfilAberto = false, ativoAberto = false, realF = null, saidaF = null, desTipo = null, doc = "termos";
-let expFiltro = "tudo", expOrdem = "ativo", voltaCartao = "obj", voltaPro = "obj";   // Vitrine: filtro, ordem; para onde o "Voltar" do cartão leva
+let expFiltro = "tudo", expOrdem = "ativo", voltaCartao = "obj", voltaPro = "obj", planoEsc = "anual";   // Vitrine: filtro, ordem; para onde o "Voltar" do cartão leva
 // Computador: a partir de 1024px de largura, menu lateral e telas em colunas (mesmo critério do CSS). Ao mudar a largura
 // da janela, a tela é refeita.
 const MQ_DESK = window.matchMedia ? window.matchMedia("(min-width: 1024px)") : null;
@@ -1136,8 +1139,10 @@ function vSair(){
   return h + `<button class="btn" id="registrar-saida" ${prob ? "disabled" : ""}>Registrar encerramento</button><button class="btn sec2" data-go="acomp">Voltar</button>`;
 }
 
-// Vaglio Pro (nome e preço provisórios): o que a assinatura libera e o que continua grátis. A cobrança ainda não está
-// ligada; no ?teste=1, "Assinar" liga o Pro neste aparelho, para ver as telas.
+// Vaglio Pro: o que a assinatura libera e o que continua grátis. R$ 49,90 por mês ou R$ 479 por ano (20% abaixo de 12
+// meses), com 7 dias grátis (decisão de 20/11/2026). A cobrança ainda não está ligada; no ?teste=1, o botão liga o Pro
+// neste aparelho, para ver as telas.
+const PRECO_PRO = {mensal: {v: 49.90, rot: "Mensal", por: "por mês"}, anual: {v: 479, rot: "Anual", por: "por ano"}}, DIAS_GRATIS = 7;
 function vPro(){
   const VOLTA = {obj: "Início", cartao: "Operação", cen: "Cenários", acomp: "Sua operação", desemp: "Operações", cad: "Ajustes", vitrine: "Vitrine"};
   let h = `<div class="top"><button class="back" data-go="${voltaPro}">‹ ${VOLTA[voltaPro] || "Voltar"}</button></div><div><h1>Vaglio Pro</h1><p class="muted" style="margin-top:6px">A operação pronta para a corretora e o pregão ao vivo.</p></div>`;
@@ -1151,8 +1156,11 @@ function vPro(){
     <li>Custo, risco máximo, ganho máximo, ponto de equilíbrio e chance de cada operação</li>
     <li>Cenários e Vitrine</li>
     <li>Simulação e Desempenho, pelos preços de fechamento</li></ul></section>`;
-  h += `<section class="card" style="flex-direction:row;justify-content:space-between;align-items:center"><span class="small muted">Preço</span><strong>a definir</strong></section>`;
-  return h + `<button class="btn" id="assinar">Assinar</button><p class="small muted" style="text-align:center">${TESTE ? "Teste: assinar libera o Pro só neste aparelho." : "A assinatura abre em breve."}</p><button class="btn sec2" data-go="${voltaPro}">Agora não</button>`;
+  const cartao = (k) => { const p = PRECO_PRO[k], on = planoEsc === k, mes = k === "anual" ? `R$ ${fmtBR(p.v / 12, 2)} por mês · 20% de desconto` : "";
+    return `<button class="plano-op" data-plano-esc="${k}" aria-pressed="${on}"><span class="small muted">${p.rot}</span><strong>R$ ${fmtBR(p.v, p.v % 1 ? 2 : 0)} <span class="small muted" style="font-weight:500">${p.por}</span></strong>${mes ? `<span class="small" style="color:var(--good)">${mes}</span>` : ""}</button>`; };
+  h += `<div role="group" aria-label="Plano" class="planos-pro">${cartao("mensal")}${cartao("anual")}</div>`;
+  const p = PRECO_PRO[planoEsc];
+  return h + `<button class="btn" id="assinar">Começar ${DIAS_GRATIS} dias grátis</button><p class="small muted" style="text-align:center">Sem cobrança nos ${DIAS_GRATIS} primeiros dias. Depois, R$ ${fmtBR(p.v, p.v % 1 ? 2 : 0)} ${p.por}.${TESTE ? " Teste: o botão libera o Pro só neste aparelho." : ""}</p><button class="btn sec2" data-go="${voltaPro}">Agora não</button>`;
 }
 function vDoc(){
   return `<div class="top"><button class="back" data-go="cad">‹ Ajustes</button></div><article class="doc">${TEXTOS[doc] || ""}</article><button class="btn sec2" data-go="cad">Voltar</button>`;
@@ -1231,6 +1239,7 @@ function bind(){
     q("#px").textContent = brl(slider,2); const g = q("#payoff"); if (g) g.innerHTML = payoffSvg(m, payoffOpcoes(P, +sl.min, +sl.max));
   };
   const pg = q("#plano-gratis"); if (pg) pg.onclick = () => { S.plano = "gratis"; save("estado", S); iniciarAoVivo(); render(); };
+  document.querySelectorAll("[data-plano-esc]").forEach(b => b.onclick = () => { planoEsc = b.dataset.planoEsc; render(); });
   const as = q("#assinar"); if (as) as.onclick = () => { if (!TESTE) { as.textContent = "A assinatura abre em breve"; as.disabled = true; return; } S.plano = "pro"; save("estado", S); tela = voltaPro; slider = null; render(); iniciarAoVivo(); };
   const cp = q("#copiar"); if (cp) cp.onclick = () => { if (DEFASADO) { cp.textContent = "Bloqueado: preços desatualizados"; return; } if (tela==="acomp"){ const P = opSel(); if (P && P.m) copiar(textoParametros(P.m, P.ativo, P.data), cp); } else { const m = montagem(tese); if (typeof m!=="string") copiar(textoParametros(m, S.ativo, S.data), cp); } };
   document.querySelectorAll("[data-per]").forEach(b => b.onclick = () => { per = b.dataset.per; render(); });
