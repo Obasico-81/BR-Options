@@ -78,6 +78,31 @@ h2{font-size:clamp(26px,5vw,36px);line-height:1.15;letter-spacing:-.01em;margin:
 .faq p{margin:10px 0 0;color:var(--muted)}
 .final{text-align:center}
 .final .ctas{margin:0 auto}
+.notif{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:12px 14px;box-shadow:0 16px 40px rgba(0,0,0,.45);font-size:15px;line-height:1.35;max-width:380px}
+.notif b{display:block;font-size:15px}
+.notif span{color:var(--muted)}
+.notif .ic{flex:none;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#3a3016;color:var(--accent);font-weight:800;font-size:14px}
+.notif .ic.ok{background:#1F3328;color:var(--good)}
+.notif .ex{margin-left:auto;font-size:11px;color:#6f6d68;text-transform:uppercase;letter-spacing:.06em;padding-left:8px}
+.notifs{display:grid;gap:10px}
+.vivo{display:inline-flex;align-items:center;gap:6px;color:var(--good);font-size:13px;font-weight:700}
+.vivo i{width:7px;height:7px;border-radius:50%;background:var(--good);animation:pisca 2s infinite}
+@keyframes pisca{50%{opacity:.35}}
+.faixa{overflow:hidden;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg2);padding:14px 0;white-space:nowrap}
+.faixa .trilho{display:inline-flex;gap:34px;padding-right:34px;animation:rola 38s linear infinite;font-weight:700;font-size:15px;color:#c9c6bd}
+.faixa .trilho span::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:12px;vertical-align:middle}
+@keyframes rola{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.faixa .trilho{animation:none}.vivo i{animation:none}}
+.lado{display:grid;gap:14px}
+.lado ul{list-style:none;margin:10px 0 0;padding:0}
+.lado li{position:relative;padding:8px 0 8px 30px;border-top:1px solid var(--line);color:#c9c6bd}
+.lado li:first-child{border-top:0}
+.lado li::before{position:absolute;left:0;top:8px;font-weight:800}
+.lado .nao li::before{content:"✕";color:var(--bad)}
+.lado .sim li::before{content:"✓";color:var(--good)}
+.lado .sim{border-color:#4a4220}
+.lado h3{margin:0;font-size:19px}
+.legenda{font-size:13px;color:#6f6d68;margin:8px 0 0}
 .aviso{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:14px 16px;color:var(--muted);font-size:16px;margin-top:18px}
 @media (max-width:600px){
   .tab,.tab tbody{display:block}.tab thead{display:none}
@@ -91,7 +116,7 @@ footer p{margin:0 0 10px;max-width:60em}
 footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
 @media (min-width:860px){
   .hero{padding:72px 0 48px}
-  .hero .wrap{grid-template-columns:1fr;gap:48px}
+  .hero .wrap{gap:48px}
   .hero .janela{max-width:1040px;width:100%;margin:0 auto}
   .hero h1{max-width:16em}
   .passos{gap:56px}
@@ -99,6 +124,12 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
   .passo:nth-child(even){grid-template-columns:1.25fr .75fr}
   .passo:nth-child(even) .txt{order:2}
   .duas{grid-template-columns:.8fr 1.2fr}
+  .lado{grid-template-columns:1fr 1fr}
+  .hero .wrap{grid-template-columns:1.3fr .7fr;column-gap:40px}
+  .hero .janela{grid-column:1/-1}
+  .notifs{margin:0;gap:14px}
+  .notifs .notif:nth-child(2){margin-left:28px}
+  .notifs .notif:nth-child(3){margin-left:-12px}
   .grade{grid-template-columns:repeat(3,1fr)}
   .inst{grid-template-columns:repeat(3,1fr)}
   body.computador .qr{display:flex}
@@ -126,7 +157,17 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
     </div>
     <p class="nota" data-nota>Versão de teste, gratuita. Para operar de verdade, a ordem é feita na sua corretora.</p>
   </div>
+  <div class="notifs" aria-label="Exemplos de avisos do Vaglio">
+    <div class="notif"><span class="ic">V</span><div><b>Trava de alta montada · BOVA11</b><span>Ganho máximo R$ 380 · risco R$ 420</span></div><span class="ex">exemplo</span></div>
+    <div class="notif"><span class="ic">↗</span><div><b>BOVA11 sobe 3% · <span class="vivo"><i></i>ao vivo</span></b><span>+R$ 49 se encerrar agora</span></div><span class="ex">exemplo</span></div>
+    <div class="notif"><span class="ic ok">✓</span><div><b>Alvo atingido · BOVA11 +6%</b><span>+R$ 191 se encerrar agora · ordem de saída pronta</span></div><span class="ex">exemplo</span></div>
+  </div>
   <div class="janela"><div class="barra"><i></i><i></i><i></i><span>vaglio.com.br/app</span></div><img src="img/pc-montada.webp" alt="Plataforma Vaglio: operação montada com o valor pago, que é o risco máximo, o ganho máximo, o ponto de equilíbrio, a chance implícita e o gráfico do resultado no vencimento" width="1600" height="1000"></div>
+</div></div>
+
+<div class="faixa" aria-hidden="true"><div class="trilho">
+  <span>Ganho máximo antes da ordem</span><span>Risco definido em reais</span><span>Cotação ao vivo</span><span>Aviso na hora da saída</span><span>22.532 operações conferidas</span><span>Opções da bolsa brasileira</span>
+  <span>Ganho máximo antes da ordem</span><span>Risco definido em reais</span><span>Cotação ao vivo</span><span>Aviso na hora da saída</span><span>22.532 operações conferidas</span><span>Opções da bolsa brasileira</span>
 </div></div>
 
 <section id="diferenca"><div class="wrap">
@@ -155,8 +196,25 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
       <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-ordens.webp" alt="Operação montada: as ordens a enviar na corretora, com os preços-limite, e o gráfico do resultado no vencimento" loading="lazy" width="1600" height="1000"></div></div>
     <div class="passo"><div class="txt"><span class="n">3</span><h3>Veja o que pode acontecer</h3><p>O resultado no vencimento para cada preço da ação, com a chance que o próprio preço das opções indica.</p></div>
       <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-cenarios.webp" alt="Cenários: gráfico e tabela do resultado no vencimento para cada preço da ação" loading="lazy" width="1600" height="1000"></div></div>
-    <div class="passo"><div class="txt"><span class="n">4</span><h3>Registre e acompanhe</h3><p>Registre o que executou na corretora. O app marca a operação todo dia e avisa quando chega a hora de sair, pelas regras definidas na entrada.</p></div>
-      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-operacoes.webp" alt="Operações: desempenho no período e tabela das operações em aberto" loading="lazy" width="1600" height="1000"></div></div>
+    <div class="passo"><div class="txt"><span class="n">4</span><h3>Acompanhe ao vivo</h3><p>Registre o que executou na corretora. Durante o pregão, o app mostra quanto você receberia se encerrasse agora e avisa na hora em que uma regra de saída é atingida, com a ordem de saída pronta.</p></div>
+      <div><div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pc-aovivo.webp" alt="Sua operação ao vivo: quanto receberia se encerrasse agora, o aviso de alvo atingido e a ordem de saída, perna por perna" loading="lazy" width="1600" height="1000"></div><p class="legenda">Imagem ilustrativa, com cotações simuladas.</p></div></div>
+  </div>
+</div></section>
+
+<section id="mao"><div class="wrap">
+  <h2>Montar na mão × montar no Vaglio</h2>
+  <p class="sub">A mesma operação, com e sem o trabalho de planilha.</p>
+  <div class="lado">
+    <div class="card nao"><h3>Na mão</h3><ul>
+      <li>Procurar os strikes na cadeia de opções</li>
+      <li>Calcular custo, risco e ponto de equilíbrio na planilha</li>
+      <li>Olhar a tela da corretora a toda hora</li>
+      <li>Decidir a saída no calor do momento</li></ul></div>
+    <div class="card sim"><h3>No Vaglio</h3><ul>
+      <li>Dizer o que espera do papel: subir, cair ou mexer muito</li>
+      <li>Ver ganho máximo, risco, custo e equilíbrio antes da ordem</li>
+      <li>Ver ao vivo quanto receberia se encerrasse agora</li>
+      <li>Regras de saída definidas na entrada, com aviso quando são atingidas</li></ul></div>
   </div>
 </div></section>
 
@@ -180,7 +238,23 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
   <div class="grade">
     <div class="card"><div class="num">22.532</div><h3>operações conferidas</h3><p>Simulamos as operações do app de 2015 a 2026. A chance mostrada na tela bateu com o que aconteceu, com diferença de poucos pontos.</p></div>
     <div class="card"><div class="num">R$</div><h3>Ganho e risco em reais, antes da ordem</h3><p>Toda operação vem com o ganho máximo e a perda máxima em reais, dentro do limite de risco que você definiu, e a estimativa das taxas da bolsa e da sua corretagem.</p></div>
-    <div class="card"><div class="num">D+1</div><h3>Desempenho sem maquiagem</h3><p>Quando uma regra de saída é atingida no fechamento, o resultado conta no pregão seguinte, que é quando dá para agir na corretora.</p></div>
+    <div class="card"><div class="num">%</div><h3>Desconfie de percentual de acerto</h3><p>Acertar 70% das vezes ainda perde dinheiro se cada erro custa o mesmo que três acertos. Pergunte quanto ganha quando dá certo e quanto perde quando dá errado. O Vaglio mostra os dois antes da ordem.</p></div>
+  </div>
+</div></section>
+
+<section id="paraquem"><div class="wrap">
+  <h2>Para quem é o Vaglio</h2>
+  <div class="lado">
+    <div class="card sim"><h3>É para quem</h3><ul>
+      <li>Quer saber até quanto pode ganhar e quanto pode perder antes de entrar</li>
+      <li>Aceita perder o valor que definiu para a operação</li>
+      <li>Prefere decidir com números</li>
+      <li>Quer operar na bolsa, com o dinheiro na própria conta</li></ul></div>
+    <div class="card nao"><h3>Não é para quem</h3><ul>
+      <li>Procura lucro garantido</li>
+      <li>Quer recuperar perdas aumentando a aposta</li>
+      <li>Não pode perder o valor que vai arriscar</li>
+      <li>Quer que alguém decida no seu lugar</li></ul></div>
   </div>
 </div></section>
 
@@ -206,6 +280,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
   <details><summary>O app diz o que comprar?</summary><p>Não. Ele mostra os números de cada operação. A decisão é sua.</p></details>
   <details><summary>Preciso de corretora?</summary><p>Para operar de verdade, sim: a ordem é feita na sua corretora, com o dinheiro na sua conta. No app você monta, simula e acompanha.</p></details>
   <details><summary>Quanto custa?</summary><p>A versão de teste é gratuita.</p></details>
+  <details><summary>De onde vêm as 22.532 operações?</summary><p>Simulamos as operações que o app teria montado em cada pregão de 2015 a 2026, com os preços de fechamento publicados pela B3, e conferimos o que aconteceu até o vencimento. A chance mostrada na tela bateu com o que aconteceu, com diferença de poucos pontos. Resultado passado não garante resultado futuro.</p></details>
   <details><summary>Dá para ganhar sempre?</summary><p>Não. Muitas operações terminam com perda. O que o Vaglio garante é que você sabe o tamanho dela antes de entrar.</p></details>
 </div></section>
 
@@ -218,7 +293,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
 
 <footer><div class="wrap">
   <p>Se apostar virou um problema para você, procure ajuda profissional ou um grupo de apoio, como os Jogadores Anônimos.</p>
-  <p>O Vaglio não é corretora nem consultoria de valores mobiliários e não faz recomendação de investimento. Operações com opções envolvem risco de perda do valor aplicado. Resultados passados não garantem resultados futuros. Os preços são de fechamento da bolsa.</p>
+  <p>O Vaglio não é corretora nem consultoria de valores mobiliários e não faz recomendação de investimento. Operações com opções envolvem risco de perda do valor aplicado. Resultados passados não garantem resultados futuros. Cotações da B3, em tempo real, por distribuidor autorizado.</p>
   <nav><a data-termos href="#">Termos de uso</a><a data-privacidade href="#">Política de privacidade</a></nav>
   <p style="margin-top:18px">© Vaglio</p>
 </div></footer>
