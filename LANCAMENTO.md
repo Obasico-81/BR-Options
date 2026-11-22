@@ -23,13 +23,10 @@ Estado em 22/11/2026. Este branch (`lancamento`) junta `assinatura` (app com Pro
 
 ## Falta antes de publicar (dono)
 
-1. **Tempo real.** As páginas prometem cotação em tempo real no Pro. Se o fornecedor não estiver ligado na
-   publicação, trocar por "Em breve", nas duas LPs:
-   - avisos 2 e 3 do hero (selo "Pro" → "Em breve");
-   - Planos, item 3 do Pro ("Cotação em tempo real de todas as suas operações…");
-   - Acompanhe ("Durante o pregão, veja quanto receberia…");
-   - pergunta "Preciso de corretora?" ("no Pro, acompanha ao vivo");
-   - rodapé ("No Pro, cotações da B3 em tempo real, por distribuidor autorizado").
+1. **Tempo real.** Publicado em 22/11 com "Em breve" no que depende do fornecedor de dados: avisos 2 e 3 do hero,
+   Acompanhe ("Em breve, durante o pregão…"), itens 3 e 4 do Pro em Planos e na tela do Pro do app; a pergunta "Preciso
+   de corretora?" sem "ao vivo"; rodapé sem "por distribuidor autorizado". Com o fornecedor ligado, desfazer os commits
+   "LPs: tempo real marcado como Em breve" (branch lp) e "Pro: em breve…" (assinatura).
 2. **Asaas em produção.** Conta aprovada. No Supabase (Edge Functions → Secrets): `ASAAS_API_KEY` de produção,
    `ASAAS_WEBHOOK_TOKEN`, `ASAAS_AMBIENTE=producao`, `APP_URL=https://vaglio.com.br/app/`. Na conta de produção do
    Asaas: webhook para `https://xoljwckdiedcfoygbiij.supabase.co/functions/v1/asaas-webhook`, com o mesmo token,
