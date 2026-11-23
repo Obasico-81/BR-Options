@@ -1282,17 +1282,22 @@ function bind(){
     q("#px").textContent = brl(slider,2); const g = q("#payoff"); if (g) g.innerHTML = payoffSvg(m, payoffOpcoes(P, +sl.min, +sl.max));
   };
   const pg = q("#plano-gratis"); if (pg) pg.onclick = () => { S.plano = "gratis"; save("estado", S); iniciarAoVivo(); render(); };
-  document.querySelectorAll("[data-plano-esc]").forEach(b => b.onclick = () => { planoEsc = b.dataset.planoEsc; render(); });
+  // Na tela do Pro, redesenhar sem voltar ao topo (o render() rola para o topo): o plano, a forma de pagamento e o
+  // botão ficam embaixo, e o erro aparece logo acima do botão. Sem isso, o erro ficava fora da tela e parecia que o
+  // botão levava de volta ao Início.
+  const fica = () => { const y = window.scrollY; render(); window.scrollTo(0, y); const a = q('#app [role="alert"]'); if (a) a.scrollIntoView({block: "nearest"}); };
+  document.querySelectorAll("[data-plano-esc]").forEach(b => b.onclick = () => { planoEsc = b.dataset.planoEsc; fica(); });
   const pe = q("#pro-entrar"); if (pe) pe.onclick = () => { login = novoLogin("pro"); tela = "login"; render(); };
   const pt = q("#pro-teste"); if (pt) pt.onclick = () => { S.plano = "pro"; save("estado", S); tela = voltaPro; slider = null; render(); iniciarAoVivo(); };
-  document.querySelectorAll("[data-forma]").forEach(b => b.onclick = () => { pag.forma = b.dataset.forma; pag.erro = ""; render(); });
+  document.querySelectorAll("[data-forma]").forEach(b => b.onclick = () => { pag.forma = b.dataset.forma; pag.erro = ""; fica(); });
   const pn = q("#pag-nome"); if (pn) pn.oninput = () => { pag.nome = pn.value; };
   const pc = q("#pag-cpf"); if (pc) pc.oninput = () => { pag.cpf = pc.value; };
   const as = q("#assinar"); if (as) as.onclick = async () => {
-    if (pag.forma === "PIX" && (pag.nome.trim().length < 3 || !cpfOk(pag.cpf))) { pag.erro = "Confira o nome completo e o CPF."; render(); return; }
-    pag.erro = ""; pag.ocupado = true; render();
+    if (pag.forma === "PIX") { const semNome = pag.nome.trim().length < 3, semCpf = !pag.cpf.replace(/\D/g, ""), cpfRuim = !cpfOk(pag.cpf);
+      if (semNome || cpfRuim) { pag.erro = semNome && cpfRuim ? "Para o Pix, informe o nome completo e o CPF." : semNome ? "Informe o nome completo." : semCpf ? "Informe o CPF." : "Confira o CPF: os números não formam um CPF válido."; fica(); return; } }
+    pag.erro = ""; pag.ocupado = true; fica();
     try { const r = await sbFn("assinar", {plano: planoEsc, forma: pag.forma, nome: pag.nome.trim(), cpf: pag.cpf}); if (!r || !r.url) throw new Error("sem endereço"); location.href = r.url; }
-    catch(e) { pag.ocupado = false; pag.erro = e.status === 409 ? "Você já tem o Vaglio Pro." : e.status === 401 ? "Entre de novo na sua conta para assinar." : e.status === 400 && e.message ? e.message : "Não foi possível abrir o pagamento agora. Tente de novo em instantes."; render(); } };
+    catch(e) { pag.ocupado = false; pag.erro = e.status === 409 ? "Você já tem o Vaglio Pro." : e.status === 401 ? "Entre de novo na sua conta para assinar." : e.status === 400 && e.message ? e.message : "Não foi possível abrir o pagamento agora. Tente de novo em instantes."; fica(); } };
   const ca = q("#cancelar-assin"); if (ca) ca.onclick = async () => { if (!confirm("Cancelar a assinatura? Não haverá novas cobranças, e o Pro continua até o fim do período já pago.")) return;
     ca.disabled = true; try { await sbFn("cancelar-assinatura"); } catch(e) { alert("Não foi possível cancelar agora. Tente de novo em instantes."); } await carregarAssinatura(); render(); };
   const cp = q("#copiar"); if (cp) cp.onclick = () => { if (DEFASADO) { cp.textContent = "Bloqueado: preços desatualizados"; return; } if (tela==="acomp"){ const P = opSel(); if (P && P.m) copiar(textoParametros(P.m, P.ativo, P.data), cp); } else { const m = montagem(tese); if (typeof m!=="string") copiar(textoParametros(m, S.ativo, S.data), cp); } };
