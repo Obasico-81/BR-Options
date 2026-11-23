@@ -1344,5 +1344,8 @@ sincronizarAvisos(false);
 if (sessao) sincronizar();
 if (sessao) carregarAssinatura().then(esperarAssinatura);
 if (assinVolta) { tela = "pro"; voltaPro = "obj"; try { history.replaceState(null, "", location.pathname + location.search.replace(/[?&]assinatura=[^&]*/, "").replace(/^&/, "?")); } catch(e) {} render(); }
+// Botão do Pro nas páginas (?plano=pro): abre direto a tela do Pro, em vez do Início. Sem conta, a tela pede para
+// entrar e, depois do código, volta ao Pro.
+else if (new URLSearchParams(location.search).get("plano") === "pro") { tela = "pro"; voltaPro = "obj"; try { history.replaceState(null, "", location.pathname + location.search.replace(/[?&]plano=pro(?=&|$)/, "").replace(/^&/, "?")); } catch(e) {} render(); }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && sessao) { sincronizar(); carregarAssinatura(); } });
 </script>
