@@ -65,7 +65,8 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
       await p.evaluate(() => { voltaPro = "obj"; tela = "pro"; render(); });
       confere(`${nome}: com conta — Pix marcado, pede nome e CPF`, (await p.locator("#pag-nome").count()) === 1 && (await p.locator("#pag-cpf").count()) === 1 && /Começar 7 dias grátis/.test(await p.locator("#assinar").innerText()));
       await p.fill("#pag-nome", "Maria Teste"); await p.fill("#pag-cpf", "529.982.247-24"); await p.click("#assinar");
-      confere(`${nome}: CPF inválido não chama o pagamento`, pedidos.length === 0 && /Confira o nome completo e o CPF/.test(await p.locator("#app").innerText()));
+      confere(`${nome}: CPF inválido não chama o pagamento`, pedidos.length === 0 && /Confira o CPF/.test(await p.locator("#app").innerText()));
+      confere(`${nome}: o erro aparece na tela, sem voltar ao topo`, await p.locator('#app [role="alert"]').evaluate((e) => { const r = e.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }) && await p.evaluate(() => tela === "pro"));
       linha = { status: "teste", plano: "anual", forma: "PIX", pro_ate: "2099-01-01", teste_ate: "2099-01-01" };
       await p.fill("#pag-cpf", "529.982.247-25");
       await Promise.all([p.waitForURL(/assinatura=ok|index\.html\?teste=1$/, { timeout: 10000 }).catch(() => {}), p.click("#assinar")]);
