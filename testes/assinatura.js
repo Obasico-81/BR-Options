@@ -62,6 +62,8 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
       await p.evaluate(() => { delete S.plano; save("estado", S); localStorage.setItem("sessao", JSON.stringify({ access_token: "t", refresh_token: "r", expires_at: Math.floor(Date.now() / 1000) + 3600, uid: "u1", email: "a@b.com" })); });
       await abrir(); await p.waitForTimeout(400);
       confere(`${nome}: com conta e sem assinatura, é grátis`, await p.evaluate(() => !PRO() && ASSIN && !ASSIN.status));
+      await abrir("&plano=pro"); await p.waitForTimeout(300);
+      confere(`${nome}: botão do Pro nas páginas (?plano=pro) abre a tela do Pro, com o botão de assinar`, await p.evaluate(() => tela === "pro" && !/plano=pro/.test(location.search)) && (await p.locator("#assinar").count()) === 1);
       await p.evaluate(() => { voltaPro = "obj"; tela = "pro"; render(); });
       confere(`${nome}: com conta — Pix marcado, pede nome e CPF`, (await p.locator("#pag-nome").count()) === 1 && (await p.locator("#pag-cpf").count()) === 1 && /Começar 7 dias grátis/.test(await p.locator("#assinar").innerText()));
       await p.fill("#pag-nome", "Maria Teste"); await p.fill("#pag-cpf", "529.982.247-24"); await p.click("#assinar");
