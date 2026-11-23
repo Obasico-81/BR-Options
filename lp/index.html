@@ -219,7 +219,7 @@ footer nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
       <li>A ordem pronta para a corretora</li>
       <li>Cotação em tempo real de todas as suas operações e quanto receberia se encerrasse cada uma agora<span class="pro">Em breve</span></li>
       <li>Aviso de saída na hora, com a ordem de saída pronta<span class="pro">Em breve</span></li></ul>
-      <a class="btn pri" data-ir href="instalar/">Testar 7 dias grátis</a></div>
+      <a class="btn pri" href="https://vaglio.com.br/app/?plano=pro">Testar 7 dias grátis</a></div>
   </div>
 </div></section>
 
@@ -274,7 +274,8 @@ var APK = "https://github.com/Obasico-81/BR-Options/releases/download/android/va
   document.querySelectorAll("[data-baixar]").forEach(function (a) {
     if (android) a.href = APK; else if (iphone) { a.href = INST; a.textContent = "Instalar o app"; } else a.href = INST;
   });
-  // botões dos planos: o mesmo destino do botão principal, sem trocar o texto
+  // botão do Grátis: o mesmo destino do botão principal, sem trocar o texto. O do Pro abre o app direto na tela do
+  // Pro (?plano=pro), em qualquer aparelho: a assinatura é feita no app pelo navegador.
   document.querySelectorAll("[data-ir]").forEach(function (a) { a.href = android ? APK : APP; });
   var nota = document.querySelector("[data-nota]");
   if (nota && android) nota.textContent = "Grátis para começar. Instalação direta, fora da Play Store.";
