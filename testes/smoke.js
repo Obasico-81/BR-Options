@@ -198,7 +198,7 @@ const arq = 'file://' + process.argv[2];
     await p.click('#nav [data-nav="cad"]'); await p.click('[data-doc="termos"]'); await p.waitForTimeout(100);
     let t = await p.innerText('#app'); if (!t.includes('Termos de uso') || !t.includes('não recomenda ativo, direção nem momento') && !t.includes('Não recomenda ativo, direção nem momento')) f.push('termos: ' + t.slice(0, 120));
     await p.click('text=‹ Ajustes'); await p.click('[data-doc="privacidade"]'); await p.waitForTimeout(100);
-    t = await p.innerText('#app'); if (!t.includes('Política de privacidade') || !t.includes('não coleta dados pessoais')) f.push('privacidade: ' + t.slice(0, 120));
+    t = await p.innerText('#app'); if (!t.includes('Política de privacidade') || !t.includes('não vê nem guarda os dados do seu cartão') || /a definir/.test(t)) f.push('privacidade: ' + t.slice(0, 120));
     if (!(await p.evaluate(() => document.querySelector('#nav [aria-current="page"]')?.dataset.nav === 'cad'))) f.push('menu não marca Ajustes');
     const fs = require('fs'), path = require('path'), dir = path.dirname(process.argv[2]);
     for (const [arq, h1] of [['termos.html', 'Termos de uso'], ['privacidade.html', 'Política de privacidade']]) {
