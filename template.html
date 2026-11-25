@@ -366,14 +366,23 @@ async function contaSair(){ try { await sbReq("/auth/v1/logout", {metodo: "POST"
 // --- Assinatura do Vaglio Pro (Asaas). As Edge Functions assinar e cancelar-assinatura falam com o Asaas; o aviso de
 // pagamento chega pela asaas-webhook e muda a linha da conta em "assinaturas", que o app lê aqui.
 const sbFn = (nome, corpo) => sbReq("/functions/v1/" + nome, {metodo: "POST", corpo: corpo || {}});
-var pag = {forma: "PIX", nome: "", cpf: "", erro: "", ocupado: false}, assinVolta = new URLSearchParams(location.search).get("assinatura"), assinEspera = 0;
+// pag.fora: no APK, o pagamento abriu no navegador do celular e o app ficou esperando a volta
+var pag = {forma: "PIX", nome: "", cpf: "", erro: "", ocupado: false, fora: false}, assinVolta = new URLSearchParams(location.search).get("assinatura"), assinEspera = 0, assinCiclo = 0;
+const nativo = () => { const c = window.Capacitor; return !!(c && typeof c.isNativePlatform === "function" && c.isNativePlatform()); };
 async function carregarAssinatura(){
   if (!sessao) { ASSIN = null; return; }
-  try { const r = await sbReq("/rest/v1/assinaturas?select=status,plano,forma,pro_ate,teste_ate"), antes = PRO(); ASSIN = (r && r[0]) || {};
-    if (PRO() !== antes || tela === "pro" || tela === "cad") { iniciarAoVivo(); if (tela !== "login") render(); } } catch(e) {}
+  // redesenha só se a assinatura mudou: a conferência repetida não pode levar a tela ao topo nem tirar o cursor do campo
+  try { const r = await sbReq("/rest/v1/assinaturas?select=status,plano,forma,pro_ate,teste_ate"), antes = PRO(), antesJ = JSON.stringify(ASSIN); ASSIN = (r && r[0]) || {};
+    if (PRO() !== antes || ((tela === "pro" || tela === "cad") && JSON.stringify(ASSIN) !== antesJ)) { iniciarAoVivo(); if (tela !== "login") render(); } } catch(e) {}
 }
-// voltou do pagamento (?assinatura=ok): confere a cada 3 s, por até 1 minuto, até o aviso do Asaas chegar
-function esperarAssinatura(){ if (assinVolta !== "ok" || PRO() || assinEspera >= 20) return; assinEspera++; setTimeout(async () => { await carregarAssinatura(); esperarAssinatura(); }, 3000); }
+// Voltou do pagamento (?assinatura=ok), ou, no APK, o pagamento abriu no navegador do celular: confere a cada 3 s até
+// o aviso do Asaas chegar, por até 1 minuto na volta pelo navegador e por até 5 minutos no APK. Cada chamada sem
+// argumento começa uma rodada nova e encerra a anterior, para não haver duas conferências ao mesmo tempo.
+function esperarAssinatura(ciclo){
+  if (ciclo === undefined) { ciclo = ++assinCiclo; assinEspera = 0; }
+  if (ciclo !== assinCiclo || (assinVolta !== "ok" && !pag.fora) || PRO() || assinEspera >= (pag.fora ? 100 : 20)) return;
+  assinEspera++; setTimeout(async () => { if (ciclo !== assinCiclo) return; await carregarAssinatura(); esperarAssinatura(ciclo); }, 3000);
+}
 const cpfOk = (v) => { const c = String(v || "").replace(/\D/g, ""); if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
   const dv = (n) => { let s = 0; for (let i = 0; i < n; i++) s += +c[i] * (n + 1 - i); const r = s * 10 % 11; return r === 10 ? 0 : r; }; return dv(9) === +c[9] && dv(10) === +c[10]; };
 const statusPro = () => { const a = ASSIN; if (!a || !a.status) return "";
@@ -1179,7 +1188,10 @@ const PRECO_PRO = {mensal: {v: 49.90, rot: "Mensal", por: "por mês"}, anual: {v
 function vPro(){
   const VOLTA = {obj: "Início", cartao: "Operação", cen: "Cenários", acomp: "Sua operação", desemp: "Operações", cad: "Ajustes", vitrine: "Vitrine"};
   let h = `<div class="top"><button class="back" data-go="${voltaPro}">‹ ${VOLTA[voltaPro] || "Voltar"}</button></div><div><h1>Vaglio Pro</h1><p class="muted" style="margin-top:6px">A operação pronta para a corretora e o pregão ao vivo.</p></div>`;
-  if (assinVolta === "ok" && !PRO()) h += `<div class="note"><p>Confirmando o pagamento com o Asaas…</p></div>`;
+  // Sem conta no navegador, a volta do pagamento costuma ser de quem assinou pelo APK: o checkout abriu no navegador
+  // do celular, que não tem a conta do app.
+  if (assinVolta === "ok" && !PRO()) h += `<div class="note"><p>${sessao ? "Confirmando o pagamento com o Asaas…" : "Pronto, o Asaas recebeu a assinatura. Se você assinou pelo app Vaglio no celular, volte ao app: o Pro aparece lá em instantes. Se assinou por aqui, entre na sua conta."}</p></div>`;
+  else if (pag.fora && !PRO()) h += `<div class="note"><p>O pagamento abriu no navegador do celular. Depois de concluir, volte para cá: o Pro aparece em instantes.</p></div>`;
   else if (assinVolta === "cancelada" || assinVolta === "expirada") h += `<div class="note"><p>O pagamento não foi concluído. Você pode tentar de novo.</p></div>`;
   if (PRO()) return h + `<section class="card"><p><strong>Você assina o Vaglio Pro.</strong></p>${statusPro() ? `<p class="small muted">${statusPro()}</p>` : ""}</section><button class="btn sec2" data-go="${voltaPro}">Voltar</button>`;
   h += `<section class="card"><h2 style="font-size:16px">No Pro</h2><ul class="lista-pro">
@@ -1296,7 +1308,11 @@ function bind(){
     if (pag.forma === "PIX") { const semNome = pag.nome.trim().length < 3, semCpf = !pag.cpf.replace(/\D/g, ""), cpfRuim = !cpfOk(pag.cpf);
       if (semNome || cpfRuim) { pag.erro = semNome && cpfRuim ? "Para o Pix, informe o nome completo e o CPF." : semNome ? "Informe o nome completo." : semCpf ? "Informe o CPF." : "Confira o CPF: os números não formam um CPF válido."; fica(); return; } }
     pag.erro = ""; pag.ocupado = true; fica();
-    try { const r = await sbFn("assinar", {plano: planoEsc, forma: pag.forma, nome: pag.nome.trim(), cpf: pag.cpf}); if (!r || !r.url) throw new Error("sem endereço"); location.href = r.url; }
+    try { const r = await sbFn("assinar", {plano: planoEsc, forma: pag.forma, nome: pag.nome.trim(), cpf: pag.cpf}); if (!r || !r.url) throw new Error("sem endereço");
+      // No APK, o Capacitor abre no navegador do celular o endereço de fora do app, e o app fica onde está: solta o
+      // botão, avisa para voltar depois de pagar e confere a assinatura até o aviso do Asaas chegar.
+      if (nativo()) { pag.ocupado = false; pag.fora = true; fica(); esperarAssinatura(); }
+      location.href = r.url; }
     catch(e) { pag.ocupado = false; pag.erro = e.status === 409 ? "Você já tem o Vaglio Pro." : e.status === 401 ? "Entre de novo na sua conta para assinar." : e.status === 400 && e.message ? e.message : "Não foi possível abrir o pagamento agora. Tente de novo em instantes."; fica(); } };
   const ca = q("#cancelar-assin"); if (ca) ca.onclick = async () => { if (!confirm("Cancelar a assinatura? Não haverá novas cobranças, e o Pro continua até o fim do período já pago.")) return;
     ca.disabled = true; try { await sbFn("cancelar-assinatura"); } catch(e) { alert("Não foi possível cancelar agora. Tente de novo em instantes."); } await carregarAssinatura(); render(); };
@@ -1347,5 +1363,6 @@ if (assinVolta) { tela = "pro"; voltaPro = "obj"; try { history.replaceState(nul
 // Botão do Pro nas páginas (?plano=pro): abre direto a tela do Pro, em vez do Início. Sem conta, a tela pede para
 // entrar e, depois do código, volta ao Pro.
 else if (new URLSearchParams(location.search).get("plano") === "pro") { tela = "pro"; voltaPro = "obj"; try { history.replaceState(null, "", location.pathname + location.search.replace(/[?&]plano=pro(?=&|$)/, "").replace(/^&/, "?")); } catch(e) {} render(); }
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && sessao) { sincronizar(); carregarAssinatura(); } });
+// de volta ao app (no APK, também a volta do navegador onde a pessoa pagou): a conferência da assinatura recomeça
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && sessao) { sincronizar(); carregarAssinatura().then(() => { if (pag.fora) esperarAssinatura(); }); } });
 </script>

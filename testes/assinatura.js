@@ -53,10 +53,10 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
       await p.evaluate(() => { tela = "cad"; render(); }); await p.click("#plano-gratis");
       confere(`${nome}: voltar ao grátis desliga o tempo real`, await p.evaluate(() => !PRO() && VIVO === null));
       // ---------- com conta: assinar pelo Asaas (Supabase e funções simulados) ----------
-      const SBU = "https://xoljwckdiedcfoygbiij.supabase.co", pedidos = []; let linha = null;
+      const SBU = "https://xoljwckdiedcfoygbiij.supabase.co", pedidos = []; let linha = null, consultas = 0, urlCheckout = `http://127.0.0.1:${porta}/index.html?teste=1&assinatura=ok`;
       await p.route(SBU + "/**", async (r) => { const u = r.request().url(), m = r.request().method();
-        if (u.includes("/rest/v1/assinaturas")) return r.fulfill({ json: linha ? [linha] : [] });
-        if (u.includes("/functions/v1/assinar")) { pedidos.push(JSON.parse(r.request().postData() || "{}")); return r.fulfill({ json: { url: `http://127.0.0.1:${porta}/index.html?teste=1&assinatura=ok`, comTeste: true } }); }
+        if (u.includes("/rest/v1/assinaturas")) { consultas++; return r.fulfill({ json: linha ? [linha] : [] }); }
+        if (u.includes("/functions/v1/assinar")) { pedidos.push(JSON.parse(r.request().postData() || "{}")); return r.fulfill({ json: { url: urlCheckout, comTeste: true } }); }
         if (u.includes("/functions/v1/cancelar-assinatura")) { linha = { ...linha, status: "cancelada" }; return r.fulfill({ json: { ok: true } }); }
         return r.fulfill({ json: [] }); });
       await p.evaluate(() => { delete S.plano; save("estado", S); localStorage.setItem("sessao", JSON.stringify({ access_token: "t", refresh_token: "r", expires_at: Math.floor(Date.now() / 1000) + 3600, uid: "u1", email: "a@b.com" })); });
@@ -80,6 +80,24 @@ const confere = (nome, ok, extra) => { console.log((ok ? "OK    " : "FALHA ") + 
       confere(`${nome}: Ajustes mostra Vaglio Pro, o teste e "Cancelar assinatura"`, /Vaglio Pro/.test(await p.locator("#app").innerText()) && (await p.locator("#cancelar-assin").count()) === 1);
       p.once("dialog", (d) => d.accept()); await p.click("#cancelar-assin"); await p.waitForTimeout(500);
       confere(`${nome}: cancelar chama o servidor; o Pro continua até o fim do período`, linha.status === "cancelada" && await p.evaluate(() => PRO()) && /Cancelada\. O Pro continua até 01\/01\/2099/.test(await p.locator("#app").innerText()));
+      // ---------- no APK: o Capacitor manda o checkout para o navegador do celular, e o app fica onde está ----------
+      // (o endereço do checkout responde 204, que não tira a página do lugar, como faz o Capacitor)
+      linha = null; urlCheckout = "https://checkout.teste/c1"; await p.route("https://checkout.teste/**", (r) => r.fulfill({ status: 204 }));
+      await abrir(); await p.waitForTimeout(400);
+      await p.evaluate(() => { window.Capacitor = { isNativePlatform: () => true, Plugins: {} }; pag.forma = "CREDIT_CARD"; voltaPro = "obj"; tela = "pro"; render(); });
+      await p.click("#assinar"); await p.waitForTimeout(600);
+      confere(`${nome}: no APK — o pagamento abre fora e o app fica na tela do Pro, com o aviso para voltar e o botão livre`,
+        pedidos.length === 2 && pedidos[1].forma === "CREDIT_CARD" && !/checkout\.teste/.test(p.url()) && await p.evaluate(() => tela === "pro" && pag.fora && !document.getElementById("assinar").disabled) && /abriu no navegador do celular/.test(await p.locator("#app").innerText()), pedidos);
+      { const antes = consultas; await p.evaluate(() => { document.getElementById("assinar").dataset.marca = "1"; }); await p.waitForTimeout(3500);
+        confere(`${nome}: no APK — o app confere a assinatura sozinho, sem redesenhar a tela enquanto nada muda`, consultas > antes && await p.evaluate(() => document.getElementById("assinar")?.dataset.marca === "1"), { antes, consultas }); }
+      linha = { status: "teste", plano: "anual", forma: "CREDIT_CARD", pro_ate: "2099-01-01", teste_ate: "2099-01-01" };
+      await p.evaluate(() => document.dispatchEvent(new Event("visibilitychange"))); await p.waitForTimeout(800);
+      confere(`${nome}: no APK — de volta ao app, o Pro aparece sem reabrir`, await p.evaluate(() => PRO() && tela === "pro") && /Você assina o Vaglio Pro/.test(await p.locator("#app").innerText()));
+      await p.unroute("https://checkout.teste/**");
+      // ---------- no navegador, sem conta: a volta do pagamento feito pelo APK manda voltar ao app ----------
+      // (sem conta e sem plano, os testes automáticos começam no Pro; o grátis marcado mostra a tela de quem não assina)
+      await p.evaluate(() => { localStorage.removeItem("sessao"); S.plano = "gratis"; save("estado", S); }); await abrir("&assinatura=ok"); await p.waitForTimeout(300);
+      confere(`${nome}: volta do pagamento no navegador sem conta — manda voltar ao app do celular`, await p.evaluate(() => tela === "pro" && !sessao) && /volte ao app/.test(await p.locator("#app").innerText()));
       await p.unroute(SBU + "/**");
       confere(`${nome}: sem erros de página`, erros.length === 0, erros);
     }
