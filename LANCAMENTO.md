@@ -89,8 +89,10 @@ token, reativar a fila do webhook no Asaas se ela tiver sido pausada.
 
 ## Atualização noturna
 
-O agendamento do GitHub (`atualizar.yml`, 01:17 e 12:17 UTC) falha com frequência. A rotina "Reserva atualização
-BR-Options" (claude.ai, ~02:00 UTC) confere e dispara o workflow se ele não rodou. Às vezes o passo
+O agendamento do GitHub (`atualizar.yml`, 01:17 e 12:17 UTC) falha com frequência. A tarefa agendada "Reserva atualização
+Vaglio" (claude.ai, 02:02 UTC de terça a sábado) roda na sessão de nuvem "Reserva atualização Vaglio", que tem o
+repositório (não arquivar essa sessão); ela confere e dispara o workflow se ele não rodou. A rotina antiga, presa ao
+chat de desenvolvimento, foi desligada em 25/11. Às vezes o passo
 `actions/deploy-pages` falha com "No artifacts named github-pages" (problema do GitHub, o arquivo foi enviado):
 esperar alguns minutos e rodar de novo só o job que falhou — desde que a execução seja do commit que está na
 `main`; se ela gravou dados novos, disparar uma execução nova em vez de repetir a antiga.
