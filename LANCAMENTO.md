@@ -1,6 +1,6 @@
 # Lançamento do Vaglio
 
-Estado em 25/11/2026. Leia este arquivo primeiro ao continuar o trabalho em outra sessão (local ou na nuvem).
+Estado em 25/11/2026 (Asaas de produção ligado e testado). Leia este arquivo primeiro ao continuar o trabalho em outra sessão (local ou na nuvem).
 
 ## Como o repositório está organizado
 
@@ -42,38 +42,28 @@ workflow). O push também dispara o *App nativo* (APK de produção) e os testes
   "Testar 7 dias grátis" leva a `https://vaglio.com.br/app/?plano=pro` em qualquer aparelho (antes abria o app no
   Início e quem queria assinar não achava onde). Testes novos em `testes/assinatura.js`; `testes/site.js` passa.
 
-## Asaas: falta ligar a produção
+## Asaas: produção ligada (25/11/2026)
 
-O que aconteceu: a configuração foi feita na conta **sandbox** (sandbox.asaas.com, testes, sem dinheiro de verdade),
-mas o Supabase foi posto em `ASAAS_AMBIENTE=producao`. O Asaas respondeu ao `assinar`: `invalid_environment` — "A
-chave de API informada não pertence a este ambiente". Em 24-25/11 o dono criou a conta de **produção**
-(www.asaas.com, conta separada, com login, chave e webhook próprios).
+A configuração inicial tinha sido feita na conta **sandbox** (sandbox.asaas.com, testes); a conta de **produção**
+(www.asaas.com, conta separada) foi criada e ligada em 25/11. Segredos no Supabase (Edge Functions → Secrets):
+`ASAAS_API_KEY` (chave de produção, `$aact_prod_…`), `ASAAS_WEBHOOK_TOKEN` (o mesmo token do webhook "Vaglio" da
+conta de produção), `ASAAS_AMBIENTE=producao` (digest `9ed87f9b8b22…`), `APP_URL=https://vaglio.com.br/app/`
+(digest `776fe7a847cf…`). Site da conta no Asaas: `https://vaglio.com.br`.
 
-Passos (o dono faz; chave e token nunca no chat):
-1. Asaas produção → Minha conta → Informações → **Site** `https://vaglio.com.br` (o Asaas só devolve o cliente,
-   depois do pagamento, para endereços do site cadastrado).
-2. Integrações → Chaves de API → gerar chave (começa com `$aact_prod_`) → Supabase, Edge Functions → Secrets
-   (`https://supabase.com/dashboard/project/xoljwckdiedcfoygbiij/functions/secrets`) → `ASAAS_API_KEY`.
-3. Token do webhook: aleatório, gerado pelo dono (ex.: PowerShell com `RandomNumberGenerator`, 32 bytes em hex).
-4. Integrações → Webhooks → criar: URL `https://xoljwckdiedcfoygbiij.supabase.co/functions/v1/asaas-webhook`, API
-   v3, o token, ativo, fila de sincronização ativa, envio sequencial, eventos `PAYMENT_*`, `SUBSCRIPTION_*`,
-   `CHECKOUT_*` e `PIX_AUTOMATIC_RECURRING_*`.
-5. O mesmo token em `ASAAS_WEBHOOK_TOKEN`.
-6. `ASAAS_AMBIENTE` = `producao` (o digest no painel começa com `9ed87f9b8b22`; `sandbox` começa com
-   `b7ad567477c8`). `APP_URL` = `https://vaglio.com.br/app/` (já está).
+Teste real em 25/11, com cartão, plano anual: `assinar` abriu o checkout em asaas.com; avisos recebidos com 200
+(CHECKOUT_CREATED, PAYMENT_CREATED de R$ 479 pendente para 01/12, CHECKOUT_PAID, SUBSCRIPTION_CREATED); assinatura em
+`teste` até 01/12. Cancelado em Ajustes: SUBSCRIPTION_DELETED e PAYMENT_DELETED (a cobrança de 01/12 saiu), status
+`cancelada`. Pix não testado em produção (testar com outra conta, que ainda tenha direito aos 7 dias grátis).
 
-Depois, o teste real: app → Ajustes → Conhecer o Pro → Cartão → Começar 7 dias grátis, com o cartão do dono (nada é
-cobrado nos 7 dias). Conferir: logs do Supabase (`function_logs` da função `assinar`, sem erro do Asaas), tabela
-`assinaturas` (linha com `status = teste` e `teste_ate`) e `asaas_eventos` (eventos recebidos, sem 401 no
-`asaas-webhook`). Depois cancelar em Ajustes e conferir `status = cancelada`.
-
-Enquanto a produção não estiver ligada, **não divulgar**: quem tentar assinar recebe erro (ou, no sandbox, cai numa
-página de teste do Asaas).
+Erros do Asaas já vistos e o que significam (log da função `assinar` no Supabase): `invalid_environment` = chave de
+um ambiente e `ASAAS_AMBIENTE` do outro; `invalid_access_token` = chave inválida (colada incompleta, sem o `$`, ou
+desativada). `asaas-webhook` com 401 = token do webhook no Asaas diferente de `ASAAS_WEBHOOK_TOKEN`; corrigido o
+token, reativar a fila do webhook no Asaas se ela tiver sido pausada.
 
 ## Ainda antes de divulgar
 
 - **Supabase no plano pago** (o grátis pausa o projeto e tem limites baixos para tráfego de anúncio).
-- **Twilio:** saldo para os SMS de login. Pendente: remetente com a marca no RCS (chamado no suporte).
+- **Twilio:** saldo para os SMS de login (em 25/11 um código levou alguns minutos para chegar). Pendente: remetente com a marca no RCS (chamado no suporte).
 - **Pixel da Meta** (se for medir anúncios): ID do pixel para instalar nas três páginas; a política de privacidade
   passa a mencioná-lo.
 - **Revisão jurídica** (CVM: operação montada, ordem pronta, publicidade).
