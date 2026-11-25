@@ -35,12 +35,8 @@ workflow). O push também dispara o *App nativo* (APK de produção) e os testes
   "No Pro, cotações da B3 em tempo real, por distribuidor autorizado."
 - Correção de 23/11: na tela do Pro, o erro do pagamento aparece acima do botão (antes a tela pulava para o topo e
   parecia voltar ao Início).
-
-## Pronto no `lancamento`, esperando o "pode publicar"
-
-- **`?plano=pro`**: o app abre direto na tela do Pro (sem conta, pede para entrar e volta ao Pro). Nas duas páginas,
-  "Testar 7 dias grátis" leva a `https://vaglio.com.br/app/?plano=pro` em qualquer aparelho (antes abria o app no
-  Início e quem queria assinar não achava onde). Testes novos em `testes/assinatura.js`; `testes/site.js` passa.
+- **`?plano=pro`** (no ar): o app abre direto na tela do Pro (sem conta, pede para entrar e volta ao Pro). Nas duas
+  páginas, "Testar 7 dias grátis" leva a `https://vaglio.com.br/app/?plano=pro` em qualquer aparelho.
 
 ## Asaas: produção ligada (25/11/2026)
 
@@ -53,7 +49,7 @@ conta de produção), `ASAAS_AMBIENTE=producao` (digest `9ed87f9b8b22…`), `APP
 Teste real em 25/11, com cartão, plano anual: `assinar` abriu o checkout em asaas.com; avisos recebidos com 200
 (CHECKOUT_CREATED, PAYMENT_CREATED de R$ 479 pendente para 01/12, CHECKOUT_PAID, SUBSCRIPTION_CREATED); assinatura em
 `teste` até 01/12. Cancelado em Ajustes: SUBSCRIPTION_DELETED e PAYMENT_DELETED (a cobrança de 01/12 saiu), status
-`cancelada`. Pix não testado em produção (testar com outra conta, que ainda tenha direito aos 7 dias grátis).
+`cancelada`. Pix testado depois, com outra conta (ver "Marca e dados legais").
 
 Erros do Asaas já vistos e o que significam (log da função `assinar` no Supabase): `invalid_environment` = chave de
 um ambiente e `ASAAS_AMBIENTE` do outro; `invalid_access_token` = chave inválida (colada incompleta, sem o `$`, ou
