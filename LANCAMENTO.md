@@ -1,51 +1,93 @@
 # Lançamento do Vaglio
 
-Estado em 22/11/2026. Este branch (`lancamento`) junta `assinatura` (app com Pro, pagamento e tempo real),
-`dominio` (site em vaglio.com.br) e `lp` (páginas). Publicar = levar este branch para `main`, e só com o
-"pode publicar" do dono.
+Estado em 25/11/2026. Leia este arquivo primeiro ao continuar o trabalho em outra sessão (local ou na nuvem).
 
-## Pronto
+## Como o repositório está organizado
 
-- **Domínio.** vaglio.com.br na Cloudflare (servidores byron e kia.ns.cloudflare.com; registros "somente DNS",
-  sem proxy). GitHub Pages do BR-Options com domínio personalizado e HTTPS imposto (certificado Let's Encrypt até
-  20/02/2027). www → raiz. O endereço antigo (obasico-81.github.io/BR-Options/…) redireciona para o domínio.
-- **Site** (`build_site.py`): `/` institucional · `/bolsa-brasileira/` campanha · `/instalar/` como instalar (QR do
-  próprio endereço) · `/app/` o app · dados do dia também na raiz (APK antigo). A raiz manda para `/app/` quem chega
-  com parâmetro do app (`?teste=1`, `?assinatura=ok`…) ou pelo app instalado; `utm_*`/`fbclid` ficam na página.
-- **Páginas:** textos revisados por especialista em copy; perfis "Ganho maior · Equilibrada · Chance maior"; telas
-  com ativos variados; botões por aparelho (computador: app no navegador; Android: APK; iPhone: Safari).
-- **APK de produção:** id `br.com.vaglio.app`, assinado com a chave de produção (segredos `ANDROID_KEYSTORE_BASE64`,
-  `ANDROID_KEYSTORE_SENHA`, `ANDROID_CHAVE_ALIAS`, `ANDROID_CHAVE_SENHA`, cadastrados em 22/11), sem depuração, em
-  `releases/download/android/vaglio.apk`. Quem tem o APK de teste fica com dois apps (ids diferentes) e apaga o antigo.
-- **Testes:** a bateria do `testes.yml` passou localmente neste branch (o `deno check` das funções roda no GitHub).
-- **Rotina noturna** (claude.ai, "Reserva atualização BR-Options") dispara `atualizar.yml` se o agendamento do
-  GitHub não rodar.
+| Branch | O que tem |
+|---|---|
+| `assinatura` | o app (`template.html`, funções do Supabase em `supabase/functions/`, testes em `testes/`) |
+| `lp` | as páginas (`lp/`: institucional, `bolsa-brasileira/` = campanha, `instalar/`) |
+| `lancamento` | junta `assinatura` + `lp` + `main` (dados do dia). É daqui que se publica. |
+| `main` | o que está no ar. O workflow noturno grava nela os "Dados do pregão AAAA-MM-DD". |
 
-## Falta antes de publicar (dono)
+Mudança no app: commit em `assinatura` → merge em `lancamento`. Mudança nas páginas: commit em `lp` → merge em
+`lancamento`. Antes de publicar: `git merge origin/main` no `lancamento` (traz os dados do dia).
 
-1. **Tempo real.** Publicado em 22/11 com "Em breve" no que depende do fornecedor de dados: avisos 2 e 3 do hero,
-   Acompanhe ("Em breve, durante o pregão…"), itens 3 e 4 do Pro em Planos e na tela do Pro do app; a pergunta "Preciso
-   de corretora?" sem "ao vivo"; rodapé sem "por distribuidor autorizado". Com o fornecedor ligado, desfazer os commits
-   "LPs: tempo real marcado como Em breve" (branch lp) e "Pro: em breve…" (assinatura).
-2. **Asaas em produção.** Conta aprovada. No Supabase (Edge Functions → Secrets): `ASAAS_API_KEY` de produção,
-   `ASAAS_WEBHOOK_TOKEN`, `ASAAS_AMBIENTE=producao`, `APP_URL=https://vaglio.com.br/app/`. Na conta de produção do
-   Asaas: webhook para `https://xoljwckdiedcfoygbiij.supabase.co/functions/v1/asaas-webhook`, com o mesmo token,
-   envio sequencial e os eventos `PAYMENT_*`, `SUBSCRIPTION_*`, `CHECKOUT_*` e `PIX_AUTOMATIC_RECURRING_*`.
-3. **Supabase no plano pago** (o grátis pausa o projeto e tem limites baixos para tráfego de anúncio).
-4. **Twilio:** saldo para os SMS de login. Pendente: remetente com a marca no RCS (chamado no suporte).
-5. **Pixel da Meta** (se for medir anúncios): ID do pixel para instalar nas três páginas; a política de privacidade
-   passa a mencioná-lo.
-6. **Revisão jurídica** (CVM: operação montada, ordem pronta, publicidade).
+**Publicar** (só com o "pode publicar" do dono): levar `lancamento` para `main` (fast-forward:
+`git push origin lancamento:main`) e disparar *Atualizar dados e publicar o app* (`atualizar.yml`, Actions → Run
+workflow). O push também dispara o *App nativo* (APK de produção) e os testes. Conferir no ar: `/`,
+`/bolsa-brasileira/`, `/instalar/`, `/app/`.
 
-## Publicar (com o "pode publicar")
+**Gerar e testar localmente:** `python build.py && python build_pwa.py` (app em `pwa/`), `python build_site.py`
+(site completo em `site/`, precisa de `pip install segno==1.6.6`). Testes: `node testes/assinatura.js`,
+`node testes/site.js`, `node testes/smoke.js "$PWD/pwa/index.html"` etc. (lista completa em
+`.github/workflows/testes.yml`; precisam de `npm install playwright` e do Chromium do Playwright).
 
-1. Trazer para cá o que entrou em `main` desde 20/11 (commits "Dados do pregão …"): `git merge origin/main`.
-2. Levar `lancamento` para `main` (PR ou merge) e enviar.
-3. O push dispara o *App nativo* (APK de produção; no log: "Com a chave de produção: APK assinado, sem depuração")
-   e os testes. O site sai pelo *Atualizar dados e publicar o app*: disparar manualmente (Actions → Run workflow).
-4. Conferir em produção: `/`, `/bolsa-brasileira/`, `/instalar/`, `/app/`, `/?teste=1` → `/app/`; login por SMS;
-   uma assinatura real (e o cancelamento); baixar e instalar o APK.
-5. Divulgar com links UTM por canal. Texto dos anúncios sem "aposta"/"bet" (a revisão da Meta classifica como jogo).
+## No ar
+
+- **vaglio.com.br** (Cloudflare, só DNS; GitHub Pages com HTTPS). `/` institucional · `/bolsa-brasileira/` campanha
+  · `/instalar/` · `/app/` o app. A raiz manda para `/app/` quem chega com parâmetro do app ou pelo app instalado.
+- **APK de produção** (`br.com.vaglio.app`, chave de produção nos segredos do GitHub) em
+  `releases/download/android/vaglio.apk`.
+- **Tempo real "Em breve"** no que depende do fornecedor de dados. Com o fornecedor ligado, desfazer os commits
+  "LPs: tempo real marcado como Em breve" (`lp`) e "Pro: em breve…" (`assinatura`) e devolver ao rodapé a frase
+  "No Pro, cotações da B3 em tempo real, por distribuidor autorizado."
+- Correção de 23/11: na tela do Pro, o erro do pagamento aparece acima do botão (antes a tela pulava para o topo e
+  parecia voltar ao Início).
+
+## Pronto no `lancamento`, esperando o "pode publicar"
+
+- **`?plano=pro`**: o app abre direto na tela do Pro (sem conta, pede para entrar e volta ao Pro). Nas duas páginas,
+  "Testar 7 dias grátis" leva a `https://vaglio.com.br/app/?plano=pro` em qualquer aparelho (antes abria o app no
+  Início e quem queria assinar não achava onde). Testes novos em `testes/assinatura.js`; `testes/site.js` passa.
+
+## Asaas: falta ligar a produção
+
+O que aconteceu: a configuração foi feita na conta **sandbox** (sandbox.asaas.com, testes, sem dinheiro de verdade),
+mas o Supabase foi posto em `ASAAS_AMBIENTE=producao`. O Asaas respondeu ao `assinar`: `invalid_environment` — "A
+chave de API informada não pertence a este ambiente". Em 24-25/11 o dono criou a conta de **produção**
+(www.asaas.com, conta separada, com login, chave e webhook próprios).
+
+Passos (o dono faz; chave e token nunca no chat):
+1. Asaas produção → Minha conta → Informações → **Site** `https://vaglio.com.br` (o Asaas só devolve o cliente,
+   depois do pagamento, para endereços do site cadastrado).
+2. Integrações → Chaves de API → gerar chave (começa com `$aact_prod_`) → Supabase, Edge Functions → Secrets
+   (`https://supabase.com/dashboard/project/xoljwckdiedcfoygbiij/functions/secrets`) → `ASAAS_API_KEY`.
+3. Token do webhook: aleatório, gerado pelo dono (ex.: PowerShell com `RandomNumberGenerator`, 32 bytes em hex).
+4. Integrações → Webhooks → criar: URL `https://xoljwckdiedcfoygbiij.supabase.co/functions/v1/asaas-webhook`, API
+   v3, o token, ativo, fila de sincronização ativa, envio sequencial, eventos `PAYMENT_*`, `SUBSCRIPTION_*`,
+   `CHECKOUT_*` e `PIX_AUTOMATIC_RECURRING_*`.
+5. O mesmo token em `ASAAS_WEBHOOK_TOKEN`.
+6. `ASAAS_AMBIENTE` = `producao` (o digest no painel começa com `9ed87f9b8b22`; `sandbox` começa com
+   `b7ad567477c8`). `APP_URL` = `https://vaglio.com.br/app/` (já está).
+
+Depois, o teste real: app → Ajustes → Conhecer o Pro → Cartão → Começar 7 dias grátis, com o cartão do dono (nada é
+cobrado nos 7 dias). Conferir: logs do Supabase (`function_logs` da função `assinar`, sem erro do Asaas), tabela
+`assinaturas` (linha com `status = teste` e `teste_ate`) e `asaas_eventos` (eventos recebidos, sem 401 no
+`asaas-webhook`). Depois cancelar em Ajustes e conferir `status = cancelada`.
+
+Enquanto a produção não estiver ligada, **não divulgar**: quem tentar assinar recebe erro (ou, no sandbox, cai numa
+página de teste do Asaas).
+
+## Ainda antes de divulgar
+
+- **Supabase no plano pago** (o grátis pausa o projeto e tem limites baixos para tráfego de anúncio).
+- **Twilio:** saldo para os SMS de login. Pendente: remetente com a marca no RCS (chamado no suporte).
+- **Pixel da Meta** (se for medir anúncios): ID do pixel para instalar nas três páginas; a política de privacidade
+  passa a mencioná-lo.
+- **Revisão jurídica** (CVM: operação montada, ordem pronta, publicidade).
+- Texto dos anúncios sem "aposta"/"bet" (a revisão da Meta classifica como jogo). Links com UTM por canal.
+- Pagamento dentro do APK: abrir o checkout do Asaas no navegador do celular (hoje o botão do Pro das páginas manda
+  para o app no navegador, que funciona).
+
+## Atualização noturna
+
+O agendamento do GitHub (`atualizar.yml`, 01:17 e 12:17 UTC) falha com frequência. A rotina "Reserva atualização
+BR-Options" (claude.ai, ~02:00 UTC) confere e dispara o workflow se ele não rodou. Às vezes o passo
+`actions/deploy-pages` falha com "No artifacts named github-pages" (problema do GitHub, o arquivo foi enviado):
+esperar alguns minutos e rodar de novo só o job que falhou — desde que a execução seja do commit que está na
+`main`; se ela gravou dados novos, disparar uma execução nova em vez de repetir a antiga.
 
 ## Ferramentas
 
