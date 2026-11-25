@@ -60,6 +60,22 @@ um ambiente e `ASAAS_AMBIENTE` do outro; `invalid_access_token` = chave inválid
 desativada). `asaas-webhook` com 401 = token do webhook no Asaas diferente de `ASAAS_WEBHOOK_TOKEN`; corrigido o
 token, reativar a fila do webhook no Asaas se ela tiver sido pausada.
 
+## Marca e dados legais (25/11/2026)
+
+- **E-mail:** `contato@vaglio.com.br` funciona pelo Email Routing da Cloudflare (encaminha para o e-mail do dono,
+  verificado). Para isso saíram do DNS o MX nulo (`0 .`) e o TXT `v=spf1 -all`, que recusavam todo e-mail; o
+  `_dmarc` (`p=reject`) ficou.
+- **Asaas:** e-mail comercial trocado para `contato@vaglio.com.br` e logo do Vaglio enviado para a fatura (os dois
+  passam por análise do Asaas). O nome da empresa e o CNPJ não saem da fatura (regra do Asaas). Para aparecer
+  "Vaglio" no lugar da razão social: registrar Vaglio como nome fantasia do CNPJ na Receita (contador) e ativar no
+  Asaas. Separação completa só com CNPJ próprio do Vaglio. Checkout transparente foi descartado: não esconde a
+  empresa (Pix e fatura do cartão mostram quem recebe) e faria o cartão passar pelos servidores do Vaglio (PCI).
+- **Textos legais publicados:** Termos e Política de privacidade com o responsável (Excel Solutions, CNPJ,
+  endereço) e `contato@vaglio.com.br` (`textos/contato.json`), descrevendo conta por celular, sincronização,
+  assinatura pelo Asaas e direitos da LGPD; rodapé das três páginas com nome empresarial, CNPJ e endereço (Decreto
+  7.962/2013). Falta a revisão jurídica.
+- **Testes do Pix e do cartão em produção (25/11):** as duas contas de teste estão canceladas.
+
 ## Ainda antes de divulgar
 
 - **Supabase no plano pago** (o grátis pausa o projeto e tem limites baixos para tráfego de anúncio).
