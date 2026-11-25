@@ -38,6 +38,15 @@ workflow). O push também dispara o *App nativo* (APK de produção) e os testes
 - **`?plano=pro`** (no ar): o app abre direto na tela do Pro (sem conta, pede para entrar e volta ao Pro). Nas duas
   páginas, "Testar 7 dias grátis" leva a `https://vaglio.com.br/app/?plano=pro` em qualquer aparelho.
 
+## Pronto no `lancamento`, esperando o "pode publicar"
+
+- **Assinar pelo APK** (25/11): o Capacitor manda o checkout do Asaas para o navegador do celular (endereço fora do
+  app vira `ACTION_VIEW`); antes o app ficava parado em "Abrindo o pagamento…" e não conferia a assinatura na volta.
+  Agora o botão é liberado, a tela avisa para voltar depois de pagar e o app confere a assinatura a cada 3 s (até
+  5 min, e de novo ao voltar ao app). No navegador sem conta, a volta do pagamento (`?assinatura=ok`) diz para voltar
+  ao app do celular. Testes em `testes/assinatura.js` (APK simulado). Falta conferir num celular com o APK de
+  produção, depois de publicar: assinar e cancelar em seguida, como no teste de 25/11.
+
 ## Asaas: produção ligada (25/11/2026)
 
 A configuração inicial tinha sido feita na conta **sandbox** (sandbox.asaas.com, testes); a conta de **produção**
@@ -80,8 +89,6 @@ token, reativar a fila do webhook no Asaas se ela tiver sido pausada.
   passa a mencioná-lo.
 - **Revisão jurídica** (CVM: operação montada, ordem pronta, publicidade).
 - Texto dos anúncios sem "aposta"/"bet" (a revisão da Meta classifica como jogo). Links com UTM por canal.
-- Pagamento dentro do APK: abrir o checkout do Asaas no navegador do celular (hoje o botão do Pro das páginas manda
-  para o app no navegador, que funciona).
 
 ## Atualização noturna
 
